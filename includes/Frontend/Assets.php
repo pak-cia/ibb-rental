@@ -22,6 +22,97 @@ final class Assets {
 
 	public function register(): void {
 		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue' ] );
+		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue_cart_styles' ] );
+	}
+
+	/**
+	 * On cart / checkout pages where the cart actually contains a booking,
+	 * inject CSS that lays out our line-item meta as block-level rows
+	 * instead of WC's default inline flow. Most modern themes (esp. block
+	 * themes) render `dl.variation` inline by default, which mashes our
+	 * Check-in / Check-out / Stay total / Deposit / Balance lines together.
+	 */
+	public function maybe_enqueue_cart_styles(): void {
+		if ( ! function_exists( 'is_cart' ) || ( ! is_cart() && ! is_checkout() ) ) {
+			return;
+		}
+		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return;
+		}
+		$has_ibb = false;
+		foreach ( WC()->cart->get_cart() as $item ) {
+			if ( ! empty( $item['ibb'] ) ) {
+				$has_ibb = true;
+				break;
+			}
+		}
+		if ( ! $has_ibb ) {
+			return;
+		}
+		wp_register_style( 'ibb-rentals-cart', false, [], IBB_RENTALS_VERSION );
+		wp_enqueue_style( 'ibb-rentals-cart' );
+		wp_add_inline_style( 'ibb-rentals-cart', $this->cart_css() );
+	}
+
+	private function cart_css(): string {
+		return <<<CSS
+/* Stack each booking line-item meta row vertically on its own line. */
+.woocommerce-cart-form dl.variation,
+.cart_item dl.variation,
+.woocommerce-checkout-review-order-table dl.variation {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	column-gap: 14px;
+	row-gap: 4px;
+	margin: 10px 0 0;
+	font-size: 0.92em;
+	line-height: 1.4;
+}
+.woocommerce-cart-form dl.variation dt,
+.cart_item dl.variation dt,
+.woocommerce-checkout-review-order-table dl.variation dt {
+	font-weight: 600;
+	color: #475569;
+	margin: 0;
+	float: none;
+	clear: none;
+	white-space: nowrap;
+}
+.woocommerce-cart-form dl.variation dt::after,
+.cart_item dl.variation dt::after,
+.woocommerce-checkout-review-order-table dl.variation dt::after {
+	content: '';
+}
+.woocommerce-cart-form dl.variation dd,
+.cart_item dl.variation dd,
+.woocommerce-checkout-review-order-table dl.variation dd {
+	margin: 0;
+	color: #0f172a;
+	float: none;
+	clear: none;
+}
+.woocommerce-cart-form dl.variation dd p,
+.cart_item dl.variation dd p,
+.woocommerce-checkout-review-order-table dl.variation dd p {
+	margin: 0;
+}
+
+/* Mobile: collapse the two-column grid to single-column with the label
+   above its value. */
+@media (max-width: 600px) {
+	.woocommerce-cart-form dl.variation,
+	.cart_item dl.variation,
+	.woocommerce-checkout-review-order-table dl.variation {
+		grid-template-columns: 1fr;
+		row-gap: 2px;
+	}
+	.woocommerce-cart-form dl.variation dt,
+	.cart_item dl.variation dt,
+	.woocommerce-checkout-review-order-table dl.variation dt {
+		margin-top: 6px;
+	}
+}
+CSS;
 	}
 
 	public function maybe_enqueue(): void {

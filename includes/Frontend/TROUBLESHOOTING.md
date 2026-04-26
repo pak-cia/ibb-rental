@@ -65,6 +65,20 @@ add_action( 'wp_enqueue_scripts', function() {
 
 ---
 
+## Cart / checkout line-item meta renders as one long inline string
+
+**Symptom:** in the cart row, all the booking meta (Check-in, Check-out, Nights, Guests, Stay total, Deposit charged today, Balance due, Security deposit) appears as one mashed-together line: *"Check-in: 2026-06-20 / Check-out: 2026-07-01 / Nights: 11 / Guests: 3 …"*.
+
+**Root cause:** WC emits each line-item meta entry as a `<dt>` / `<dd>` pair inside a single `<dl class="variation">`. Most modern themes (block themes especially, including Twenty Twenty-Five) style `dl.variation > *` as inline-flow by default, so all the dt/dd pairs collapse onto one line.
+
+**Fix:** `Assets::maybe_enqueue_cart_styles()` enqueues a small CSS block on `is_cart()` / `is_checkout()` pages **only when** the cart contains an IBB booking line. The CSS forces `dl.variation` into a 2-column CSS grid (label / value) with a single-column collapse on mobile.
+
+**Scope of the override:** the CSS is scoped to `.woocommerce-cart-form`, `.cart_item`, and `.woocommerce-checkout-review-order-table`. It will affect *any* product variation displayed in those areas while an IBB item is in the cart, not just our line items. Most themes display variations one-per-line anyway, so the change is usually invisible for non-IBB lines.
+
+**If the cart looks broken on a specific theme:** check the theme's WC override CSS for `dl.variation` rules with higher specificity. Bump our selectors with `body` prefix or `:where()` if needed.
+
+---
+
 ## Browser downloads `.ics` instead of displaying it
 
 Not a bug. `Content-Type: text/calendar` is correctly handled by browsers as a calendar feed. OTAs fetch via HTTP and consume the body; they don't care about browser display.
