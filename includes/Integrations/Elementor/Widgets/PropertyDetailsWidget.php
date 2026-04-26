@@ -65,11 +65,28 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 
 		$this->add_control( 'fields_intro', [
 			'type'    => \Elementor\Controls_Manager::RAW_HTML,
-			'raw'     => __( 'Toggle which property fields to show. Empty fields are skipped automatically (e.g. address won\'t render if the property has no address).', 'ibb-rentals' ),
+			'raw'     => __( 'Toggle which property fields to show, and pick an icon for each. Empty fields are skipped automatically (e.g. address won\'t render if the property has no address).', 'ibb-rentals' ),
 			'content_classes' => 'elementor-descriptor',
 		] );
 
-		// One switcher per field — mirrors the block's checkbox list.
+		// Sensible default icons per field. Editors override via the Icons
+		// control on each field. Defaults use Elementor's bundled `eicon-*`
+		// set so they render even when no Font Awesome / SVG kit is loaded.
+		$default_icons = [
+			'guests'         => 'eicon-person',
+			'bedrooms'       => 'eicon-time-line',
+			'bathrooms'      => 'eicon-tools',
+			'beds'           => 'eicon-time-line',
+			'check_in_time'  => 'eicon-clock-o',
+			'check_out_time' => 'eicon-clock-o',
+			'address'        => 'eicon-map-pin',
+			'amenities'      => 'eicon-favorite',
+			'location'       => 'eicon-map-pin',
+			'property_type'  => 'eicon-home-heart',
+		];
+
+		// One switcher + one icon control per field — mirrors the block's
+		// checkbox list, with the icon control nested under the toggle.
 		$default_on = [ 'guests', 'bedrooms', 'bathrooms', 'beds' ];
 		foreach ( $this->field_options() as $key => $label ) {
 			$this->add_control( 'show_' . $key, [
@@ -79,6 +96,18 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 				'label_on'     => __( 'Show', 'ibb-rentals' ),
 				'label_off'    => __( 'Hide', 'ibb-rentals' ),
 				'return_value' => 'yes',
+			] );
+			$this->add_control( 'icon_' . $key, [
+				'label'            => sprintf( /* translators: %s: field label */ __( '%s icon', 'ibb-rentals' ), $label ),
+				'type'             => \Elementor\Controls_Manager::ICONS,
+				'default'          => [
+					'value'   => $default_icons[ $key ] ?? '',
+					'library' => 'eicons',
+				],
+				'condition'        => [ 'show_' . $key => 'yes' ],
+				'skin'             => 'inline',
+				'label_block'      => false,
+				'exclude_inline_options' => [ 'svg' ],
 			] );
 		}
 
@@ -212,6 +241,45 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 
 		$this->end_controls_section();
 
+		// ---------- Icon ----------
+		$this->start_controls_section( 'section_style_icon', [
+			'label' => __( 'Icon', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_control( 'icon_color', [
+			'label'     => __( 'Color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_ACCENT ],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-details__icon, {{WRAPPER}} .ibb-details__icon i, {{WRAPPER}} .ibb-details__icon svg' => 'color: {{VALUE}}; fill: {{VALUE}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'icon_size', [
+			'label'      => __( 'Size', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px', 'em' ],
+			'range'      => [ 'px' => [ 'min' => 8, 'max' => 80 ] ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-details__icon i'   => 'font-size: {{SIZE}}{{UNIT}};',
+				'{{WRAPPER}} .ibb-details__icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_control( 'icon_spacing', [
+			'label'      => __( 'Spacing', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px', 'em' ],
+			'range'      => [ 'px' => [ 'min' => 0, 'max' => 40 ] ],
+			'default'    => [ 'size' => 6, 'unit' => 'px' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-details__icon' => 'margin-right: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->end_controls_section();
+
 		// ---------- Alignment ----------
 		$this->start_controls_section( 'section_style_alignment', [
 			'label' => __( 'Alignment', 'ibb-rentals' ),
@@ -259,9 +327,19 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 		}
 
 		$fields = [];
+		$icons  = [];
 		foreach ( array_keys( $this->field_options() ) as $key ) {
-			if ( ( $settings[ 'show_' . $key ] ?? '' ) === 'yes' ) {
-				$fields[] = $key;
+			if ( ( $settings[ 'show_' . $key ] ?? '' ) !== 'yes' ) {
+				continue;
+			}
+			$fields[] = $key;
+
+			$icon_setting = $settings[ 'icon_' . $key ] ?? null;
+			if ( is_array( $icon_setting ) && ! empty( $icon_setting['value'] ) ) {
+				// Render via Elementor's icon manager — handles eicon, FA, SVG.
+				ob_start();
+				\Elementor\Icons_Manager::render_icon( $icon_setting, [ 'aria-hidden' => 'true' ] );
+				$icons[ $key ] = (string) ob_get_clean();
 			}
 		}
 
@@ -270,6 +348,7 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 			'id'     => $property->id,
 			'fields' => implode( ',', $fields ),
 			'layout' => (string) ( $settings['layout'] ?? 'grid' ),
+			'icons'  => $icons,
 		] );
 	}
 }

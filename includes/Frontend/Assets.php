@@ -211,6 +211,35 @@ final class Assets {
 .ibb-booking__error { color:#b91c1c; font-size:.9em; margin:8px 0; }
 .ibb-booking__loading { color:#64748b; font-size:.9em; padding:8px 0; }
 
+/* Booking form skins (Elementor only). The form markup is identical
+   across skins; the wrapper class flips the layout. */
+.ibb-booking-skin--horizontal .ibb-booking { max-width:none; }
+.ibb-booking-skin--horizontal form.ibb-booking { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; }
+.ibb-booking-skin--horizontal .ibb-booking__field { flex:1 1 200px; min-width:200px; margin:0; }
+.ibb-booking-skin--horizontal .ibb-booking__title { flex:0 0 100%; margin-bottom:4px; }
+.ibb-booking-skin--horizontal .ibb-booking__quote,
+.ibb-booking-skin--horizontal .ibb-booking__error { flex:0 0 100%; }
+.ibb-booking-skin--horizontal .ibb-booking__submit { flex:0 0 auto; min-width:140px; }
+
+.ibb-booking-skin--inline .ibb-booking { max-width:none; padding:14px 16px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.ibb-booking-skin--inline form.ibb-booking { display:flex; flex-wrap:wrap; align-items:end; gap:10px; }
+.ibb-booking-skin--inline .ibb-booking__title { display:none; }
+.ibb-booking-skin--inline .ibb-booking__field { flex:1 1 180px; margin:0; }
+.ibb-booking-skin--inline .ibb-booking__field label { font-size:.75em; }
+.ibb-booking-skin--inline .ibb-booking__field > input,
+.ibb-booking-skin--inline .ibb-booking__stepper { padding:6px 8px; }
+.ibb-booking-skin--inline .ibb-booking__hint { display:none; }
+.ibb-booking-skin--inline .ibb-booking__quote,
+.ibb-booking-skin--inline .ibb-booking__error { flex:0 0 100%; }
+.ibb-booking-skin--inline .ibb-booking__submit { flex:0 0 auto; padding:10px 18px; height:38px; align-self:end; }
+@media (max-width:640px) {
+  .ibb-booking-skin--horizontal form.ibb-booking,
+  .ibb-booking-skin--inline form.ibb-booking { flex-direction:column; align-items:stretch; }
+  .ibb-booking-skin--inline .ibb-booking__title { display:block; }
+}
+
+.ibb-booking-preview-hint { margin-bottom:12px; }
+
 .ibb-property-carousel { width:100%; max-width:100%; position:relative; min-height:120px; box-sizing:border-box; }
 .ibb-property-carousel * { box-sizing:border-box; }
 .ibb-property-carousel .swiper { width:100%; max-width:100%; overflow:hidden; }
@@ -248,6 +277,10 @@ final class Assets {
 .ibb-details--list { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0; padding:0; }
 .ibb-details--list dt { font-weight:600; color:#475569; }
 .ibb-details--list dd { margin:0; color:#0f172a; }
+.ibb-details__icon { display:inline-flex; align-items:center; justify-content:center; line-height:1; vertical-align:middle; }
+.ibb-details__icon i { line-height:1; }
+.ibb-details__icon svg { display:block; }
+.ibb-details--grid .ibb-details__item .ibb-details__icon { margin-bottom:4px; margin-right:0; }
 
 .ibb-gallery-display { display:grid; gap:8px; }
 .ibb-gallery-display--cols-1 { grid-template-columns:1fr; }

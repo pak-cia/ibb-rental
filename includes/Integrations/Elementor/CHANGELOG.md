@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- **Per-field icons on `PropertyDetailsWidget`**. Each field switcher now has an Elementor `ICONS` control next to it (defaulting to a sensible `eicon-*` glyph: `eicon-person` for guests, `eicon-map-pin` for address, `eicon-clock-o` for check-in/out times, etc.). Editors can swap the icon, pick from FA, or upload SVG (eicon and FA libraries — SVG kept off by default to avoid the "huge inline SVG" footgun in cards). Icons render before the value (grid + compact) or before the label (list). The shortcode now accepts an optional `icons` array (key=>HTML), passed by the widget; bare `[ibb_property_details]` still works without icons. New "Icon" Style section: color (defaulting to Global Accent), size (responsive), spacing.
+- **Skin variants on `BookingFormWidget`**. New "Skin" select on the Property panel: **Vertical** (default — fields stacked, the original layout), **Horizontal** (side-by-side fields with a wider container, suitable for in-content placements), **Inline** (compact single-row search-bar with no title and tighter padding, designed for hero sections). The shortcode markup stays identical across skins — the wrapper class on the widget output flips the layout via CSS only, so the same form HTML works in blocks, shortcodes, and Elementor.
+- **Editor preview hint on `BookingFormWidget`**. A `.ibb-booking-preview-hint` notice ("Editor preview: the date picker and live quote lookups activate on the published page…") renders above the form inside Elementor's editor / preview iframe. The form's JS doesn't run there — without this hint the form looked broken. Frontend stays silent.
+
+### Added
 - **Eleven new dynamic tags** so property data is first-class in Elementor's templating system. Editors can build single-property templates and Loop Grid cards with native Heading / Text / Button / Image widgets — no need for our custom widgets when more layout flexibility is wanted.
   - **Text** (category: `text`): Property Title, Property Address, Max Guests, Bedrooms, Bathrooms, Beds, Base Rate (per night, `wc_price()`-formatted), Check-in Time, Check-out Time.
   - **URL** (category: `url`): Property URL (permalink) — bindable to Button links, Image links, etc.

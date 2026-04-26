@@ -47,6 +47,18 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 			'description' => __( 'Pick "Current page" to auto-resolve from the post on a single-property template, or a specific property by name.', 'ibb-rentals' ),
 		] );
 
+		$this->add_control( 'skin', [
+			'label'       => __( 'Skin', 'ibb-rentals' ),
+			'type'        => \Elementor\Controls_Manager::SELECT,
+			'default'     => 'vertical',
+			'options'     => [
+				'vertical'   => __( 'Vertical (default — fields stacked)', 'ibb-rentals' ),
+				'horizontal' => __( 'Horizontal (fields side-by-side)', 'ibb-rentals' ),
+				'inline'     => __( 'Inline (single-row search bar)', 'ibb-rentals' ),
+			],
+			'description' => __( 'Layout variant. "Inline" works best inside a hero section or above-the-fold strip; the quote panel still expands below the fields when dates are picked.', 'ibb-rentals' ),
+		] );
+
 		$this->end_controls_section();
 
 		$this->register_style_controls();
@@ -305,7 +317,42 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		$skin = (string) ( $settings['skin'] ?? 'vertical' );
+		$skin = in_array( $skin, [ 'vertical', 'horizontal', 'inline' ], true ) ? $skin : 'vertical';
+
 		$shortcodes = new Shortcodes();
-		echo $shortcodes->render_booking_form( [ 'id' => $property->id ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		$form_html  = $shortcodes->render_booking_form( [ 'id' => $property->id ] );
+
+		// Skin class lives on a wrapper around the form (rather than being
+		// added to the form element itself) so the shortcode markup stays
+		// portable — block / shortcode / Elementor all share the same form
+		// HTML, only Elementor opts into a layout variant via this wrapper.
+		printf(
+			'<div class="ibb-booking-skin ibb-booking-skin--%s">%s%s</div>',
+			esc_attr( $skin ),
+			$this->editor_preview_hint(),
+			$form_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		);
+	}
+
+	/**
+	 * Editor / preview-only banner explaining that the date picker and
+	 * live availability lookups don't run inside Elementor's preview
+	 * iframe — they need the front-end script bundle and a real REST
+	 * round-trip. Without this hint the form looks broken to editors
+	 * who haven't viewed the live page yet.
+	 */
+	private function editor_preview_hint(): string {
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return '';
+		}
+		$is_editor  = \Elementor\Plugin::$instance->editor && \Elementor\Plugin::$instance->editor->is_edit_mode();
+		$is_preview = \Elementor\Plugin::$instance->preview && \Elementor\Plugin::$instance->preview->is_preview_mode();
+		if ( ! $is_editor && ! $is_preview ) {
+			return '';
+		}
+		return '<div class="ibb-property-carousel-placeholder ibb-booking-preview-hint">'
+			. esc_html__( 'Editor preview: the date picker and live quote lookups activate on the published page. Style controls and field labels still update here.', 'ibb-rentals' )
+			. '</div>';
 	}
 }

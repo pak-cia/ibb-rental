@@ -228,6 +228,15 @@ final class Shortcodes {
 	 * @param array<string, string>|string $atts
 	 */
 	public function render_property_details( $atts ): string {
+		// Accept an optional `icons` key (array<string, string>) — keyed by
+		// field slug, value is icon HTML to render alongside that field.
+		// Used by the Elementor PropertyDetailsWidget; not exposed through
+		// the [ibb_property_details] shortcode itself (shortcodes can't
+		// pass arrays). Pulled out before shortcode_atts strips unknowns.
+		$icons = ( is_array( $atts ) && isset( $atts['icons'] ) && is_array( $atts['icons'] ) )
+			? $atts['icons']
+			: [];
+
 		$atts = shortcode_atts( [
 			'id'     => 0,
 			'fields' => '',     // CSV: guests,bedrooms,bathrooms,beds,check_in_time,check_out_time,address,amenities,location,property_type
@@ -283,7 +292,10 @@ final class Shortcodes {
 		$rows = [];
 		foreach ( $requested as $key ) {
 			if ( isset( $available[ $key ] ) && $available[ $key ]['value'] !== null && $available[ $key ]['value'] !== '' ) {
-				$rows[] = $available[ $key ];
+				$row        = $available[ $key ];
+				$row['key'] = $key;
+				$row['icon'] = isset( $icons[ $key ] ) ? (string) $icons[ $key ] : '';
+				$rows[] = $row;
 			}
 		}
 		if ( ! $rows ) {
@@ -292,12 +304,22 @@ final class Shortcodes {
 
 		$class = trim( 'ibb-details ibb-details--' . $layout . ' ' . sanitize_html_class( (string) $atts['class'] ) );
 
+		// Icon HTML is provided by trusted callers (the Elementor widget,
+		// which runs the value through Elementor's own icon manager). Wrap
+		// it in a span and let the upstream renderer escape if needed.
+		$icon_html = static function ( string $html ): string {
+			if ( $html === '' ) {
+				return '';
+			}
+			return '<span class="ibb-details__icon" aria-hidden="true">' . $html . '</span>';
+		};
+
 		switch ( $layout ) {
 			case 'compact':
 				$out = '<p class="' . esc_attr( $class ) . '">';
 				$parts = [];
 				foreach ( $rows as $r ) {
-					$parts[] = '<span><strong>' . esc_html( (string) $r['value'] ) . '</strong> ' . esc_html( strtolower( $r['label'] ) ) . '</span>';
+					$parts[] = '<span>' . $icon_html( $r['icon'] ) . '<strong>' . esc_html( (string) $r['value'] ) . '</strong> ' . esc_html( strtolower( $r['label'] ) ) . '</span>';
 				}
 				$out .= implode( ' &middot; ', $parts );
 				$out .= '</p>';
@@ -306,7 +328,7 @@ final class Shortcodes {
 			case 'list':
 				$out = '<dl class="' . esc_attr( $class ) . '">';
 				foreach ( $rows as $r ) {
-					$out .= '<dt>' . esc_html( $r['label'] ) . '</dt><dd>' . esc_html( (string) $r['value'] ) . '</dd>';
+					$out .= '<dt>' . $icon_html( $r['icon'] ) . esc_html( $r['label'] ) . '</dt><dd>' . esc_html( (string) $r['value'] ) . '</dd>';
 				}
 				$out .= '</dl>';
 				return $out;
@@ -316,6 +338,7 @@ final class Shortcodes {
 				$out = '<div class="' . esc_attr( $class ) . '">';
 				foreach ( $rows as $r ) {
 					$out .= '<div class="ibb-details__item">';
+					$out .= $icon_html( $r['icon'] );
 					$out .= '<span class="ibb-details__value">' . esc_html( (string) $r['value'] ) . '</span>';
 					$out .= '<span class="ibb-details__label">' . esc_html( $r['label'] ) . '</span>';
 					$out .= '</div>';
