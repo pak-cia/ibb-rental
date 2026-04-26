@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 30,
+            "statusMessage": "Filing to git...",
+            "command": "FILEINFO=$(python -c \"import sys,json,os; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path',''); print(f+'|'+os.path.basename(f))\"); FILE=$(echo \"$FILEINFO\" | cut -d'|' -f1); FNAME=$(echo \"$FILEINFO\" | cut -d'|' -f2); [ -n \"$FILE\" ] || exit 0; echo \"$FNAME\" | grep -qiE '^(README|RUNBOOK|TROUBLESHOOTING|CHANGELOG)\\.md$' || exit 0; FDIR=$(python -c \"import os,sys; print(os.path.dirname(os.path.abspath(sys.argv[1])))\" \"$FILE\") && REPO=$(git -C \"$FDIR\" rev-parse --show-toplevel 2>/dev/null) && [ -n \"$REPO\" ] || exit 0; cd \"$REPO\" && git add -A && git diff --cached --quiet && exit 0; git commit -m \"docs: update $FNAME\""
+          }
+        ]
+      }
+    ]
+  }
+}

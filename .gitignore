@@ -11,3 +11,6 @@ Thumbs.db
 .phpunit.result.cache
 .phpunit.cache/
 composer.phar
+
+# Per-developer Claude overrides (the shared .claude/settings.json IS committed).
+.claude/settings.local.json
