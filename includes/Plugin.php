@@ -21,7 +21,7 @@ use IBB\Rentals\Frontend\Assets;
 use IBB\Rentals\Frontend\Blocks;
 use IBB\Rentals\Frontend\Shortcodes;
 use IBB\Rentals\Frontend\TemplateLoader;
-use IBB\Rentals\Integrations\Elementor as ElementorIntegration;
+use IBB\Rentals\Integrations\Elementor\Module as ElementorModule;
 use IBB\Rentals\Ical\Exporter;
 use IBB\Rentals\Ical\FeedScheduler;
 use IBB\Rentals\Ical\Importer;
@@ -94,7 +94,7 @@ final class Plugin {
 		( new Shortcodes() )->register();
 		( new TemplateLoader() )->register();
 		( new Blocks() )->register();
-		( new ElementorIntegration() )->register();
+		( new ElementorModule() )->register();
 
 		if ( is_admin() ) {
 			( new PropertyMetaboxes(

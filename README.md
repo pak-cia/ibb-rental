@@ -83,7 +83,7 @@ plugins/ibb-rentals/
 | [Domain](includes/Domain/README.md) | Immutable value objects: `DateRange`, `Block`, `Property`, `Quote` |
 | [Frontend](includes/Frontend/README.md) | Shortcodes, asset enqueueing, single-property template, lightbox |
 | [Ical](includes/Ical/README.md) | iCal export feed, in-house parser, importer, feed scheduler |
-| [Integrations](includes/Integrations/README.md) | Optional third-party glue (Elementor dynamic tag) |
+| [Integrations](includes/Integrations/README.md) | Self-contained third-party modules — Elementor (gallery dynamic tag), future WPML / Bricks / etc. |
 | [PostTypes](includes/PostTypes/README.md) | `ibb_property` CPT + amenity / location / property-type taxonomies |
 | [Repositories](includes/Repositories/README.md) | SQL layer over the four custom tables |
 | [Rest](includes/Rest/README.md) | REST API: route registrar + thin controllers |

@@ -1,22 +1,23 @@
 # Integrations — Runbook
 
-## Use the Elementor dynamic tag
+Module-specific procedures live in each module's own RUNBOOK (e.g. [Elementor/RUNBOOK.md](Elementor/RUNBOOK.md)). Keep cross-cutting/parent-level procedures here.
 
-In Elementor's editor:
-1. Add a Gallery widget (free version supports basic; Pro Gallery supports masonry/justified).
-2. Click the Images control's dynamic-tag (database) icon.
-3. Pick **IBB Rentals → Property Gallery**.
-4. Set:
-   - **Property** → "Current page" (default; auto-resolves from `get_the_ID()` on a property's single template) or a specific property by name.
-   - **Gallery slug** → leave empty for all photos, or enter a sub-gallery slug like `bedroom-1`, `pool`, `kitchen`.
-5. Save the layout.
+## Add a new integration
 
-The tag re-evaluates every render — switching properties (e.g. on a single-property template viewing different posts) automatically picks up the right images.
+See "Adding a new integration" in [README.md](README.md#adding-a-new-integration). The short version:
 
-## Add another integration (Beaver Builder, Bricks, etc.)
+1. `mkdir Integrations/<Provider>/` plus `mkdir` any subsystem subdirectories the integration needs (`DynamicTags/`, `Widgets/`, etc.).
+2. Create `Integrations/<Provider>/Module.php` with `register(): void` gated on the provider's loaded action.
+3. Add `( new \IBB\Rentals\Integrations\<Provider>\Module() )->register();` in `Plugin::boot()`.
+4. Create the four-doc set under `Integrations/<Provider>/`.
+5. Add a row to the modules table in this directory's [README.md](README.md).
 
-See "Adding a new integration" in this component's [README.md](README.md).
+## Disable an integration without uninstalling its provider
 
-## Force-refresh the property list inside Elementor's panel
+Comment out the `( new <Provider>\Module() )->register()` line in `Plugin::boot()`. Or filter the provider's "loaded" action to bail before our registration callback runs. The module's gating means the rest of the plugin keeps working.
 
-The `ElementorIntegration::property_options()` cache is per-request. Reload the editor page (or save and refresh) to repopulate after adding a new property.
+## Quick smoke-test after restructuring or upgrading an integration
+
+1. Load any wp-admin page on the site — should be no fatal at boot regardless of whether the provider is active.
+2. With the provider deactivated, browse the front-end — every IBB feature should still work; the integration just doesn't surface its widgets/tags/etc.
+3. Re-activate the provider — its editor / control panel should show the IBB Rentals group / widget / etc. without errors.

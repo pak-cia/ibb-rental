@@ -12,17 +12,18 @@
  *   - Gallery slug: optional. Empty → all photos for the property; otherwise
  *     the named sub-gallery (e.g. "bedroom-1", "pool").
  *
- * Lives at PSR-4 path IBB\Rentals\Integrations\Elementor\… so the autoloader
- * can resolve it after Elementor is loaded; the file is `require_once`d at
- * runtime so its declaration happens AFTER Elementor's parent class exists.
+ * Lives at PSR-4 path IBB\Rentals\Integrations\Elementor\DynamicTags\… so
+ * the autoloader can resolve it after Elementor is loaded; the file is
+ * `require_once`d at runtime by the module entry point so its declaration
+ * happens AFTER Elementor's parent class exists.
  */
 
 declare( strict_types=1 );
 
-namespace IBB\Rentals\Integrations\Elementor;
+namespace IBB\Rentals\Integrations\Elementor\DynamicTags;
 
 use IBB\Rentals\Domain\Property;
-use IBB\Rentals\Integrations\Elementor as ElementorIntegration;
+use IBB\Rentals\Integrations\Elementor\Module as ElementorModule;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -55,7 +56,7 @@ class PropertyGalleryDynamicTag extends \Elementor\Core\DynamicTags\Data_Tag {
 		$this->add_control( 'property_id', [
 			'label'   => __( 'Property', 'ibb-rentals' ),
 			'type'    => \Elementor\Controls_Manager::SELECT2,
-			'options' => ElementorIntegration::property_options(),
+			'options' => ElementorModule::property_options(),
 			'default' => 'current',
 		] );
 

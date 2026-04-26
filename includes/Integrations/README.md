@@ -1,33 +1,53 @@
 # Integrations
 
-Optional third-party glue. Each integration is gated on the host plugin being active — the plugin works fully without any of them.
+Home for all third-party integrations and compatibility shims. Each integration is a **self-contained module** in its own subdirectory; the plugin works fully without any of them.
 
-## Files
+| Module | Provides |
+|---|---|
+| [Elementor](Elementor/README.md) | Dynamic-tag for the Pro Gallery widget — pick property + (optional) sub-gallery slug, get `[{id, url}]` array of attachments |
 
-- `Elementor.php` — registers an Elementor dynamic-tag in the gallery category. Gated on `elementor/loaded` action and `class_exists('\Elementor\Core\DynamicTags\Data_Tag')`. Provides a SELECT2 of all properties as the picker control plus a free-text gallery slug.
-- `Elementor/PropertyGalleryDynamicTag.php` — the actual tag class. Extends `\Elementor\Core\DynamicTags\Data_Tag` (gallery category). Returns Elementor's expected `[{id, url}]` shape via `get_value()`. PSR-4 mapped to `IBB\Rentals\Integrations\Elementor\PropertyGalleryDynamicTag` but `require_once`d at runtime so the parent class exists when the file is parsed.
+Future modules (planned, not implemented yet): WPML / Polylang multi-language, Bricks Builder dynamic data, Beaver Builder modules, smart-lock platforms (August / Yale).
+
+## Module convention
+
+Every integration follows the same shape, so adding a new one is cookie-cuttable.
+
+```
+includes/Integrations/<Provider>/
+    Module.php                                 # entry point — implements register(): void
+    <Subsystem>/                               # one subdir per kind of leaf class
+      <Whatever>.php
+    README.md / RUNBOOK.md / TROUBLESHOOTING.md / CHANGELOG.md   # module-specific docs
+```
+
+- `Module.php` is the **only** class instantiated by `IBB\Rentals\Plugin::boot()`. It's loaded unconditionally; its `register()` method gates on the provider being available (via `class_exists` or the provider's "loaded" action) so it's a no-op when the provider isn't installed.
+- Subdirectories (`DynamicTags/`, `Widgets/`, `Controls/`, `Hooks/`, …) hold leaf classes. The `Module` `require_once`s them lazily — never via PSR-4 autoload — because they typically extend the provider's base classes which don't exist until *its* autoloader has run.
+- Each module gets its own four-doc set so module-specific patterns / known issues / changelogs stay scoped.
 
 ## Key patterns
 
-- **Conditional loading** — every integration file checks `class_exists('<ParentClass>')` at the top and `return` early if not present. Saves a fatal when the host plugin is deactivated.
-- **Lazy class declaration** — Elementor base classes don't exist until Elementor's autoloader has loaded. Don't rely on PSR-4 to resolve the integration class; `require_once` it explicitly inside the registration callback.
-- **Stable controls API** — the dynamic tag's controls (Property select, Gallery slug input) are stable across Elementor versions. Avoid Elementor experimental controls.
-- **No coupling back into Elementor** — the integration produces data; Elementor's widgets do all the rendering. We don't ship custom widget templates.
+- **Conditional loading** — every integration checks `class_exists('<ProviderBaseClass>')` at the top of its leaf-class files (which `return` early if absent) and gates `register()` on the provider's "loaded" action where one exists. Saves a fatal when the provider is deactivated.
+- **Lazy class declaration** — provider base classes don't exist until the provider's autoloader has loaded. Don't rely on PSR-4 to resolve leaf classes; `require_once` them explicitly inside the registration callback that fires on the provider's loaded action.
+- **Stable provider APIs only** — most providers have experimental/internal APIs that change between releases. Stick to documented public APIs.
+- **No coupling back into the provider** — integrations produce data and register hooks; the provider's widgets / runtime do the rendering. We don't ship custom widget templates that have to keep up with provider design changes.
 
 ## Connects to
 
-- [../Domain](../Domain/README.md) — `Property::from_id` + `gallery($slug)` + `all_attachments()`
-- [../PostTypes](../PostTypes/README.md) — `property_options()` queries the `ibb_property` CPT
-- [../Plugin.php](../Plugin.php) — boot calls `(new ElementorIntegration())->register()` unconditionally; the integration's own gating handles the "not installed" case
+- [../Domain](../Domain/README.md) — most integrations consume `Property::from_id` + accessors
+- [../PostTypes](../PostTypes/README.md) — for property listings / pickers
+- [../Plugin.php](../Plugin.php) — boot calls `(new <Provider>\Module())->register()` once per integration; the inner gating decides whether anything happens
 
 ## Adding a new integration
 
-For any new third-party (Beaver Builder, Bricks, Divi, WP Fusion, …):
+For any new third-party (Bricks, Beaver Builder, Divi, WP Fusion, WPML, …):
 
-1. Create `Integrations/<Provider>.php` with a class that has `register()` gated on `class_exists` of the provider's base class.
-2. If the integration requires the provider's classes to be loaded first, `require_once` extension files inside the registration callback rather than letting PSR-4 resolve them.
-3. Wire it from `Plugin::boot` unconditionally — the inner `class_exists` gate decides whether anything happens.
-4. Document the integration here.
+1. Create `Integrations/<Provider>/Module.php` with a class `Module` in namespace `IBB\Rentals\Integrations\<Provider>`. It exposes `register(): void`.
+2. Inside `register()`, gate on the provider being available — usually by hooking the provider's "loaded" action and/or `class_exists` checks.
+3. Place leaf classes (widgets, dynamic tags, hooks, controls) under subdirectories of `Integrations/<Provider>/`. Match the provider's own conceptual divisions (`DynamicTags/`, `Widgets/`, etc.).
+4. `require_once` leaf-class files inside callbacks fired by the provider's actions, never via PSR-4 autoload.
+5. Wire it from `Plugin::boot` with a single `( new <Provider>\Module() )->register()` line.
+6. Add the module's four-doc set under `Integrations/<Provider>/`.
+7. Add a row to the table at the top of this README.
 
 ## Docs
 

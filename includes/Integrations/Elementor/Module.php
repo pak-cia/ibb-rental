@@ -1,29 +1,36 @@
 <?php
 /**
- * Optional Elementor integration.
+ * Optional Elementor integration — module entry point.
  *
- * Registers a dynamic-tag in the "gallery" category that returns a property's
- * photo gallery (whole property or a single named sub-gallery). Wired into
- * Elementor's Pro Gallery widget — guests using Elementor's drag-and-drop
- * editor can pick `IBB > Property Gallery` from the dynamic-tag picker.
+ * Each integration in this plugin is a self-contained module rooted at
+ * `includes/Integrations/<Provider>/`. The module's `Module` class is the
+ * single entry point loaded by `IBB\Rentals\Plugin::boot()`; everything
+ * else (dynamic tags, widgets, controls, …) lives in subdirectories of
+ * the module and is loaded lazily by the entry point.
  *
- * The whole file is gated on Elementor being active. The Tag class itself is
- * declared inside `register()` so we don't reference Elementor's parent class
- * before Elementor's autoloader has loaded it (avoids parse-time fatal).
+ * Wired into Elementor's lifecycle:
+ *
+ *   - On `elementor/loaded` (only fires when Elementor itself is active),
+ *     register an `elementor/dynamic_tags/register` callback.
+ *   - The callback registers our group + tag classes via the manager.
+ *
+ * Tag classes are `require_once`'d at registration time, not via PSR-4
+ * autoload, because they extend Elementor base classes that don't exist
+ * until Elementor's autoloader has loaded — autoloading too early would
+ * trigger a parse-time fatal.
  */
 
 declare( strict_types=1 );
 
-namespace IBB\Rentals\Integrations;
+namespace IBB\Rentals\Integrations\Elementor;
 
 use IBB\Rentals\PostTypes\PropertyPostType;
 
 defined( 'ABSPATH' ) || exit;
 
-final class Elementor {
+final class Module {
 
 	public function register(): void {
-		// Elementor fires `elementor/loaded` once core has finished loading.
 		add_action( 'elementor/loaded', [ $this, 'on_elementor_loaded' ] );
 	}
 
@@ -32,21 +39,20 @@ final class Elementor {
 	}
 
 	public function register_tags( $manager ): void {
-		// `register_group` was renamed to `register_group` w/ array signature
-		// in newer Elementor versions; the older API still accepts the same
-		// shape. Both are safe to call.
 		if ( method_exists( $manager, 'register_group' ) ) {
 			$manager->register_group( 'ibb-rentals', [
 				'title' => __( 'IBB Rentals', 'ibb-rentals' ),
 			] );
 		}
 
-		require_once __DIR__ . '/Elementor/PropertyGalleryDynamicTag.php';
+		require_once __DIR__ . '/DynamicTags/PropertyGalleryDynamicTag.php';
+		$tag_class = '\\IBB\\Rentals\\Integrations\\Elementor\\DynamicTags\\PropertyGalleryDynamicTag';
+
 		if ( method_exists( $manager, 'register' ) ) {
-			$manager->register( new \IBB\Rentals\Integrations\Elementor\PropertyGalleryDynamicTag() );
+			$manager->register( new $tag_class() );
 		} elseif ( method_exists( $manager, 'register_tag' ) ) {
 			// Pre-3.5 Elementor API.
-			$manager->register_tag( \IBB\Rentals\Integrations\Elementor\PropertyGalleryDynamicTag::class );
+			$manager->register_tag( $tag_class );
 		}
 	}
 
@@ -54,6 +60,9 @@ final class Elementor {
 	 * Returns a list of all properties suitable for an Elementor SELECT2
 	 * control. Cached for the request — Elementor's editor calls this on
 	 * every panel render.
+	 *
+	 * Used by `DynamicTags\PropertyGalleryDynamicTag` (and any future tag
+	 * that needs a property picker).
 	 *
 	 * @return array<string,string>
 	 */

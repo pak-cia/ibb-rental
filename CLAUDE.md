@@ -107,7 +107,7 @@ A standalone WordPress plugin that turns a WooCommerce store into a vacation-ren
 | Add a public hook | `Support/Hooks.php` constant + emit / `apply_filters` at the call site |
 | Add a scheduled job | `Cron/Jobs/<Job>.php` + register in `Plugin::boot()` + schedule via `as_schedule_*_action` |
 | Add a property meta field | `Domain/Property.php` accessor + `Admin/PropertyMetaboxes.php` UI/save |
-| Add an OTA-style integration | `Integrations/<Provider>/...` gated on the provider being loaded |
+| Add a third-party integration (Elementor, Bricks, WPML, etc.) | `Integrations/<Provider>/Module.php` with leaf classes under typed subdirectories (`DynamicTags/`, `Widgets/`, …); each module gets its own four-doc set; gated on the provider being loaded |
 
 ---
 
