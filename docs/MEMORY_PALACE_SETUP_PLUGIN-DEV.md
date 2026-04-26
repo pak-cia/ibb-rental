@@ -502,8 +502,11 @@ echo "Built $OUTPUT"
 Add to `.gitignore`:
 
 ```
+# build.sh output:
 /dist/
 ```
+
+> **Gotcha:** `.gitignore` does **not** support inline comments. `/dist/   # build output` is treated as one literal pattern (matching a directory with that whole weird name), so the rule silently fails to match `/dist/`. Always put comments on their own line. Verify with `git check-ignore -v dist/<file>` — should print the rule that matches.
 
 ### Verify a build is clean
 
