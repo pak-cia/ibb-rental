@@ -30,12 +30,42 @@
 *.otf   binary
 *.eot   binary
 
-# Files excluded from the distribution zip but tracked in git.
-.gitattributes export-ignore
-.gitignore     export-ignore
-.distignore    export-ignore
-tests/         export-ignore
-phpunit.xml    export-ignore
-build.sh       export-ignore
-package.json   export-ignore
-webpack.config.js export-ignore
+# Files excluded from `git archive` output (but tracked in git).
+# These mirror .distignore so `git archive` and wp-cli `dist-archive`
+# produce equivalent zips. Keep the two in sync.
+.gitattributes      export-ignore
+.gitignore          export-ignore
+.distignore         export-ignore
+.claude/            export-ignore
+.idea/              export-ignore
+.vscode/            export-ignore
+
+# Tests and dev tooling.
+tests/              export-ignore
+phpunit.xml         export-ignore
+phpunit.xml.dist    export-ignore
+build.sh            export-ignore
+composer.json       export-ignore
+composer.lock       export-ignore
+package.json        export-ignore
+package-lock.json   export-ignore
+webpack.config.js   export-ignore
+assets/src/         export-ignore
+
+# Memory Palace dev docs (root level — readme.txt stays).
+README.md           export-ignore
+CLAUDE.md           export-ignore
+RUNBOOK.md          export-ignore
+TROUBLESHOOTING.md  export-ignore
+CHANGELOG.md        export-ignore
+docs/               export-ignore
+
+# Per-component four-doc set.
+includes/**/README.md          export-ignore
+includes/**/RUNBOOK.md         export-ignore
+includes/**/TROUBLESHOOTING.md export-ignore
+includes/**/CHANGELOG.md       export-ignore
+templates/README.md            export-ignore
+templates/RUNBOOK.md           export-ignore
+templates/TROUBLESHOOTING.md   export-ignore
+templates/CHANGELOG.md         export-ignore

@@ -1,25 +1,40 @@
-# Files and directories that the build script excludes from the distribution zip.
-# Lines starting with `#` are comments. Patterns match relative to the plugin root.
+# Files and directories excluded from the distribution zip.
+#
+# Read by:
+#   - `wp dist-archive` (wp-cli) when packaging
+#   - 10up/action-wordpress-plugin-deploy and similar GitHub Actions
+#   - The bundled `build.sh` script
+#
+# Patterns match relative to the plugin root. The end-user-facing readme is
+# `readme.txt` (WordPress.org format) — that one ships. Everything below is
+# dev-only and stays out of the distribution.
 
+# Git
 .git
 .gitignore
+.gitattributes
 .distignore
+
+# Editors / OS junk
 .idea
 .vscode
 .DS_Store
 Thumbs.db
 
+# Claude Code config (the auto-commit hook is dev infra only).
+.claude
+
 # Source-only assets — we ship `assets/build/` only.
 assets/src
 
-# Tests and dev-only docs.
+# Tests and dev-only configs.
 tests
 phpunit.xml
 phpunit.xml.dist
 .phpunit.result.cache
 .phpunit.cache
 
-# Build tooling.
+# Build tooling — only ship the compiled output, never the source build pipeline.
 node_modules
 composer.json
 composer.lock
@@ -27,4 +42,22 @@ package.json
 package-lock.json
 webpack.config.js
 build.sh
+
+# Memory Palace dev docs (the four-doc-per-component system).
+# `readme.txt` is the user-facing readme and stays in the dist.
+README.md
+CLAUDE.md
+RUNBOOK.md
+TROUBLESHOOTING.md
 CHANGELOG.md
+docs
+
+# Per-component four-doc set under includes/ and templates/.
+includes/*/README.md
+includes/*/RUNBOOK.md
+includes/*/TROUBLESHOOTING.md
+includes/*/CHANGELOG.md
+templates/README.md
+templates/RUNBOOK.md
+templates/TROUBLESHOOTING.md
+templates/CHANGELOG.md
