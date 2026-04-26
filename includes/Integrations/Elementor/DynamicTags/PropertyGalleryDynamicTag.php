@@ -74,7 +74,9 @@ class PropertyGalleryDynamicTag extends \Elementor\Core\DynamicTags\Data_Tag {
 	 * @return array<int, array{id:int, url:string}>
 	 */
 	public function get_value( array $options = [] ): array {
-		$property = $this->resolve_property();
+		$property = ElementorModule::resolve_property_for_widget(
+			(string) $this->get_settings( 'property_id' )
+		);
 		if ( ! $property ) {
 			return [];
 		}
@@ -104,45 +106,4 @@ class PropertyGalleryDynamicTag extends \Elementor\Core\DynamicTags\Data_Tag {
 		return $out;
 	}
 
-	/**
-	 * Resolve which property to render from. Order:
-	 *
-	 *   1. If a specific property is picked in the control, use it.
-	 *   2. If "Current page" is picked: use the current post if it's an
-	 *      `ibb_property` post, otherwise fall back to the FIRST property
-	 *      we can find. The fallback prevents the silent "no images" trap
-	 *      when an editor previews the tag on a generic Elementor page
-	 *      (where `get_the_ID()` returns the page itself, which isn't a
-	 *      property — `Property::from_id` returns null and the tag emits
-	 *      nothing). Editors picking "Current page" almost always intend
-	 *      to use it on a property template; the first-property fallback
-	 *      gives them something to look at while they iterate.
-	 */
-	private function resolve_property(): ?Property {
-		$picked = (string) $this->get_settings( 'property_id' );
-
-		if ( $picked !== '' && $picked !== 'current' ) {
-			return Property::from_id( (int) $picked );
-		}
-
-		$current_id = (int) get_the_ID();
-		if ( $current_id > 0 ) {
-			$current = Property::from_id( $current_id );
-			if ( $current ) {
-				return $current;
-			}
-		}
-
-		// Fallback: first available property.
-		$ids = get_posts( [
-			'post_type'        => \IBB\Rentals\PostTypes\PropertyPostType::POST_TYPE,
-			'post_status'      => [ 'publish', 'private' ],
-			'numberposts'      => 1,
-			'fields'           => 'ids',
-			'orderby'          => 'ID',
-			'order'            => 'ASC',
-			'suppress_filters' => true,
-		] );
-		return ! empty( $ids ) ? Property::from_id( (int) $ids[0] ) : null;
-	}
 }

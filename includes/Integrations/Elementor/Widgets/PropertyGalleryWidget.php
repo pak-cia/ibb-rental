@@ -93,15 +93,15 @@ class PropertyGalleryWidget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
-		$settings    = $this->get_settings_for_display();
-		$property_id = (string) ( $settings['property_id'] ?? 'current' );
-		if ( $property_id === 'current' || $property_id === '' ) {
-			$property_id = (string) get_the_ID();
+		$settings = $this->get_settings_for_display();
+		$property = ElementorModule::resolve_property_for_widget( (string) ( $settings['property_id'] ?? 'current' ) );
+		if ( ! $property ) {
+			return;
 		}
 
 		$shortcodes = new Shortcodes();
 		echo $shortcodes->render_gallery( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			'property' => (int) $property_id,
+			'property' => $property->id,
 			'gallery'  => (string) ( $settings['gallery_slug'] ?? '' ),
 			'size'     => (string) ( $settings['size'] ?? 'medium_large' ),
 			'cols'     => (int) ( $settings['cols'] ?? 3 ),

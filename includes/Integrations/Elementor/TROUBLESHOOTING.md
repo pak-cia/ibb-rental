@@ -28,6 +28,22 @@ This was the bug that stopped the Property Gallery dynamic tag from appearing af
 3. **The tag class file errored during `require_once`.** Check the WP error log for `IBB\Rentals\Integrations\Elementor\DynamicTags\PropertyGalleryDynamicTag` parse / type errors.
 4. **Editor cache.** Hard-refresh the editor browser tab. If still missing, run Elementor → Tools → Regenerate Files & Data.
 
+## Widget renders as an empty grey block in the editor
+
+**Symptom:** drop a widget (Property Carousel, Property Gallery, Booking Form, Property Details) on a generic Elementor page (e.g. "Elementor #36" — not an `ibb_property` post). The widget shows in the structure panel but renders as an empty grey area in the preview.
+
+**Root cause:** the widget defaults Property to "Current page" → `get_the_ID()` returns the page's own ID → that's not an `ibb_property` post → `Property::from_id()` returns null → `render()` exits with no markup.
+
+**Fix:** `Module::resolve_property_for_widget()` is the single resolver used by all four widgets and the dynamic tag. Order:
+
+1. If a specific property is picked, use it.
+2. If "Current page" is picked: use the current post if it's an `ibb_property`.
+3. Otherwise fall back to the **first published property**.
+
+The fallback is an editor-preview convenience so widgets show *something* while configuring them on a non-property page. On a real single-property template the current property always wins, so production rendering is unaffected.
+
+**If you specifically want a non-property page to render the widget empty when no property is in scope,** pick the property explicitly in the control (don't rely on "Current page").
+
 ## Tag returns empty array (no images render)
 
 **Likely causes:**

@@ -103,10 +103,10 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
-		$settings    = $this->get_settings_for_display();
-		$property_id = (string) ( $settings['property_id'] ?? 'current' );
-		if ( $property_id === 'current' || $property_id === '' ) {
-			$property_id = (string) get_the_ID();
+		$settings = $this->get_settings_for_display();
+		$property = ElementorModule::resolve_property_for_widget( (string) ( $settings['property_id'] ?? 'current' ) );
+		if ( ! $property ) {
+			return;
 		}
 
 		$fields = [];
@@ -118,7 +118,7 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 
 		$shortcodes = new Shortcodes();
 		echo $shortcodes->render_property_details( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			'id'     => (int) $property_id,
+			'id'     => $property->id,
 			'fields' => implode( ',', $fields ),
 			'layout' => (string) ( $settings['layout'] ?? 'grid' ),
 		] );

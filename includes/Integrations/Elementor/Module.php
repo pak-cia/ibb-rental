@@ -277,6 +277,49 @@ JS;
 	}
 
 	/**
+	 * Resolve which property a widget / dynamic tag should render against,
+	 * given the picked `property_id` value from the control schema.
+	 *
+	 * Order:
+	 *   1. If a specific property is picked, use it.
+	 *   2. If `'current'` (or empty) is picked: use the current post if it's
+	 *      an `ibb_property`, otherwise fall back to the FIRST published
+	 *      property. This last step is purely an editor-preview convenience —
+	 *      while editing a generic Elementor page (e.g. "Elementor #36"),
+	 *      `get_the_ID()` returns the page itself, which isn't a property.
+	 *      Without the fallback the widget would silently render empty and
+	 *      look broken to the editor. On a real single-property template the
+	 *      current property always wins, so production rendering is unaffected.
+	 *
+	 * Used by every IBB Elementor widget and dynamic tag — single source of
+	 * truth for "which property?".
+	 */
+	public static function resolve_property_for_widget( string $picked ): ?Property {
+		if ( $picked !== '' && $picked !== 'current' ) {
+			return Property::from_id( (int) $picked );
+		}
+
+		$current_id = (int) get_the_ID();
+		if ( $current_id > 0 ) {
+			$current = Property::from_id( $current_id );
+			if ( $current ) {
+				return $current;
+			}
+		}
+
+		$ids = get_posts( [
+			'post_type'        => PropertyPostType::POST_TYPE,
+			'post_status'      => [ 'publish', 'private' ],
+			'numberposts'      => 1,
+			'fields'           => 'ids',
+			'orderby'          => 'ID',
+			'order'            => 'ASC',
+			'suppress_filters' => true,
+		] );
+		return ! empty( $ids ) ? Property::from_id( (int) $ids[0] ) : null;
+	}
+
+	/**
 	 * Returns the union of every distinct gallery slug across every property,
 	 * suitable for an Elementor SELECT control. Pinned to the top is an
 	 * empty-string "All photos" option that means "combine every gallery".

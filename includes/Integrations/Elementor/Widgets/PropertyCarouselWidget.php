@@ -223,13 +223,8 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
-		$settings    = $this->get_settings_for_display();
-		$property_id = (string) ( $settings['property_id'] ?? 'current' );
-		if ( $property_id === 'current' || $property_id === '' ) {
-			$property_id = (string) get_the_ID();
-		}
-
-		$property = Property::from_id( (int) $property_id );
+		$settings = $this->get_settings_for_display();
+		$property = ElementorModule::resolve_property_for_widget( (string) ( $settings['property_id'] ?? 'current' ) );
 		if ( ! $property ) {
 			return;
 		}
