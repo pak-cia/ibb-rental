@@ -56,6 +56,13 @@ final class Property {
 	public function bathrooms(): float       { return (float) $this->meta( '_ibb_bathrooms', 1 ); }
 	public function beds(): int              { return (int) $this->meta( '_ibb_beds', 1 ); }
 
+	public function short_description(): string {
+		// Brief summary shown in cart line items, search cards, etc. Stored
+		// in postmeta (not post_excerpt) so we don't fight Gutenberg's
+		// sidebar-vs-metabox excerpt-save race.
+		return (string) $this->meta( '_ibb_short_description', '' );
+	}
+
 	public function check_in_time(): string  { return (string) $this->meta( '_ibb_check_in_time', '15:00' ); }
 	public function check_out_time(): string { return (string) $this->meta( '_ibb_check_out_time', '11:00' ); }
 

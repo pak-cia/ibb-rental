@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Details tab: **Short description** field at the top, backed by `_ibb_short_description` postmeta. Two-row textarea with placeholder + helper text. Mirrored to the linked WC product's `short_description` and surfaces in cart line items.
 - Photos tab: named sub-galleries per property (e.g. *Bedroom 1*, *Pool*) backed by `wp.media`. Gallery state serialises to `_ibb_galleries` postmeta as JSON.
 - Per-gallery shortcode hint (one-click copyable `[ibb_gallery gallery="..."]` snippet).
 

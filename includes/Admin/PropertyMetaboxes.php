@@ -118,6 +118,19 @@ final class PropertyMetaboxes {
 
 	private function render_details( Property $p ): void {
 		echo '<div class="ibb-tab" id="ibb-tab-details"><table class="form-table"><tbody>';
+
+		// Short description — surfaces in cart line items + search cards.
+		// Backed by `_ibb_short_description` postmeta (not WP's post_excerpt)
+		// to avoid the Gutenberg-sidebar / metabox-form save race.
+		echo '<tr><th><label for="_ibb_short_description">' . esc_html__( 'Short description', 'ibb-rentals' ) . '</label></th><td>';
+		printf(
+			'<textarea id="_ibb_short_description" name="_ibb_short_description" rows="2" class="large-text" placeholder="%s">%s</textarea>',
+			esc_attr__( 'e.g. Beachfront villa with private pool, sleeps 6.', 'ibb-rentals' ),
+			esc_textarea( $p->short_description() )
+		);
+		echo '<p class="description">' . esc_html__( 'A brief one-or-two-sentence summary. Shown under the property name in cart, checkout, and search results.', 'ibb-rentals' ) . '</p>';
+		echo '</td></tr>';
+
 		$this->row( __( 'Max guests', 'ibb-rentals' ),     $this->number( '_ibb_max_guests', $p->max_guests(), 1 ) );
 		$this->row( __( 'Bedrooms', 'ibb-rentals' ),       $this->number( '_ibb_bedrooms', $p->bedrooms(), 0 ) );
 		$this->row( __( 'Bathrooms', 'ibb-rentals' ),      $this->number( '_ibb_bathrooms', $p->bathrooms(), 0, 0.5 ) );
@@ -324,6 +337,14 @@ final class PropertyMetaboxes {
 			if ( isset( $_POST[ $key ] ) ) {
 				update_post_meta( $post_id, $key, sanitize_text_field( (string) wp_unslash( $_POST[ $key ] ) ) );
 			}
+		}
+
+		if ( isset( $_POST['_ibb_short_description'] ) ) {
+			update_post_meta(
+				$post_id,
+				'_ibb_short_description',
+				sanitize_textarea_field( (string) wp_unslash( $_POST['_ibb_short_description'] ) )
+			);
 		}
 
 		if ( isset( $_POST['_ibb_payment_mode'] ) ) {

@@ -3,7 +3,10 @@
 ## [Unreleased]
 
 ### Fixed
-- `ProductSync` no longer mirrors the property's `post_excerpt` / `post_content` to the WC product's short_description / description. The mirrored product is a backing object only; the Cart block was surfacing the property's prose ("content" in dev, marketing copy in production) inside the cart line. Property descriptions stay on the property page via `[ibb_property]`.
+- `ProductSync` no longer mirrors the property's `post_content` to the WC product's `description`. The mirrored product is a backing object only; the long-form prose belongs on the property page via `[ibb_property]`, not duplicated into the cart.
+
+### Changed
+- `ProductSync` now mirrors the new `_ibb_short_description` postmeta (instead of `post_excerpt`) into the product's `short_description`. The Admin Details tab has a dedicated field for this. Using a dedicated meta avoids the Gutenberg-sidebar / metabox-form save race that bites when both surface `post_excerpt`.
 
 ### Fixed (earlier)
 - `is_sold_individually()` returns `false`; qty enforced to 1 via `clamp_quantity` filter + `reset_merged_quantity` action — eliminates "cannot add another" red notice on duplicate add-to-cart.

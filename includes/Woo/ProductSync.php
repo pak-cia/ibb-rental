@@ -124,14 +124,14 @@ final class ProductSync {
 
 		$product->set_name( $post->post_title );
 		$product->set_status( $post->post_status === 'publish' ? 'publish' : 'private' );
-		// Description fields are intentionally blanked: the mirrored product is
-		// a backing object only (cart/order/payment plumbing). The Cart block
-		// surfaces product short_description / description in the cart line by
-		// default, which would leak the property's prose ("content") into the
-		// cart. The property's own descriptions stay on the property page via
-		// the [ibb_property] shortcode and don't need to round-trip via the
-		// product.
-		$product->set_short_description( '' );
+		// `_ibb_short_description` postmeta -> product short_description.
+		// Renders in the cart line as a brief blurb under the product name.
+		// post_content -> product description stays empty because the
+		// long-form prose belongs on the property page via [ibb_property],
+		// not duplicated in the cart. (Using a dedicated meta field instead
+		// of post_excerpt avoids the Gutenberg-sidebar / metabox-form save
+		// race that bites when both surface the excerpt.)
+		$product->set_short_description( (string) get_post_meta( $post_id, '_ibb_short_description', true ) );
 		$product->set_description( '' );
 		$product->set_catalog_visibility( 'hidden' );
 		$product->set_regular_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
@@ -145,8 +145,8 @@ final class ProductSync {
 		$product = new \WC_Product_IBB_Booking();
 		$product->set_name( $post->post_title );
 		$product->set_status( $post->post_status === 'publish' ? 'publish' : 'private' );
-		// See sync() for why descriptions are blanked.
-		$product->set_short_description( '' );
+		// See sync() for the short_description vs description split.
+		$product->set_short_description( (string) get_post_meta( $post->ID, '_ibb_short_description', true ) );
 		$product->set_description( '' );
 		$product->set_catalog_visibility( 'hidden' );
 		$product->set_virtual( true );

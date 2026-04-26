@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `Property::short_description()` — accessor over the `_ibb_short_description` postmeta. Used as the cart-line blurb / search-card summary.
 - `Property::galleries()` / `gallery($slug)` / `all_attachments()` — accessors over the `_ibb_galleries` JSON postmeta.
 
 ## [0.1.0] — 2026-04-26
