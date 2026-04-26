@@ -124,20 +124,22 @@ final class CartHandler {
 	 * @return array<int, array{key:string,value:string}>
 	 */
 	/**
-	 * Render booking meta as a single woocommerce_get_item_data entry whose
-	 * `display` field is the full block as <br>-separated lines.
+	 * Render booking meta as a single woocommerce_get_item_data entry.
 	 *
-	 * Why one entry instead of one per field:
-	 *   - WC's classic cart wraps each entry in `<dl class="variation">`.
-	 *     Themes (esp. block themes) often style `dl.variation > *` as
-	 *     inline-flow, mashing all entries onto one line.
-	 *   - The Cart block wraps each entry in `<li class="…__item">`.
-	 *     Themes don't usually break this, but it's still one wrapper per
-	 *     entry — many small dt/dd pairs.
-	 *   - Solution: we use ONE entry. Whatever the surrounding wrapper does,
-	 *     our `display` value uses inline `<br>` line breaks that render
-	 *     identically regardless of `display: block` vs `display: inline`
-	 *     on the wrapper. Theme-immune.
+	 * The first field (Check-in) is promoted to the entry's `key`, so the
+	 * surrounding cart markup uses it as the meta label — the cart shows
+	 * "Check-in: <date>" naturally without an extra "Booking:" prefix that
+	 * themes don't render cleanly.
+	 *
+	 * The remaining fields go in the `display` value as <br>-separated
+	 * lines. Each inline label uses `<strong style="font-weight:600">` —
+	 * inline style defeats themes (esp. block themes like Twenty
+	 * Twenty-Five) that strip bold from `<strong>`.
+	 *
+	 * <br>-based linebreaks render identically regardless of the
+	 * surrounding wrapper (`dl.variation` in classic cart, `li` in the
+	 * Cart block) being block-level or inline-flow, so this works in
+	 * every cart context without theme-fighting CSS.
 	 *
 	 * @param array<int, array<string, mixed>> $item_data
 	 * @param array<string, mixed>             $cart_item
@@ -149,38 +151,45 @@ final class CartHandler {
 			return $item_data;
 		}
 
-		$lines = [];
-		$lines[] = $this->meta_line( __( 'Check-in', 'ibb-rentals' ),  esc_html( (string) $quote['checkin'] ) );
-		$lines[] = $this->meta_line( __( 'Check-out', 'ibb-rentals' ), esc_html( (string) $quote['checkout'] ) );
-		$lines[] = $this->meta_line( __( 'Nights', 'ibb-rentals' ),    (string) (int) $quote['nights'] );
-		$lines[] = $this->meta_line( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
+		$tail = [];
+		$tail[] = $this->meta_line( __( 'Check-out', 'ibb-rentals' ), esc_html( (string) $quote['checkout'] ) );
+		$tail[] = $this->meta_line( __( 'Nights', 'ibb-rentals' ),    (string) (int) $quote['nights'] );
+		$tail[] = $this->meta_line( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
 
 		if ( ( $quote['payment_mode'] ?? 'full' ) === 'deposit' ) {
-			$lines[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
-			$lines[] = $this->meta_line( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
-			$lines[] = $this->meta_line(
+			$tail[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
+			$tail[] = $this->meta_line( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
+			$tail[] = $this->meta_line(
 				__( 'Balance due', 'ibb-rentals' ),
 				wc_price( (float) $quote['balance_due'] ) . ' <small>(' . esc_html__( 'on', 'ibb-rentals' ) . ' ' . esc_html( (string) $quote['balance_due_date'] ) . ')</small>'
 			);
 		}
 
 		if ( ! empty( $quote['security_deposit'] ) && (float) $quote['security_deposit'] > 0 ) {
-			$lines[] = $this->meta_line(
+			$tail[] = $this->meta_line(
 				__( 'Security deposit', 'ibb-rentals' ),
 				wc_price( (float) $quote['security_deposit'] ) . ' <small>(' . esc_html__( 'refundable, not charged today', 'ibb-rentals' ) . ')</small>'
 			);
 		}
 
+		$display = esc_html( (string) $quote['checkin'] );
+		if ( $tail ) {
+			$display .= '<br>' . implode( '<br>', $tail );
+		}
+
 		$item_data[] = [
-			'key'     => __( 'Booking', 'ibb-rentals' ),
-			'display' => implode( '<br>', $lines ),
+			'key'     => __( 'Check-in', 'ibb-rentals' ),
+			'display' => $display,
 		];
 
 		return $item_data;
 	}
 
 	private function meta_line( string $label, string $value_html ): string {
-		return '<strong>' . esc_html( $label ) . ':</strong> ' . $value_html;
+		// Inline `font-weight:600` because some themes strip the default
+		// boldness off plain `<strong>` elements — defeats that without
+		// fighting the theme via a separate stylesheet.
+		return '<strong style="font-weight:600">' . esc_html( $label ) . ':</strong> ' . $value_html;
 	}
 
 	public function lock_quantity( string $product_quantity, string $cart_item_key, array $cart_item ): string {

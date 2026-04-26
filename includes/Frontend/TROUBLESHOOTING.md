@@ -79,12 +79,14 @@ add_action( 'wp_enqueue_scripts', function() {
 
 **What works:**
 
-`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry whose `display` field is the full meta block as `<br>`-separated lines:
+`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry. The first field (Check-in) becomes the entry's `key`; remaining fields go in `display` as `<br>`-separated lines. Each inline label uses `<strong style="font-weight:600">`:
 
 ```php
 $item_data[] = [
-    'key'     => 'Booking',
-    'display' => '<strong>Check-in:</strong> 2026-06-20<br><strong>Check-out:</strong> 2026-07-01<br>...',
+    'key'     => 'Check-in',
+    'display' => '2026-06-20<br>'
+               . '<strong style="font-weight:600">Check-out:</strong> 2026-07-01<br>'
+               . '<strong style="font-weight:600">Nights:</strong> 11<br>...',
 ];
 ```
 
@@ -92,9 +94,9 @@ This is theme-immune by construction:
 
 - `<br>` line breaks render identically regardless of `display: block` vs `display: inline` on the surrounding wrapper. Whatever the theme does to `dl.variation` or `.wc-block-components-product-details__item`, our internal layout still has one item per line.
 - One single entry means only one `<dl>` (classic) or one `<li>` (block cart) wrapper — no risk of theme CSS collapsing multiple wrappers next to each other.
-- Works in classic cart, Cart block, mini cart, and order-confirmation page from the same code. No CSS, no per-context branching.
-
-**Trade-off accepted:** the surrounding theme renders a single label like `Booking:` before our meta block. Some themes will show it on its own line, others inline. Either way it's tolerable — and it's a *real* label that explains what follows, not arbitrary noise.
+- Promoting the first field to `key` means the entry's natural label IS already a useful piece of data ("Check-in: <date>"); no separate "Booking:" prefix that themes render as a stray label.
+- Inline `font-weight: 600` on the strong tags overrides themes (e.g. Twenty Twenty-Five) that strip bold off plain `<strong>`. Inline style has higher specificity than theme stylesheets, no `!important` needed.
+- Works in classic cart, Cart block, mini cart, and order-confirmation page from the same code. No CSS file, no per-context branching.
 
 **Test checklist for any future cart-meta change:**
 - [ ] Classic cart (`[woocommerce_cart]` shortcode) on the active theme
