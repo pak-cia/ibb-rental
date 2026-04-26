@@ -37,17 +37,12 @@ final class CartHandler {
 		add_filter( 'woocommerce_get_cart_item_from_session', [ $this, 'rehydrate' ], 10, 2 );
 		add_action( 'woocommerce_before_calculate_totals', [ $this, 'apply_prices' ], 20 );
 
-		// Cart-page rendering split:
-		//
-		//   - Classic cart (regular page request): emit our own structured
-		//     HTML below the product name via woocommerce_after_cart_item_name.
-		//     This bypasses WC's `dl.variation` rendering completely, which
-		//     themes (esp. block themes) tend to flatten into inline-flow.
-		//   - Block cart (Store API REST request): keep populating
-		//     woocommerce_get_item_data, since the block cart React tree
-		//     consumes that array via REST and renders one <li> per entry —
-		//     which already gives the per-line layout we want.
-		add_action( 'woocommerce_after_cart_item_name', [ $this, 'render_after_cart_item_name' ], 10, 2 );
+		// Cart-page rendering: emit a single woocommerce_get_item_data entry
+		// whose `display` field is the full meta block as <br>-separated lines.
+		// This works in every cart context (classic shortcode, Cart block,
+		// mini-cart, order confirmation) without depending on theme CSS — <br>
+		// line breaks render identically regardless of `display: block` vs
+		// `display: inline` styling on the surrounding dl/dt/dd or li/span.
 		add_filter( 'woocommerce_get_item_data', [ $this, 'render_item_meta' ], 10, 2 );
 
 		add_filter( 'woocommerce_cart_item_quantity', [ $this, 'lock_quantity' ], 10, 3 );
@@ -129,100 +124,63 @@ final class CartHandler {
 	 * @return array<int, array{key:string,value:string}>
 	 */
 	/**
-	 * Block-cart only: emit booking meta into the Store API cart payload so
-	 * the React-rendered Cart block displays it. Classic cart skips this
-	 * entirely — see render_after_cart_item_name() below.
+	 * Render booking meta as a single woocommerce_get_item_data entry whose
+	 * `display` field is the full block as <br>-separated lines.
+	 *
+	 * Why one entry instead of one per field:
+	 *   - WC's classic cart wraps each entry in `<dl class="variation">`.
+	 *     Themes (esp. block themes) often style `dl.variation > *` as
+	 *     inline-flow, mashing all entries onto one line.
+	 *   - The Cart block wraps each entry in `<li class="…__item">`.
+	 *     Themes don't usually break this, but it's still one wrapper per
+	 *     entry — many small dt/dd pairs.
+	 *   - Solution: we use ONE entry. Whatever the surrounding wrapper does,
+	 *     our `display` value uses inline `<br>` line breaks that render
+	 *     identically regardless of `display: block` vs `display: inline`
+	 *     on the wrapper. Theme-immune.
 	 *
 	 * @param array<int, array<string, mixed>> $item_data
 	 * @param array<string, mixed>             $cart_item
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function render_item_meta( array $item_data, array $cart_item ): array {
-		// Bail out for non-REST contexts (classic cart, mini cart). The block
-		// cart fetches via /wc/store/v1/cart which is always a REST request.
-		if ( ! ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
-			return $item_data;
-		}
-
 		$quote = $cart_item[ self::ITEM_KEY ]['quote'] ?? null;
 		if ( ! is_array( $quote ) ) {
 			return $item_data;
 		}
 
-		$item_data[] = [ 'key' => __( 'Check-in', 'ibb-rentals' ),  'value' => (string) $quote['checkin'] ];
-		$item_data[] = [ 'key' => __( 'Check-out', 'ibb-rentals' ), 'value' => (string) $quote['checkout'] ];
-		$item_data[] = [ 'key' => __( 'Nights', 'ibb-rentals' ),    'value' => (string) (int) $quote['nights'] ];
-		$item_data[] = [ 'key' => __( 'Guests', 'ibb-rentals' ),    'value' => (string) (int) $quote['guests'] ];
+		$lines = [];
+		$lines[] = $this->meta_line( __( 'Check-in', 'ibb-rentals' ),  esc_html( (string) $quote['checkin'] ) );
+		$lines[] = $this->meta_line( __( 'Check-out', 'ibb-rentals' ), esc_html( (string) $quote['checkout'] ) );
+		$lines[] = $this->meta_line( __( 'Nights', 'ibb-rentals' ),    (string) (int) $quote['nights'] );
+		$lines[] = $this->meta_line( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
 
 		if ( ( $quote['payment_mode'] ?? 'full' ) === 'deposit' ) {
-			$item_data[] = [ 'key' => __( 'Stay total', 'ibb-rentals' ),            'display' => wc_price( (float) $quote['total'] ) ];
-			$item_data[] = [ 'key' => __( 'Deposit charged today', 'ibb-rentals' ), 'display' => wc_price( (float) $quote['deposit_due'] ) ];
-			$item_data[] = [
-				'key'     => __( 'Balance due', 'ibb-rentals' ),
-				'display' => wc_price( (float) $quote['balance_due'] ) . ' (' . esc_html__( 'on', 'ibb-rentals' ) . ' ' . esc_html( (string) $quote['balance_due_date'] ) . ')',
-			];
+			$lines[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
+			$lines[] = $this->meta_line( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
+			$lines[] = $this->meta_line(
+				__( 'Balance due', 'ibb-rentals' ),
+				wc_price( (float) $quote['balance_due'] ) . ' <small>(' . esc_html__( 'on', 'ibb-rentals' ) . ' ' . esc_html( (string) $quote['balance_due_date'] ) . ')</small>'
+			);
 		}
 
 		if ( ! empty( $quote['security_deposit'] ) && (float) $quote['security_deposit'] > 0 ) {
-			$item_data[] = [
-				'key'     => __( 'Security deposit', 'ibb-rentals' ),
-				'display' => wc_price( (float) $quote['security_deposit'] ) . ' <small>(' . esc_html__( 'refundable, not charged today', 'ibb-rentals' ) . ')</small>',
-			];
+			$lines[] = $this->meta_line(
+				__( 'Security deposit', 'ibb-rentals' ),
+				wc_price( (float) $quote['security_deposit'] ) . ' <small>(' . esc_html__( 'refundable, not charged today', 'ibb-rentals' ) . ')</small>'
+			);
 		}
+
+		$item_data[] = [
+			'key'     => __( 'Booking', 'ibb-rentals' ),
+			'display' => implode( '<br>', $lines ),
+		];
 
 		return $item_data;
 	}
 
-	/**
-	 * Classic cart: render booking meta as our own structured HTML directly
-	 * below the product name. Each row is a plain <div> so themes can't
-	 * collapse them inline (the way they do with WC's <dl class="variation">).
-	 *
-	 * @param array<string, mixed> $cart_item
-	 */
-	public function render_after_cart_item_name( array $cart_item, string $cart_item_key ): void {
-		$quote = $cart_item[ self::ITEM_KEY ]['quote'] ?? null;
-		if ( ! is_array( $quote ) ) {
-			return;
-		}
-
-		echo '<div class="ibb-booking-meta">';
-
-		$this->render_meta_row( __( 'Check-in', 'ibb-rentals' ),  esc_html( (string) $quote['checkin'] ) );
-		$this->render_meta_row( __( 'Check-out', 'ibb-rentals' ), esc_html( (string) $quote['checkout'] ) );
-		$this->render_meta_row( __( 'Nights', 'ibb-rentals' ),    (string) (int) $quote['nights'] );
-		$this->render_meta_row( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
-
-		if ( ( $quote['payment_mode'] ?? 'full' ) === 'deposit' ) {
-			echo '<div class="ibb-booking-meta__panel">';
-			$this->render_meta_row( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
-			$this->render_meta_row( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
-			$this->render_meta_row(
-				__( 'Balance due', 'ibb-rentals' ),
-				wc_price( (float) $quote['balance_due'] ) . ' <small>(' . esc_html__( 'on', 'ibb-rentals' ) . ' ' . esc_html( (string) $quote['balance_due_date'] ) . ')</small>'
-			);
-			echo '</div>';
-		}
-
-		if ( ! empty( $quote['security_deposit'] ) && (float) $quote['security_deposit'] > 0 ) {
-			$this->render_meta_row(
-				__( 'Security deposit', 'ibb-rentals' ),
-				wc_price( (float) $quote['security_deposit'] ) . ' <small>(' . esc_html__( 'refundable, not charged today', 'ibb-rentals' ) . ')</small>',
-				'muted'
-			);
-		}
-
-		echo '</div>';
-	}
-
-	private function render_meta_row( string $label, string $value_html, string $modifier = '' ): void {
-		$row_class = 'ibb-booking-meta__row' . ( $modifier !== '' ? ' ibb-booking-meta__row--' . $modifier : '' );
-		printf(
-			'<div class="%s"><span class="ibb-booking-meta__label">%s:</span> <span class="ibb-booking-meta__value">%s</span></div>',
-			esc_attr( $row_class ),
-			esc_html( $label ),
-			$value_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller-controlled HTML (wc_price, escaped strings)
-		);
+	private function meta_line( string $label, string $value_html ): string {
+		return '<strong>' . esc_html( $label ) . ':</strong> ' . $value_html;
 	}
 
 	public function lock_quantity( string $product_quantity, string $cart_item_key, array $cart_item ): string {

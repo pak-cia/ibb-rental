@@ -22,58 +22,6 @@ final class Assets {
 
 	public function register(): void {
 		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue' ] );
-		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue_cart_styles' ] );
-	}
-
-	/**
-	 * Inject CSS that stacks our cart-line-item meta as block-level label/value
-	 * rows. Most modern themes render WC's `dl.variation` markup as inline-flow
-	 * (mashing all our Check-in / Check-out / Total / Deposit lines together);
-	 * the WooCommerce Cart *block* uses different markup
-	 * (`wc-block-components-product-details`), so we cover both.
-	 *
-	 * Enqueues on every frontend pageload when the cart contains an IBB item.
-	 * The CSS only matches cart-page markup, so emitting it on non-cart pages
-	 * is a no-op — and this avoids depending on `is_cart()`/`is_checkout()`,
-	 * which silently miss when the user has the cart configured as a custom
-	 * page or via the Cart block.
-	 */
-	public function maybe_enqueue_cart_styles(): void {
-		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
-			return;
-		}
-		$has_ibb = false;
-		foreach ( WC()->cart->get_cart() as $item ) {
-			if ( ! empty( $item['ibb'] ) ) {
-				$has_ibb = true;
-				break;
-			}
-		}
-		if ( ! $has_ibb ) {
-			return;
-		}
-		wp_register_style( 'ibb-rentals-cart', false, [], IBB_RENTALS_VERSION );
-		wp_enqueue_style( 'ibb-rentals-cart' );
-		wp_add_inline_style( 'ibb-rentals-cart', $this->cart_css() );
-	}
-
-	private function cart_css(): string {
-		// Light cosmetic styling, scoped to our own `.ibb-booking-meta` classes.
-		// Themes don't touch these (no naming collisions), so no `!important` /
-		// no theme-fragile selectors targeting `.cart_item` or `dl.variation`.
-		// The actual line-stacking is structural — we emit one <div> per row
-		// in CartHandler::render_after_cart_item_name(); CSS is decoration only.
-		return <<<CSS
-.ibb-booking-meta { margin: 8px 0 0; font-size: 0.92em; line-height: 1.5; }
-.ibb-booking-meta__row { padding: 1px 0; }
-.ibb-booking-meta__label { font-weight: 600; color: #475569; }
-.ibb-booking-meta__value { color: #0f172a; }
-.ibb-booking-meta__row--muted .ibb-booking-meta__label,
-.ibb-booking-meta__row--muted .ibb-booking-meta__value { color: #6b7280; }
-.ibb-booking-meta small { color: #6b7280; font-size: 0.95em; }
-.ibb-booking-meta__panel { margin: 6px 0 4px; padding: 6px 10px; background: #f8fafc; border-left: 3px solid #cbd5e1; border-radius: 2px; }
-.ibb-booking-meta__panel .ibb-booking-meta__row { padding: 0; }
-CSS;
 	}
 
 	public function maybe_enqueue(): void {

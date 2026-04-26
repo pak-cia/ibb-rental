@@ -69,19 +69,39 @@ add_action( 'wp_enqueue_scripts', function() {
 
 **Symptom:** in the cart row, all the booking meta (Check-in, Check-out, Nights, Guests, Stay total, Deposit charged today, Balance due, Security deposit) appears as one mashed-together line.
 
-**Root cause:** WC's classic cart renders cart-item meta as `<dl class="variation">` with dt/dd pairs. Modern themes (block themes especially, including Twenty Twenty-Five) style `dl.variation > *` as inline-flow, mashing all the dt/dd pairs onto one line. Earlier attempts at fixing this with theme-fighting CSS (overriding `dl.variation` with `!important`) were fragile — every new theme was a new battle.
+**Root cause:** WC has two completely different cart renderings — the classic shortcode-based cart (`<dl class="variation">` per entry, dt/dd pairs) and the **Cart block** (Twenty Twenty-Five default; `<li class="…__item">` per entry, name/value spans). Modern block themes flatten `dl.variation` inline; the Cart block doesn't fire the classic-cart action hooks; and gating on `REST_REQUEST` to differentiate the two silently breaks the page-render path of the Cart block.
 
-**Fix:** **don't fight WC's variation rendering for the classic cart at all.** Instead:
+**What didn't work (and why):**
 
-1. `CartHandler::render_after_cart_item_name()` (hooked to `woocommerce_after_cart_item_name`) emits our own structured HTML below the product name: a `<div class="ibb-booking-meta">` containing `<div class="ibb-booking-meta__row">` per field. Plain divs are block-level by default; themes don't have CSS that flattens them.
-2. `CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) **only adds entries during REST requests** (`defined('REST_REQUEST') && REST_REQUEST`). The Block Cart fetches via `/wc/store/v1/cart` (always a REST request) and renders one `<li>` per entry — already line-per-row, no dl.variation hellscape involved.
-3. `Assets::cart_css()` is now a small cosmetic stylesheet that ONLY targets `.ibb-booking-meta*` classes — no `!important`, no theme-fragile selectors against `.cart_item` or `dl.variation`. Themes can override our styling cleanly if they want different colours / spacing.
+1. **Theme-fighting CSS with `!important`** targeting `.cart_item dl.variation { display: grid; }` — fragile, every new theme is a new battle, and at best gives a cramped 2-column layout.
+2. **`woocommerce_after_cart_item_name` action handler** to bypass `dl.variation` and emit our own `<div>` markup — works in classic cart, but the action **doesn't fire on the Cart block**, so users on Twenty Twenty-Five (which uses the Cart block) saw nothing.
+3. **`REST_REQUEST` gate on `woocommerce_get_item_data`** to make the Cart block work via its StoreAPI fetch — silently broke any non-REST cart rendering, leaving the meta missing entirely.
 
-**Trade-offs accepted:**
-- The mini-cart widget (`?wc-ajax=get_refreshed_fragments` etc.) won't show booking meta. Mini cart is supposed to be compact (product / qty / price), so this is fine.
-- Order-confirmation page meta comes from order-line-item meta (`_ibb_*` fields persisted via `persist_line_item_meta`), not from `woocommerce_get_item_data`, so order screens are unaffected.
+**What works:**
 
-**If a future theme still inlines our markup:** check that the theme isn't styling `<div>` as `display: inline` (extremely unlikely). Verify our HTML is actually being emitted by viewing source on the cart page — look for `<div class="ibb-booking-meta">`.
+`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry whose `display` field is the full meta block as `<br>`-separated lines:
+
+```php
+$item_data[] = [
+    'key'     => 'Booking',
+    'display' => '<strong>Check-in:</strong> 2026-06-20<br><strong>Check-out:</strong> 2026-07-01<br>...',
+];
+```
+
+This is theme-immune by construction:
+
+- `<br>` line breaks render identically regardless of `display: block` vs `display: inline` on the surrounding wrapper. Whatever the theme does to `dl.variation` or `.wc-block-components-product-details__item`, our internal layout still has one item per line.
+- One single entry means only one `<dl>` (classic) or one `<li>` (block cart) wrapper — no risk of theme CSS collapsing multiple wrappers next to each other.
+- Works in classic cart, Cart block, mini cart, and order-confirmation page from the same code. No CSS, no per-context branching.
+
+**Trade-off accepted:** the surrounding theme renders a single label like `Booking:` before our meta block. Some themes will show it on its own line, others inline. Either way it's tolerable — and it's a *real* label that explains what follows, not arbitrary noise.
+
+**Test checklist for any future cart-meta change:**
+- [ ] Classic cart (`[woocommerce_cart]` shortcode) on the active theme
+- [ ] Cart block (block-theme default) on the active theme
+- [ ] Mini cart widget (if the theme uses one)
+- [ ] Order confirmation page right after checkout
+- [ ] Both deposit-mode and full-payment-mode bookings
 
 ---
 
