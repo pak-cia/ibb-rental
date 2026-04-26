@@ -1,15 +1,19 @@
 # Integrations / Elementor
 
-Self-contained module providing Elementor compatibility — currently a single dynamic tag for the `gallery` category, expandable to widgets, controls, and theme-builder hooks as needed.
+Self-contained Elementor module: dynamic tags for every property field, four custom widgets with full Style tabs, and a Loop Grid query so users can build property archives with native Elementor templating.
 
 ## Files
 
-- `Module.php` — entry point. Loaded unconditionally by `Plugin::boot()`. Hooks directly to `elementor/dynamic_tags/register`, `elementor/widgets/register`, `elementor/elements/categories_registered`, and `elementor/frontend/after_register_scripts` — these only fire when Elementor is active so the module is a no-op when it isn't. Registers our dynamic tags, widgets, the "IBB Rentals" widget category, and the carousel-init script. Hosts the shared `property_options()` and `gallery_slug_options()` helpers used by control schemas. **Do not switch any of these to `elementor/loaded`** — that action fires during plugin-loading, before our `Plugin::boot()` runs, so the handlers would never fire (see TROUBLESHOOTING).
-- `DynamicTags/PropertyGalleryDynamicTag.php` — `Data_Tag` subclass returning `[{id}]` for the `gallery` dynamic-tag category. Two controls: Property (SELECT2 with "Current page" default) and Gallery (SELECT of available slugs).
-- `Widgets/BookingFormWidget.php` — date-picker + quote + add-to-cart for one property. Delegates to `[ibb_booking_form]` shortcode.
-- `Widgets/PropertyDetailsWidget.php` — property metadata in grid/compact/list layout. Per-field switchers for which fields to render. Delegates to `[ibb_property_details]` shortcode.
-- `Widgets/PropertyGalleryWidget.php` — static gallery grid with built-in lightbox. Delegates to `[ibb_gallery]` shortcode.
-- `Widgets/PropertyCarouselWidget.php` — Swiper-driven slide carousel. Self-renders Swiper-compatible HTML; init JS lives in `Module::carousel_init_js()` and is hooked via Elementor's `frontend/element_ready/ibb_property_carousel.default` so each carousel instance gets its own Swiper, including across editor re-renders. Built specifically for the use case Pro's Media Carousel can't cover (Media Carousel uses a Repeater for slides and can't accept array-returning gallery tags).
+- `Module.php` — entry point. Loaded unconditionally by `Plugin::boot()`. Hooks directly to `elementor/dynamic_tags/register`, `elementor/widgets/register`, `elementor/elements/categories_registered`, `elementor/frontend/after_register_scripts`, `elementor/preview/enqueue_scripts`, and `elementor/query/ibb_properties` — these only fire when Elementor is active so the module is a no-op when it isn't. Registers our dynamic tags, widgets, the "IBB Rentals" widget category, the carousel-init script, and the Loop Grid query handler. Hosts the shared `property_options()`, `gallery_slug_options()`, and `resolve_property_for_widget()` helpers used by every leaf class. **Do not switch any of these to `elementor/loaded`** — that action fires during plugin-loading, before our `Plugin::boot()` runs, so the handlers would never fire (see TROUBLESHOOTING).
+- `DynamicTags/AbstractPropertyFieldTag.php` — base class for text-returning property-field tags. Provides the shared Property picker control + resolver. Each leaf text tag is ~10 lines.
+- `DynamicTags/PropertyTitleTag.php`, `PropertyAddressTag.php`, `PropertyMaxGuestsTag.php`, `PropertyBedroomsTag.php`, `PropertyBathroomsTag.php`, `PropertyBedsTag.php`, `PropertyBaseRateTag.php`, `PropertyCheckInTimeTag.php`, `PropertyCheckOutTimeTag.php` — text tags extending `AbstractPropertyFieldTag`. Bindable to any widget control with `dynamic.active = true`.
+- `DynamicTags/PropertyUrlTag.php` — `Data_Tag` returning the property's permalink. Bindable to URL controls (Button link, Image link, etc.).
+- `DynamicTags/PropertyImageTag.php` — `Data_Tag` returning `[id, url]` for the property's primary image (first attachment from the chosen gallery, falling back to the WP featured image). Bindable to Image controls.
+- `DynamicTags/PropertyGalleryDynamicTag.php` — `Data_Tag` returning `[{id}]` for the `gallery` dynamic-tag category. Two controls: Property (SELECT2 with "Current page" default) and Gallery (SELECT of available slugs).
+- `Widgets/BookingFormWidget.php` — date-picker + quote + add-to-cart for one property. Delegates to `[ibb_booking_form]` shortcode. Full Style tab.
+- `Widgets/PropertyDetailsWidget.php` — property metadata in grid/compact/list layout. Per-field switchers for which fields to render. Delegates to `[ibb_property_details]` shortcode. Full Style tab.
+- `Widgets/PropertyGalleryWidget.php` — static gallery grid with built-in lightbox. Delegates to `[ibb_gallery]` shortcode. Full Style tab.
+- `Widgets/PropertyCarouselWidget.php` — Swiper-driven slide carousel. Self-renders Swiper-compatible HTML; init JS lives in `Module::carousel_init_js()` and is hooked via Elementor's `frontend/element_ready/ibb_property_carousel.default` so each carousel instance gets its own Swiper, including across editor re-renders. Built specifically for the use case Pro's Media Carousel can't cover (Media Carousel uses a Repeater for slides and can't accept array-returning gallery tags). Full Style tab.
 
 ## Key patterns
 
@@ -27,8 +31,9 @@ Self-contained module providing Elementor compatibility — currently a single d
 
 ## Adding to this module
 
-- **New dynamic tag**: add a class under `DynamicTags/<Name>DynamicTag.php`, mirror the existing tag's namespace declaration, then `require_once` it from `Module::register_tags()` and call `$manager->register(new $cls())`.
-- **Custom widget** (future): create `Widgets/<Name>Widget.php` extending `\Elementor\Widget_Base`, gate the `require_once` inside a `Module::register_widgets()` callback hooked to `elementor/widgets/register`.
+- **New text-field property tag**: extend `AbstractPropertyFieldTag` — the leaf class only needs `get_name()`, `get_title()`, and `field_value(Property $p)`. Add the class name to `Module::register_tags()`'s `$tags` array. ~10 lines total.
+- **New gallery / URL / image tag**: extend `\Elementor\Core\DynamicTags\Data_Tag` directly, set `get_categories()` to the matching category constant, return the appropriate shape from `get_value()`. Add to `$tags` array.
+- **Custom widget**: create `Widgets/<Name>Widget.php` extending `\Elementor\Widget_Base`, add the class name to `Module::register_widgets()`'s `$widget_files` array. Use `{{WRAPPER}}`-scoped selectors and Global kit slots for color/typography defaults — see RUNBOOK.
 - **Custom controls** (future): same pattern, `Controls/` subdirectory + a `Module::register_controls()` callback.
 
 Each new file keeps the **lazy-require** pattern; never reference Elementor base classes at PSR-4 autoload time.

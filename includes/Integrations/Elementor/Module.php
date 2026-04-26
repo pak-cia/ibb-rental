@@ -43,6 +43,36 @@ final class Module {
 		add_action( 'elementor/elements/categories_registered', [ $this, 'register_widget_category' ] );
 		add_action( 'elementor/frontend/after_register_scripts', [ $this, 'register_widget_scripts' ] );
 		add_action( 'elementor/preview/enqueue_scripts', [ $this, 'enqueue_widget_scripts_for_preview' ] );
+
+		// Loop Grid / Posts widget support — declare a custom query so users
+		// can drop a Loop Grid + Loop Item template and choose
+		// "Source: IBB Rentals — Properties". Hook fires once per widget
+		// instance whose Source control is set to that ID.
+		add_action( 'elementor/query/ibb_properties', [ $this, 'register_loop_query' ] );
+	}
+
+	/**
+	 * Filter Elementor's WP_Query for Loop Grid / Posts widgets that pick
+	 * "IBB Rentals — Properties" as their source. Adjusts the query to
+	 * fetch published `ibb_property` posts.
+	 *
+	 * Editors can layer on Elementor's native taxonomy / order filters from
+	 * the widget's Query panel — the action only runs after Elementor has
+	 * built its base query, so user-set sort/filter still applies.
+	 *
+	 * Surfaced under the canonical query-id `ibb_properties` (no slash —
+	 * Elementor's hook builder mangles slashes in IDs). Editors set this in
+	 * the widget's Advanced > Query ID field, OR they pick our source from
+	 * the Source dropdown if Elementor surfaces it.
+	 */
+	public function register_loop_query( \WP_Query $query ): void {
+		$query->set( 'post_type', PropertyPostType::POST_TYPE );
+		$query->set( 'post_status', 'publish' );
+		// Elementor passes through the user's `posts_per_page` from the
+		// widget's Query control; only override if it wasn't set.
+		if ( ! $query->get( 'posts_per_page' ) ) {
+			$query->set( 'posts_per_page', 12 );
+		}
 	}
 
 	/**
@@ -292,14 +322,42 @@ JS;
 			] );
 		}
 
-		require_once __DIR__ . '/DynamicTags/PropertyGalleryDynamicTag.php';
-		$tag_class = '\\IBB\\Rentals\\Integrations\\Elementor\\DynamicTags\\PropertyGalleryDynamicTag';
+		// Base class first — text-field tags extend it.
+		require_once __DIR__ . '/DynamicTags/AbstractPropertyFieldTag.php';
 
-		if ( method_exists( $manager, 'register' ) ) {
-			$manager->register( new $tag_class() );
-		} elseif ( method_exists( $manager, 'register_tag' ) ) {
-			// Pre-3.5 Elementor API.
-			$manager->register_tag( $tag_class );
+		// Each entry registers one tag. The order here dictates the order
+		// editors see in the dynamic-tag picker under "IBB Rentals".
+		$tags = [
+			'PropertyTitleTag',
+			'PropertyAddressTag',
+			'PropertyMaxGuestsTag',
+			'PropertyBedroomsTag',
+			'PropertyBathroomsTag',
+			'PropertyBedsTag',
+			'PropertyBaseRateTag',
+			'PropertyCheckInTimeTag',
+			'PropertyCheckOutTimeTag',
+			'PropertyUrlTag',
+			'PropertyImageTag',
+			'PropertyGalleryDynamicTag',
+		];
+
+		foreach ( $tags as $name ) {
+			$file = __DIR__ . '/DynamicTags/' . $name . '.php';
+			if ( ! is_file( $file ) ) {
+				continue;
+			}
+			require_once $file;
+			$cls = '\\IBB\\Rentals\\Integrations\\Elementor\\DynamicTags\\' . $name;
+			if ( ! class_exists( $cls ) ) {
+				continue;
+			}
+			if ( method_exists( $manager, 'register' ) ) {
+				$manager->register( new $cls() );
+			} elseif ( method_exists( $manager, 'register_tag' ) ) {
+				// Pre-3.5 Elementor API.
+				$manager->register_tag( $cls );
+			}
 		}
 	}
 

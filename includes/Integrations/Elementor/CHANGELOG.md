@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- **Eleven new dynamic tags** so property data is first-class in Elementor's templating system. Editors can build single-property templates and Loop Grid cards with native Heading / Text / Button / Image widgets — no need for our custom widgets when more layout flexibility is wanted.
+  - **Text** (category: `text`): Property Title, Property Address, Max Guests, Bedrooms, Bathrooms, Beds, Base Rate (per night, `wc_price()`-formatted), Check-in Time, Check-out Time.
+  - **URL** (category: `url`): Property URL (permalink) — bindable to Button links, Image links, etc.
+  - **Image** (category: `image`): Property Image — first attachment from the chosen gallery (or any gallery), falling back to the WP featured image. Bindable to Image widget, Background images, Loop Item image placeholders.
+  - All text tags share `AbstractPropertyFieldTag` — common Property picker control + resolver. Adding another text field is ~10 lines (see `PropertyTitleTag.php`).
+  - All tags have a Property control with "Current page" default + first-property fallback (same `Module::resolve_property_for_widget()` as the widgets), so they work in editor preview on non-property pages.
+- **Loop Grid query support** via `elementor/query/ibb_properties`. Editors set Advanced → Query ID to `ibb_properties` on a Loop Grid / Posts widget; our handler sets `post_type = ibb_property` and `post_status = publish`. Order / orderby / per-page / taxonomy filters from the widget's own Query panel still apply on top.
+- **Tag registration loop** in `Module::register_tags()` — replaces the per-tag boilerplate. Adding a tag now = drop a file under `DynamicTags/` + add its class name to the `$tags` array.
+
+### Added
 - **Style tabs on every Elementor widget** (`BookingFormWidget`, `PropertyDetailsWidget`, `PropertyGalleryWidget`, `PropertyCarouselWidget`). All color + typography controls are wired to Elementor's **Global Colors** / **Global Typography** kit slots so the widgets adopt the active theme/kit's design tokens by default and can be overridden inline. Mapping:
   - Headings + value text → `Global_Colors::COLOR_PRIMARY` + `Global_Typography::TYPOGRAPHY_PRIMARY`.
   - Body / labels → `Global_Colors::COLOR_TEXT` + `Global_Typography::TYPOGRAPHY_TEXT`.

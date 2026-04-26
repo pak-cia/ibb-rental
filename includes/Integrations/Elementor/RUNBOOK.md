@@ -39,11 +39,39 @@ The tag declares the `gallery` dynamic-tag category and returns an array of `{id
 
 ## Add a new dynamic tag
 
-1. Create `DynamicTags/<Name>DynamicTag.php` extending the appropriate Elementor base class (`Data_Tag` for value-returning, `Tag` for text-returning).
+1. Create `DynamicTags/<Name>Tag.php` extending the appropriate Elementor base class (`Data_Tag` for value-returning — galleries, URLs, images; `Tag` for text-returning).
 2. Set namespace `IBB\Rentals\Integrations\Elementor\DynamicTags`.
-3. Inside the file, gate on `class_exists('\Elementor\Core\DynamicTags\Data_Tag')` at the top; `return` early if Elementor isn't loaded.
-4. In `Module::register_tags()`, add a matching `require_once __DIR__ . '/DynamicTags/<Name>DynamicTag.php';` followed by `$manager->register( new \IBB\Rentals\Integrations\Elementor\DynamicTags\<Name>DynamicTag() );`.
+3. Inside the file, gate on `class_exists('\Elementor\Core\DynamicTags\Tag')` (or `Data_Tag`) at the top; `return` early if Elementor isn't loaded.
+4. In `Module::register_tags()`, add the class name to the `$tags` array. The base loader requires the file, instantiates the class, and registers it — no per-tag boilerplate needed.
 5. The tag's `get_group()` should return `'ibb-rentals'` so it appears in our group; `get_categories()` controls which widget controls expose it.
+
+**For text-field property tags specifically, extend `AbstractPropertyFieldTag` instead** — it provides the shared Property picker control and resolver, so the leaf class only needs `get_name()`, `get_title()`, and `field_value(Property $p)`. See `PropertyTitleTag.php` for the canonical ~10-line example.
+
+## Use IBB property fields in native Elementor widgets
+
+Every property field is exposed as a dynamic tag, so Heading / Text Editor / Button / Image widgets can bind to property data without using our custom widgets. This is how Theme Builder integrators build single-property templates with full layout control.
+
+| Tag | Category | Where it can be bound |
+|---|---|---|
+| Property Title | text | Heading text, Text Editor, any string control |
+| Property Address | text | Heading, Text Editor |
+| Max Guests / Bedrooms / Bathrooms / Beds | text | Heading, Text Editor (often paired with an Icon Box) |
+| Base Rate (per night) | text | Heading, Text Editor — formatted via `wc_price()` |
+| Check-in Time / Check-out Time | text | Heading, Text Editor |
+| Property URL | url | Button link, Image link, any URL control |
+| Property Image | image | Image widget, Background image, Loop Item image placeholder |
+| Property Gallery | gallery | Any GALLERY control with `dynamic.active = true` (see widget compatibility above) |
+
+All tags have a Property control with "Current page" default — on a single-property template that auto-resolves to the post being viewed; on a generic Elementor page it falls back to the first published property (editor-preview convenience).
+
+## Build a property archive with Loop Grid
+
+The plugin registers a custom Elementor query under the ID `ibb_properties`. To use it:
+
+1. Drop a **Loop Grid** widget (Elementor Pro).
+2. Click "Create Template" and design a single property card with native Elementor widgets — bind a Heading to the **Property Title** tag, an Image widget to **Property Image**, a Button's link to **Property URL**, etc.
+3. Back on the Loop Grid: set **Advanced → Query ID** to `ibb_properties`. Elementor will then call our `Module::register_loop_query()` filter on the widget's WP_Query, swapping `post_type` to `ibb_property` and `post_status` to `publish`.
+4. The widget's own Query controls (Order, Order By, Posts per page, Taxonomy filters using `ibb_amenity` / `ibb_location` / `ibb_property_type`) layer on top — our handler only sets defaults when the user hasn't.
 
 ## Add a custom Elementor widget (when needed)
 
