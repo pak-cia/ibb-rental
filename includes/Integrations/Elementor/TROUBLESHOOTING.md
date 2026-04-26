@@ -32,9 +32,17 @@ This was the bug that stopped the Property Gallery dynamic tag from appearing af
 
 **Likely causes:**
 
-1. The `Current page` option is set but you're viewing it on a non-property page (e.g. a generic Elementor template). Pick a specific property in the dropdown.
-2. The selected property has no galleries configured. Open the property → Photos tab → add a gallery + images.
-3. The gallery slug doesn't exist. Slugs are sanitised on save (lowercase, hyphenated). If you typed `Bedroom 1` into the slug control, it won't match — use `bedroom-1`.
+1. The selected property has no galleries configured. Open the property → Photos tab → add a gallery + images.
+2. The selected gallery slug doesn't exist on this property (different properties can have different slugs). Pick "All photos" or one of the slugs that actually exists on the property the tag will render against.
+3. **Editor cache.** After picking the dynamic tag and configuring it, hard-refresh the editor tab. Elementor caches dynamic-tag values aggressively; sometimes a fresh render is needed.
+
+The `Current page` selection has a built-in fallback: if the page being rendered is NOT a property post, `resolve_property()` falls back to the first available property. This avoids the silent "no images" trap when previewing the tag on a generic Elementor page during editing. On a real single-property template the current property always wins.
+
+## Gallery dropdown shows slugs from properties I don't expect
+
+**Cause:** `Module::gallery_slug_options()` collects the union of every distinct gallery slug across every property. If two properties both define a `pool` gallery, the dropdown shows one entry; if only Property A has `bedroom-3`, the dropdown still shows `bedroom-3` (and rendering on Property B with that slug will return no images, which is fine — at-render-time the tag looks up the slug on the actual rendering property, doesn't find it, returns empty).
+
+This is intentional: slugs are global to the plugin (a property's "bedroom-1" means the same conceptual room as another property's "bedroom-1"), so editors don't need to per-property-pick the slug. Per-property-conditional slug dropdowns are a v1.1+ feature.
 
 ## Adding a property doesn't show up in the SELECT2 immediately
 

@@ -30,6 +30,7 @@ declare( strict_types=1 );
 
 namespace IBB\Rentals\Integrations\Elementor;
 
+use IBB\Rentals\Domain\Property;
 use IBB\Rentals\PostTypes\PropertyPostType;
 
 defined( 'ABSPATH' ) || exit;
@@ -86,6 +87,58 @@ final class Module {
 		] );
 		foreach ( $posts as $p ) {
 			$cached[ (string) $p->ID ] = $p->post_title !== '' ? $p->post_title : ( '#' . $p->ID );
+		}
+		return $cached;
+	}
+
+	/**
+	 * Returns the union of every distinct gallery slug across every property,
+	 * suitable for an Elementor SELECT control. Pinned to the top is an
+	 * empty-string "All photos" option that means "combine every gallery".
+	 *
+	 * Slugs are global to the plugin (a property's "bedroom-1" slug means
+	 * the same thing as another property's "bedroom-1"), so a tag picking
+	 * "bedroom-1" applies cleanly to whichever property is the rendering
+	 * context. If a chosen property doesn't have the picked slug, the tag
+	 * silently returns no images for that page — which is the right default,
+	 * editors can change it.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function gallery_slug_options(): array {
+		static $cached = null;
+		if ( $cached !== null ) {
+			return $cached;
+		}
+		$cached = [
+			'' => __( 'All photos (every gallery combined)', 'ibb-rentals' ),
+		];
+
+		$post_ids = get_posts( [
+			'post_type'        => PropertyPostType::POST_TYPE,
+			'post_status'      => [ 'publish', 'private', 'draft' ],
+			'numberposts'      => 200,
+			'fields'           => 'ids',
+			'suppress_filters' => true,
+		] );
+
+		$seen = [];
+		foreach ( $post_ids as $pid ) {
+			$property = Property::from_id( (int) $pid );
+			if ( ! $property ) {
+				continue;
+			}
+			foreach ( $property->galleries() as $gallery ) {
+				$slug = (string) $gallery['slug'];
+				if ( $slug === '' || isset( $seen[ $slug ] ) ) {
+					continue;
+				}
+				$seen[ $slug ] = (string) $gallery['label'];
+			}
+		}
+		asort( $seen );
+		foreach ( $seen as $slug => $label ) {
+			$cached[ $slug ] = $label . '  (' . $slug . ')';
 		}
 		return $cached;
 	}
