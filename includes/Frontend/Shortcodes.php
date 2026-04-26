@@ -17,11 +17,12 @@ defined( 'ABSPATH' ) || exit;
 final class Shortcodes {
 
 	public function register(): void {
-		add_shortcode( 'ibb_booking_form', [ $this, 'render_booking_form' ] );
-		add_shortcode( 'ibb_property',     [ $this, 'render_property' ] );
-		add_shortcode( 'ibb_search',       [ $this, 'render_search' ] );
-		add_shortcode( 'ibb_calendar',     [ $this, 'render_calendar' ] );
-		add_shortcode( 'ibb_gallery',      [ $this, 'render_gallery' ] );
+		add_shortcode( 'ibb_booking_form',     [ $this, 'render_booking_form' ] );
+		add_shortcode( 'ibb_property',         [ $this, 'render_property' ] );
+		add_shortcode( 'ibb_search',           [ $this, 'render_search' ] );
+		add_shortcode( 'ibb_calendar',         [ $this, 'render_calendar' ] );
+		add_shortcode( 'ibb_gallery',          [ $this, 'render_gallery' ] );
+		add_shortcode( 'ibb_property_details', [ $this, 'render_property_details' ] );
 	}
 
 	/** @param array<string, string>|string $atts */
@@ -216,5 +217,111 @@ final class Shortcodes {
 		$out .= '</div>';
 
 		return $out;
+	}
+
+	/**
+	 * Render a property's metadata (guests, bedrooms, location, etc.) as a
+	 * standalone block. Page-builder-friendly: drop this shortcode (or its
+	 * matching block) anywhere a property page wants to surface specs without
+	 * the full [ibb_property] composite.
+	 *
+	 * @param array<string, string>|string $atts
+	 */
+	public function render_property_details( $atts ): string {
+		$atts = shortcode_atts( [
+			'id'     => 0,
+			'fields' => '',     // CSV: guests,bedrooms,bathrooms,beds,check_in_time,check_out_time,address,amenities,location,property_type
+			'layout' => 'grid', // grid | compact | list
+			'class'  => '',
+		], (array) $atts );
+
+		$id = (int) ( $atts['id'] ?: ( get_the_ID() ?: 0 ) );
+		$property = \IBB\Rentals\Domain\Property::from_id( $id );
+		if ( ! $property ) {
+			return '';
+		}
+
+		$layout = in_array( $atts['layout'], [ 'grid', 'compact', 'list' ], true ) ? $atts['layout'] : 'grid';
+
+		// Build the available-fields catalog.
+		$available = [
+			'guests'         => [ 'label' => __( 'Guests', 'ibb-rentals' ),    'value' => $property->max_guests() ?: null ],
+			'bedrooms'       => [ 'label' => __( 'Bedrooms', 'ibb-rentals' ),  'value' => $property->bedrooms() ?: null ],
+			'bathrooms'      => [ 'label' => __( 'Bathrooms', 'ibb-rentals' ), 'value' => $property->bathrooms() ?: null ],
+			'beds'           => [ 'label' => __( 'Beds', 'ibb-rentals' ),      'value' => $property->beds() ?: null ],
+			'check_in_time'  => [ 'label' => __( 'Check-in', 'ibb-rentals' ),  'value' => $property->check_in_time() ?: null ],
+			'check_out_time' => [ 'label' => __( 'Check-out', 'ibb-rentals' ), 'value' => $property->check_out_time() ?: null ],
+			'address'        => [ 'label' => __( 'Address', 'ibb-rentals' ),   'value' => trim( (string) $property->meta( '_ibb_address', '' ) ) ?: null ],
+		];
+
+		// Taxonomy values — added only if the property has terms in them.
+		$tax_map = [
+			'amenities'     => \IBB\Rentals\PostTypes\PropertyPostType::TAX_AMENITY,
+			'location'      => \IBB\Rentals\PostTypes\PropertyPostType::TAX_LOCATION,
+			'property_type' => \IBB\Rentals\PostTypes\PropertyPostType::TAX_PROPERTY_TYPE,
+		];
+		$tax_label = [
+			'amenities'     => __( 'Amenities', 'ibb-rentals' ),
+			'location'      => __( 'Location', 'ibb-rentals' ),
+			'property_type' => __( 'Property type', 'ibb-rentals' ),
+		];
+		foreach ( $tax_map as $key => $tax ) {
+			$terms = wp_get_post_terms( $id, $tax );
+			if ( ! is_wp_error( $terms ) && $terms ) {
+				$available[ $key ] = [
+					'label' => $tax_label[ $key ],
+					'value' => implode( ', ', wp_list_pluck( $terms, 'name' ) ),
+				];
+			}
+		}
+
+		// Resolve which fields to render.
+		$requested = $atts['fields'] !== ''
+			? array_filter( array_map( 'trim', explode( ',', (string) $atts['fields'] ) ) )
+			: [ 'guests', 'bedrooms', 'bathrooms', 'beds' ];
+
+		$rows = [];
+		foreach ( $requested as $key ) {
+			if ( isset( $available[ $key ] ) && $available[ $key ]['value'] !== null && $available[ $key ]['value'] !== '' ) {
+				$rows[] = $available[ $key ];
+			}
+		}
+		if ( ! $rows ) {
+			return '';
+		}
+
+		$class = trim( 'ibb-details ibb-details--' . $layout . ' ' . sanitize_html_class( (string) $atts['class'] ) );
+
+		switch ( $layout ) {
+			case 'compact':
+				$out = '<p class="' . esc_attr( $class ) . '">';
+				$parts = [];
+				foreach ( $rows as $r ) {
+					$parts[] = '<span><strong>' . esc_html( (string) $r['value'] ) . '</strong> ' . esc_html( strtolower( $r['label'] ) ) . '</span>';
+				}
+				$out .= implode( ' &middot; ', $parts );
+				$out .= '</p>';
+				return $out;
+
+			case 'list':
+				$out = '<dl class="' . esc_attr( $class ) . '">';
+				foreach ( $rows as $r ) {
+					$out .= '<dt>' . esc_html( $r['label'] ) . '</dt><dd>' . esc_html( (string) $r['value'] ) . '</dd>';
+				}
+				$out .= '</dl>';
+				return $out;
+
+			case 'grid':
+			default:
+				$out = '<div class="' . esc_attr( $class ) . '">';
+				foreach ( $rows as $r ) {
+					$out .= '<div class="ibb-details__item">';
+					$out .= '<span class="ibb-details__value">' . esc_html( (string) $r['value'] ) . '</span>';
+					$out .= '<span class="ibb-details__label">' . esc_html( $r['label'] ) . '</span>';
+					$out .= '</div>';
+				}
+				$out .= '</div>';
+				return $out;
+		}
 	}
 }

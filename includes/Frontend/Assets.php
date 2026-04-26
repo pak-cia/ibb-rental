@@ -89,7 +89,7 @@ final class Assets {
 		}
 		global $post;
 		if ( $post instanceof \WP_Post && $post->post_content ) {
-			foreach ( [ 'ibb_property', 'ibb_search', 'ibb_calendar', 'ibb_booking_form', 'ibb_gallery' ] as $sc ) {
+			foreach ( [ 'ibb_property', 'ibb_search', 'ibb_calendar', 'ibb_booking_form', 'ibb_gallery', 'ibb_property_details' ] as $sc ) {
 				if ( has_shortcode( $post->post_content, $sc ) ) {
 					return true;
 				}
@@ -130,6 +130,16 @@ final class Assets {
 .ibb-booking__submit[disabled] { opacity:.5; cursor:not-allowed; }
 .ibb-booking__error { color:#b91c1c; font-size:.9em; margin:8px 0; }
 .ibb-booking__loading { color:#64748b; font-size:.9em; padding:8px 0; }
+
+.ibb-details--grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:12px; padding:14px 0; }
+.ibb-details--grid .ibb-details__item { display:flex; flex-direction:column; align-items:flex-start; padding:10px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; }
+.ibb-details--grid .ibb-details__value { font-size:1.4em; font-weight:700; line-height:1.1; color:#0f172a; }
+.ibb-details--grid .ibb-details__label { font-size:.82em; color:#64748b; margin-top:2px; }
+.ibb-details--compact { font-size:.95em; color:#475569; }
+.ibb-details--compact strong { color:#0f172a; font-weight:700; }
+.ibb-details--list { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0; padding:0; }
+.ibb-details--list dt { font-weight:600; color:#475569; }
+.ibb-details--list dd { margin:0; color:#0f172a; }
 
 .ibb-gallery-display { display:grid; gap:8px; }
 .ibb-gallery-display--cols-1 { grid-template-columns:1fr; }

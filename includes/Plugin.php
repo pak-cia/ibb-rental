@@ -18,6 +18,7 @@ use IBB\Rentals\Cron\Jobs\CleanupHoldsJob;
 use IBB\Rentals\Cron\Jobs\ImportFeedJob;
 use IBB\Rentals\Cron\Jobs\SendPaymentLinkJob;
 use IBB\Rentals\Frontend\Assets;
+use IBB\Rentals\Frontend\Blocks;
 use IBB\Rentals\Frontend\Shortcodes;
 use IBB\Rentals\Frontend\TemplateLoader;
 use IBB\Rentals\Integrations\Elementor as ElementorIntegration;
@@ -92,6 +93,7 @@ final class Plugin {
 
 		( new Shortcodes() )->register();
 		( new TemplateLoader() )->register();
+		( new Blocks() )->register();
 		( new ElementorIntegration() )->register();
 
 		if ( is_admin() ) {
