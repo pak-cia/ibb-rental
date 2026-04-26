@@ -10,7 +10,10 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ### Added
 
-- **Memory Palace docs** — `CLAUDE.md`, root `RUNBOOK.md` / `TROUBLESHOOTING.md`, and a four-doc set per component under `includes/`. Auto-commit hook in `.claude/settings.json`.
+- **Three Gutenberg blocks for page-builder use** — `ibb/booking-form`, `ibb/gallery`, `ibb/property-details`. Server-rendered, share render path with the matching shortcodes, custom *IBB Rentals* block category, edit-time preview via `ServerSideRender`. Inspector controls cover property selection, reactive gallery-slug pickers, columns / image size / lightbox toggle, per-field checkboxes for property details, layout switcher (grid / compact / list).
+- **`[ibb_property_details]` shortcode** — standalone property metadata renderer; was previously only available as part of `[ibb_property]`.
+- **Distribution build** — `build.sh` produces a clean dist zip via `git archive` (default) or `rsync --exclude-from=.distignore` (`--working` flag). `.distignore` and `.gitattributes` mirror each other to exclude all Memory Palace dev docs, `.claude/`, `docs/`, tests, and dev tooling.
+- **Memory Palace docs** — `CLAUDE.md`, root `RUNBOOK.md` / `TROUBLESHOOTING.md`, four-doc set per component under `includes/`, architecture ADR at `docs/architecture.md`. Auto-commit hook in `.claude/settings.json`.
 
 ### Fixed
 
