@@ -226,6 +226,7 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		$settings = $this->get_settings_for_display();
 		$property = ElementorModule::resolve_property_for_widget( (string) ( $settings['property_id'] ?? 'current' ) );
 		if ( ! $property ) {
+			$this->editor_placeholder( __( 'No property could be resolved. Pick one in the Source panel, or publish a property post.', 'ibb-rentals' ) );
 			return;
 		}
 
@@ -238,6 +239,12 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		}
 
 		if ( empty( $ids ) ) {
+			$this->editor_placeholder( sprintf(
+				/* translators: 1: property title, 2: gallery slug or "All photos" */
+				__( 'Property "%1$s" has no images in %2$s. Open the property → Photos tab to add some.', 'ibb-rentals' ),
+				$property->title(),
+				$slug !== '' ? $slug : __( 'any gallery', 'ibb-rentals' )
+			) );
 			return;
 		}
 
@@ -267,6 +274,23 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		} else {
 			$this->render_carousel( $ids, $main_size, $config );
 		}
+	}
+
+	/**
+	 * Emit a visible placeholder when the widget has nothing to render —
+	 * but only inside Elementor's editor / preview, so the front-end
+	 * stays silent when there's nothing to show.
+	 */
+	private function editor_placeholder( string $message ): void {
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return;
+		}
+		$is_editor  = \Elementor\Plugin::$instance->editor && \Elementor\Plugin::$instance->editor->is_edit_mode();
+		$is_preview = \Elementor\Plugin::$instance->preview && \Elementor\Plugin::$instance->preview->is_preview_mode();
+		if ( ! $is_editor && ! $is_preview ) {
+			return;
+		}
+		echo '<div class="ibb-property-carousel-placeholder">' . esc_html( $message ) . '</div>';
 	}
 
 	/**

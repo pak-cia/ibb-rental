@@ -32,7 +32,16 @@ This was the bug that stopped the Property Gallery dynamic tag from appearing af
 
 **Symptom:** drop a widget (Property Carousel, Property Gallery, Booking Form, Property Details) on a generic Elementor page (e.g. "Elementor #36" — not an `ibb_property` post). The widget shows in the structure panel but renders as an empty grey area in the preview.
 
-**Root cause:** the widget defaults Property to "Current page" → `get_the_ID()` returns the page's own ID → that's not an `ibb_property` post → `Property::from_id()` returns null → `render()` exits with no markup.
+**First, check the editor for a yellow warning box.** All widgets emit an `ibb-property-carousel-placeholder`-style box (yellow with a dashed border) in editor / preview mode when `render()` would otherwise exit empty. The text tells you which path was hit:
+
+| Placeholder text | Meaning |
+|---|---|
+| "No property could be resolved…" | `Module::resolve_property_for_widget()` returned null. Property dropdown is set to a value that doesn't exist, or the resolver's first-property fallback also fails (no published properties). |
+| "Property X has no images in Y…" | Property resolved fine; the chosen gallery slug is empty (or the property has zero attachments across galleries). Open the property → Photos tab. |
+
+If neither placeholder is showing AND the area is still grey, the widget is rendering markup but Swiper isn't initialising. See "Carousel renders empty grey rectangle in Elementor 4.x editor" below.
+
+**Root cause for the resolver case:** the widget defaults Property to "Current page" → `get_the_ID()` returns the page's own ID → that's not an `ibb_property` post → `Property::from_id()` returns null → `render()` exits with no markup.
 
 **Fix:** `Module::resolve_property_for_widget()` is the single resolver used by all four widgets and the dynamic tag. Order:
 
@@ -43,6 +52,40 @@ This was the bug that stopped the Property Gallery dynamic tag from appearing af
 The fallback is an editor-preview convenience so widgets show *something* while configuring them on a non-property page. On a real single-property template the current property always wins, so production rendering is unaffected.
 
 **If you specifically want a non-property page to render the widget empty when no property is in scope,** pick the property explicitly in the control (don't rely on "Current page").
+
+## Carousel renders empty grey rectangle in Elementor 4.x editor
+
+**Symptom:** Property Carousel widget shows neither images nor a yellow placeholder — just an empty grey container — in the Elementor editor preview iframe. Saved + viewed on the front-end, it renders fine.
+
+**Root cause:** Elementor 4.x with atomic widgets enqueues widget dependencies differently than 3.x. The `swiper` script handle that 3.x auto-enqueued from `get_script_depends()` is no longer guaranteed to run inside the editor preview iframe — the carousel HTML is on the page but Swiper never instantiates, so the `.swiper-slide` elements stay in their natural-flow grey state.
+
+**Fix in place:**
+
+1. **Defensive Swiper registration** in `Module::register_widget_scripts()` — if no other plugin has registered the `swiper` handle, we register our own copy from jsDelivr as a fallback. Doesn't override Elementor's own copy when it exists.
+2. **Force-enqueue inside preview** in `Module::enqueue_widget_scripts_for_preview()` (hooked to `elementor/preview/enqueue_scripts`) — enqueues `swiper` + `ibb-rentals-elementor-carousel` unconditionally inside the preview iframe.
+3. **CSS fallback layout** — `.ibb-property-carousel .swiper:not(.swiper-initialized) .swiper-wrapper { display:flex; flex-wrap:wrap; gap:8px; }` so even if Swiper fails, the slides flow visibly instead of stacking invisibly.
+
+**Diagnostic if the issue returns:** open the editor preview iframe's devtools console and run `typeof window.Swiper` — should be `'function'`. If it's `'undefined'`, the Swiper script didn't load; check the Network tab for a 404 on `swiper-bundle.min.js`.
+
+## Editor placeholder pattern (for new widgets)
+
+When adding a new widget under `Widgets/`, emit a visible diagnostic placeholder in editor / preview mode whenever `render()` would exit silently. The pattern (copy from `PropertyCarouselWidget::editor_placeholder()`):
+
+```php
+private function editor_placeholder( string $message ): void {
+    if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+        return;
+    }
+    $is_editor  = \Elementor\Plugin::$instance->editor && \Elementor\Plugin::$instance->editor->is_edit_mode();
+    $is_preview = \Elementor\Plugin::$instance->preview && \Elementor\Plugin::$instance->preview->is_preview_mode();
+    if ( ! $is_editor && ! $is_preview ) {
+        return;
+    }
+    echo '<div class="ibb-property-carousel-placeholder">' . esc_html( $message ) . '</div>';
+}
+```
+
+Front-end stays silent (returns nothing) when there's nothing to render; editor authors get a clear "why doesn't this work" hint. The shared `.ibb-property-carousel-placeholder` CSS class (in `Frontend/Assets.php`) styles it as a yellow warning box.
 
 ## Tag returns empty array (no images render)
 

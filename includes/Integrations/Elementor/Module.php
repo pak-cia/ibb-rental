@@ -56,6 +56,30 @@ final class Module {
 	 * control changes or multiple carousels live on the same page.
 	 */
 	public function register_widget_scripts(): void {
+		// Defensive Swiper fallback. Elementor 3.x ships Swiper as the
+		// 'swiper' handle and auto-enqueues it when widgets declare it as
+		// a dependency. Elementor 4.x with atomic widgets has different
+		// enqueue behaviour, and some installs/forks may not register
+		// 'swiper' at all. Register our own copy as a fallback, but only
+		// if no other plugin has claimed the handle first.
+		if ( ! wp_script_is( 'swiper', 'registered' ) ) {
+			wp_register_script(
+				'swiper',
+				'https://cdn.jsdelivr.net/npm/swiper@8.4.5/swiper-bundle.min.js',
+				[],
+				'8.4.5',
+				true
+			);
+		}
+		if ( ! wp_style_is( 'swiper', 'registered' ) ) {
+			wp_register_style(
+				'swiper',
+				'https://cdn.jsdelivr.net/npm/swiper@8.4.5/swiper-bundle.min.css',
+				[],
+				'8.4.5'
+			);
+		}
+
 		wp_register_script(
 			'ibb-rentals-elementor-carousel',
 			'',
@@ -67,9 +91,11 @@ final class Module {
 	}
 
 	public function enqueue_widget_scripts_for_preview(): void {
-		// In Elementor's editor preview, our widget's get_script_depends()
-		// is honoured, but we also enqueue the init script directly so live
-		// previews in the editor work without first publishing.
+		// In Elementor's editor preview, widget dependencies aren't always
+		// auto-enqueued (esp. Elementor 4.x). Enqueue Swiper + init script
+		// unconditionally so the preview iframe actually has them.
+		wp_enqueue_style( 'swiper' );
+		wp_enqueue_script( 'swiper' );
 		wp_enqueue_script( 'ibb-rentals-elementor-carousel' );
 	}
 
