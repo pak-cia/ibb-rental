@@ -70,8 +70,20 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 
 		$this->add_control( 'fields_intro', [
 			'type'    => \Elementor\Controls_Manager::RAW_HTML,
-			'raw'     => __( 'Toggle which property fields to show, and pick an icon for each. Empty fields are skipped automatically (e.g. address won\'t render if the property has no address).', 'ibb-rentals' ),
+			'raw'     => __( 'Pick a preset for a quick start, or switch to "Custom" to toggle each field individually. Empty fields are skipped automatically (e.g. address won\'t render if the property has no address).', 'ibb-rentals' ),
 			'content_classes' => 'elementor-descriptor',
+		] );
+
+		$this->add_control( 'field_preset', [
+			'label'   => __( 'Field preset', 'ibb-rentals' ),
+			'type'    => \Elementor\Controls_Manager::SELECT,
+			'default' => 'basics',
+			'options' => [
+				'basics'    => __( 'Stay basics (guests, bedrooms, bathrooms, beds)', 'ibb-rentals' ),
+				'stay_info' => __( 'Stay info (basics + check-in / check-out times)', 'ibb-rentals' ),
+				'full'      => __( 'All available fields', 'ibb-rentals' ),
+				'custom'    => __( 'Custom — toggle each field below', 'ibb-rentals' ),
+			],
 		] );
 
 		// Sensible default icons per field. Editors override via the Icons
@@ -92,6 +104,10 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 
 		// One switcher + one icon control per field — mirrors the block's
 		// checkbox list, with the icon control nested under the toggle.
+		// Field switchers are hidden unless the preset is "custom" (the
+		// preset drives field selection in those cases). Icons remain
+		// editable even on presets — they only disappear when the field
+		// itself isn't in the active set.
 		$default_on = [ 'guests', 'bedrooms', 'bathrooms', 'beds' ];
 		foreach ( $this->field_options() as $key => $label ) {
 			$this->add_control( 'show_' . $key, [
@@ -101,6 +117,7 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 				'label_on'     => __( 'Show', 'ibb-rentals' ),
 				'label_off'    => __( 'Hide', 'ibb-rentals' ),
 				'return_value' => 'yes',
+				'condition'    => [ 'field_preset' => 'custom' ],
 			] );
 			$this->add_control( 'icon_' . $key, [
 				'label'            => sprintf( /* translators: %s: field label */ __( '%s icon', 'ibb-rentals' ), $label ),
@@ -109,7 +126,9 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 					'value'   => $default_icons[ $key ] ?? '',
 					'library' => 'eicons',
 				],
-				'condition'        => [ 'show_' . $key => 'yes' ],
+				// Don't gate on the field switcher — when a preset is in
+				// effect the switcher value is irrelevant. The icon shows
+				// regardless; the render path filters by active fields.
 				'skin'             => 'inline',
 				'label_block'      => false,
 				'exclude_inline_options' => [ 'svg' ],
@@ -332,10 +351,20 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		$preset = (string) ( $settings['field_preset'] ?? 'basics' );
+		$preset_fields = [
+			'basics'    => [ 'guests', 'bedrooms', 'bathrooms', 'beds' ],
+			'stay_info' => [ 'guests', 'bedrooms', 'bathrooms', 'beds', 'check_in_time', 'check_out_time' ],
+			'full'      => array_keys( $this->field_options() ),
+		];
+
 		$fields = [];
 		$icons  = [];
 		foreach ( array_keys( $this->field_options() ) as $key ) {
-			if ( ( $settings[ 'show_' . $key ] ?? '' ) !== 'yes' ) {
+			$active = $preset === 'custom'
+				? ( ( $settings[ 'show_' . $key ] ?? '' ) === 'yes' )
+				: in_array( $key, $preset_fields[ $preset ] ?? $preset_fields['basics'], true );
+			if ( ! $active ) {
 				continue;
 			}
 			$fields[] = $key;

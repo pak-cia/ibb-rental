@@ -64,6 +64,19 @@ Every property field is exposed as a dynamic tag, so Heading / Text Editor / But
 
 All tags have a Property control with "Current page" default — on a single-property template that auto-resolves to the post being viewed; on a generic Elementor page it falls back to the first published property (editor-preview convenience).
 
+## Use Theme Builder for the single-property template
+
+`ibb_property` is registered as a public CPT with `has_archive: true` and `show_in_rest: true`. Elementor Pro's Theme Builder auto-detects public CPTs, so:
+
+1. Templates → Theme Builder → Single → Add New.
+2. In the dialog, Type = **Single**, "Choose post type" = **Property** (`ibb_property`).
+3. Build your layout. Bind Heading widgets to the IBB > Property Title dynamic tag, an Image widget to IBB > Property Image, etc. The Property control on every IBB tag defaults to "Current page" — Theme Builder calls our render in the post's loop context, so the tag auto-resolves to the post being viewed.
+4. Display Conditions → Include → All Properties (or pick specific ones).
+
+Same flow for the property archive: Add New → Type = **Archive** → Source = **Properties**.
+
+If "Properties" doesn't appear in the post-type dropdown when creating a Single template, the CPT registration may have lost its `public: true` flag — Elementor's Theme Builder filters by `is_post_type_viewable()`. Check `PostTypes/PropertyPostType::register_post_type()`.
+
 ## Build a property archive with Loop Grid
 
 The plugin registers a custom Elementor query under the ID `ibb_properties`. To use it:

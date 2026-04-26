@@ -49,6 +49,14 @@ final class Module {
 		// "Source: IBB Rentals — Properties". Hook fires once per widget
 		// instance whose Source control is set to that ID.
 		add_action( 'elementor/query/ibb_properties', [ $this, 'register_loop_query' ] );
+
+		// Admin notice surfacing the integration on IBB / Plugins screens.
+		// Self-gated on Elementor being loaded so it stays silent for users
+		// who don't use a builder.
+		if ( is_admin() ) {
+			require_once __DIR__ . '/IntegrationNotice.php';
+			( new IntegrationNotice() )->register();
+		}
 	}
 
 	/**
