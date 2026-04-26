@@ -58,107 +58,21 @@ final class Assets {
 	}
 
 	private function cart_css(): string {
+		// Light cosmetic styling, scoped to our own `.ibb-booking-meta` classes.
+		// Themes don't touch these (no naming collisions), so no `!important` /
+		// no theme-fragile selectors targeting `.cart_item` or `dl.variation`.
+		// The actual line-stacking is structural — we emit one <div> per row
+		// in CartHandler::render_after_cart_item_name(); CSS is decoration only.
 		return <<<CSS
-/*
- * Classic cart / checkout (shortcode-based or `[woocommerce_cart]`):
- * WC emits a <dl class="variation"> with dt/dd pairs.
- * `!important` is used to defeat themes that style `dl.variation > *`
- * as inline-flow with higher specificity than a plain class selector.
- */
-.woocommerce dl.variation,
-.cart_item dl.variation,
-.woocommerce-cart-form dl.variation,
-.woocommerce-checkout-review-order-table dl.variation {
-	display: grid !important;
-	grid-template-columns: max-content 1fr !important;
-	column-gap: 14px !important;
-	row-gap: 4px !important;
-	margin: 10px 0 0 !important;
-	font-size: 0.92em !important;
-	line-height: 1.4 !important;
-	float: none !important;
-}
-.woocommerce dl.variation dt,
-.cart_item dl.variation dt,
-.woocommerce-cart-form dl.variation dt,
-.woocommerce-checkout-review-order-table dl.variation dt {
-	font-weight: 600 !important;
-	color: #475569 !important;
-	margin: 0 !important;
-	padding: 0 !important;
-	float: none !important;
-	clear: none !important;
-	display: block !important;
-	white-space: nowrap !important;
-}
-.woocommerce dl.variation dd,
-.cart_item dl.variation dd,
-.woocommerce-cart-form dl.variation dd,
-.woocommerce-checkout-review-order-table dl.variation dd {
-	margin: 0 !important;
-	padding: 0 !important;
-	color: #0f172a !important;
-	float: none !important;
-	clear: none !important;
-	display: block !important;
-}
-.woocommerce dl.variation dd p,
-.cart_item dl.variation dd p,
-.woocommerce-cart-form dl.variation dd p,
-.woocommerce-checkout-review-order-table dl.variation dd p {
-	margin: 0 !important;
-}
-
-/*
- * Block-based cart / checkout (Twenty Twenty-Five default, WC Cart block):
- * WC emits <ul class="wc-block-components-product-details"> with
- * <li class="wc-block-components-product-details__item"> children.
- */
-.wc-block-components-product-details {
-	display: grid !important;
-	grid-template-columns: max-content 1fr !important;
-	column-gap: 14px !important;
-	row-gap: 4px !important;
-	list-style: none !important;
-	padding: 0 !important;
-	margin: 10px 0 0 !important;
-	font-size: 0.92em !important;
-	line-height: 1.4 !important;
-}
-.wc-block-components-product-details__item {
-	display: contents !important;
-}
-.wc-block-components-product-details__name {
-	font-weight: 600 !important;
-	color: #475569 !important;
-	margin: 0 !important;
-	padding: 0 !important;
-	white-space: nowrap !important;
-}
-.wc-block-components-product-details__value {
-	margin: 0 !important;
-	padding: 0 !important;
-	color: #0f172a !important;
-}
-
-/* Mobile: collapse the two-column grid to single-column. */
-@media (max-width: 600px) {
-	.woocommerce dl.variation,
-	.cart_item dl.variation,
-	.woocommerce-cart-form dl.variation,
-	.woocommerce-checkout-review-order-table dl.variation,
-	.wc-block-components-product-details {
-		grid-template-columns: 1fr !important;
-		row-gap: 2px !important;
-	}
-	.woocommerce dl.variation dt,
-	.cart_item dl.variation dt,
-	.woocommerce-cart-form dl.variation dt,
-	.woocommerce-checkout-review-order-table dl.variation dt,
-	.wc-block-components-product-details__name {
-		margin-top: 6px !important;
-	}
-}
+.ibb-booking-meta { margin: 8px 0 0; font-size: 0.92em; line-height: 1.5; }
+.ibb-booking-meta__row { padding: 1px 0; }
+.ibb-booking-meta__label { font-weight: 600; color: #475569; }
+.ibb-booking-meta__value { color: #0f172a; }
+.ibb-booking-meta__row--muted .ibb-booking-meta__label,
+.ibb-booking-meta__row--muted .ibb-booking-meta__value { color: #6b7280; }
+.ibb-booking-meta small { color: #6b7280; font-size: 0.95em; }
+.ibb-booking-meta__panel { margin: 6px 0 4px; padding: 6px 10px; background: #f8fafc; border-left: 3px solid #cbd5e1; border-radius: 2px; }
+.ibb-booking-meta__panel .ibb-booking-meta__row { padding: 0; }
 CSS;
 	}
 

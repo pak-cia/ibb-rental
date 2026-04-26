@@ -4,7 +4,10 @@
 
 ### Fixed
 - `Assets::should_enqueue()` now also detects blocks via `has_block()`. Pages using only the IBB Gutenberg blocks (no shortcodes) no longer ship without Flatpickr, the lightbox JS, or the details-grid CSS.
-- Cart / checkout line-item meta now renders as one row per field instead of an inline-flow run-on string. `Assets::maybe_enqueue_cart_styles()` enqueues whenever the cart contains an IBB item (no `is_cart()` gate so the WC Cart block on non-default-cart-pages also picks it up). Covers both classic (`dl.variation`) and block-cart (`.wc-block-components-product-details`) markup, with `!important` to defeat theme overrides.
+- Cart / checkout line-item meta now renders cleanly without theme-fighting CSS:
+  - **Classic cart**: `CartHandler::render_after_cart_item_name()` emits our own structured `<div class="ibb-booking-meta">` markup below the product name. Plain divs, naturally block-level, single column of label/value pairs. No `dl.variation` involved.
+  - **Block cart**: `CartHandler::render_item_meta()` keeps populating `woocommerce_get_item_data` but only on REST requests (`/wc/store/v1/cart`), so the React Cart block still gets its meta data.
+  - **CSS**: `Assets::cart_css()` is now a small cosmetic stylesheet scoped to `.ibb-booking-meta*` classes only. No `!important`, no overrides of `.cart_item` / `dl.variation` / `.wc-block-components-product-details`.
 
 ### Added
 - `Blocks.php` — three server-rendered Gutenberg blocks for page-builder use:

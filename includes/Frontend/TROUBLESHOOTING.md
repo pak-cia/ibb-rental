@@ -67,22 +67,21 @@ add_action( 'wp_enqueue_scripts', function() {
 
 ## Cart / checkout line-item meta renders as one long inline string
 
-**Symptom:** in the cart row, all the booking meta (Check-in, Check-out, Nights, Guests, Stay total, Deposit charged today, Balance due, Security deposit) appears as one mashed-together line: *"Check-in: 2026-06-20 / Check-out: 2026-07-01 / Nights: 11 / Guests: 3 …"*.
+**Symptom:** in the cart row, all the booking meta (Check-in, Check-out, Nights, Guests, Stay total, Deposit charged today, Balance due, Security deposit) appears as one mashed-together line.
 
-**Root causes (yes, multiple — easy to fall back into one):**
+**Root cause:** WC's classic cart renders cart-item meta as `<dl class="variation">` with dt/dd pairs. Modern themes (block themes especially, including Twenty Twenty-Five) style `dl.variation > *` as inline-flow, mashing all the dt/dd pairs onto one line. Earlier attempts at fixing this with theme-fighting CSS (overriding `dl.variation` with `!important`) were fragile — every new theme was a new battle.
 
-1. **Markup variant**: WC has two completely different cart renderings — the classic shortcode-based cart (`<dl class="variation">` with dt/dd pairs) and the WC Cart **block** (`<ul class="wc-block-components-product-details">` with `<li>` items). Targeting only one leaves the other inline.
-2. **Theme specificity**: most modern themes (Twenty Twenty-Five especially) style `dl.variation > *` as inline-flow with higher specificity than a plain class selector. Without `!important` or matching specificity, our CSS loses.
-3. **Page-detection brittleness**: gating the enqueue on `is_cart() || is_checkout()` silently misses when the cart is the WC Cart block on a page that isn't formally registered as the WC Cart Page in settings.
+**Fix:** **don't fight WC's variation rendering for the classic cart at all.** Instead:
 
-**Fix:** `Assets::maybe_enqueue_cart_styles()`:
-- Enqueues unconditionally on every frontend pageload **when the cart contains an IBB item** — no `is_cart()` gate. The CSS only matches cart-page markup so this isn't pollution.
-- Targets both classic (`dl.variation`) and block-cart (`.wc-block-components-product-details` + `.wc-block-components-product-details__item` with `display: contents`) markup.
-- Uses `!important` on every rule to defeat theme overrides.
+1. `CartHandler::render_after_cart_item_name()` (hooked to `woocommerce_after_cart_item_name`) emits our own structured HTML below the product name: a `<div class="ibb-booking-meta">` containing `<div class="ibb-booking-meta__row">` per field. Plain divs are block-level by default; themes don't have CSS that flattens them.
+2. `CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) **only adds entries during REST requests** (`defined('REST_REQUEST') && REST_REQUEST`). The Block Cart fetches via `/wc/store/v1/cart` (always a REST request) and renders one `<li>` per entry — already line-per-row, no dl.variation hellscape involved.
+3. `Assets::cart_css()` is now a small cosmetic stylesheet that ONLY targets `.ibb-booking-meta*` classes — no `!important`, no theme-fragile selectors against `.cart_item` or `dl.variation`. Themes can override our styling cleanly if they want different colours / spacing.
 
-**Scope of the override:** while an IBB item is in the cart, the CSS affects every `dl.variation` and `wc-block-components-product-details` on the site. In practice that's only cart/checkout pages, and most themes display variations one-per-line anyway, so the change is usually invisible for non-IBB lines.
+**Trade-offs accepted:**
+- The mini-cart widget (`?wc-ajax=get_refreshed_fragments` etc.) won't show booking meta. Mini cart is supposed to be compact (product / qty / price), so this is fine.
+- Order-confirmation page meta comes from order-line-item meta (`_ibb_*` fields persisted via `persist_line_item_meta`), not from `woocommerce_get_item_data`, so order screens are unaffected.
 
-**If the cart still looks broken on a specific theme:** open DevTools → Elements → inspect a meta row → check the "Computed" tab for `display`. If it's still `inline` despite our `!important`, the theme has even higher specificity (e.g. `body.theme-x .cart_item .product-name dl.variation`). Bump our selectors with a body prefix or use a `:where()`-wrapped competitor.
+**If a future theme still inlines our markup:** check that the theme isn't styling `<div>` as `display: inline` (extremely unlikely). Verify our HTML is actually being emitted by viewing source on the cart page — look for `<div class="ibb-booking-meta">`.
 
 ---
 
