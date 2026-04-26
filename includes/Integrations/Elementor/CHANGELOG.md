@@ -7,7 +7,10 @@
   - `BookingFormWidget` — date-picker + quote + add-to-cart for one property. Mirrors the `ibb/booking-form` block.
   - `PropertyDetailsWidget` — property metadata with per-field switchers and grid/compact/list layout.
   - `PropertyGalleryWidget` — static gallery grid with the built-in lightbox.
-  - `PropertyCarouselWidget` — Swiper-driven slide carousel populated from a property's photos. Built specifically because Pro's Media Carousel uses a Repeater for slides and can't accept array-returning gallery dynamic tags. Controls: property + gallery, slides-per-view (desktop/tablet/mobile), space-between, navigation arrows, pagination (none/bullets/fraction/progress), loop, autoplay (with delay + pause-on-hover), transition effect (slide/fade), transition speed.
+  - `PropertyCarouselWidget` — Swiper-driven slideshow / carousel populated from a property's photos. Built because Pro's Media Carousel uses a Repeater for slides and can't accept array-returning gallery dynamic tags. **Two layouts**:
+    - **Slideshow (default)** — large main image + clickable thumbnail strip below, prev/next arrows on the main. Mirrors Elementor Pro's Media Carousel "slideshow" skin. Two linked Swiper instances (main + thumbs) wired via Swiper's `thumbs` controller.
+    - **Carousel** — multi-slide horizontal scroll with slides-per-view per breakpoint, space-between, pagination (none/bullets/fraction/progress).
+    - Shared controls across both layouts: navigation arrows, loop, autoplay (with delay + pause-on-hover), transition effect (slide/fade), transition speed.
 - `Module::register_widgets()` and `Module::register_widget_category()` — register on `elementor/widgets/register` and `elementor/elements/categories_registered` respectively. Same hook-timing rule as dynamic tags (don't use `elementor/loaded`).
 - `Module::carousel_init_js()` — registered as `ibb-rentals-elementor-carousel` script handle. Hooks `frontend/element_ready/ibb_property_carousel.default` so each carousel instance gets its own Swiper, including across editor re-renders.
 

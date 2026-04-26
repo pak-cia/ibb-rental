@@ -64,8 +64,8 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 			'default' => '',
 		] );
 
-		$this->add_control( 'size', [
-			'label'   => __( 'Image size', 'ibb-rentals' ),
+		$this->add_control( 'main_size', [
+			'label'   => __( 'Main image size', 'ibb-rentals' ),
 			'type'    => \Elementor\Controls_Manager::SELECT,
 			'default' => 'large',
 			'options' => [
@@ -78,37 +78,71 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'section_slides_per_view', [
-			'label' => __( 'Slides per view', 'ibb-rentals' ),
+		$this->start_controls_section( 'section_layout', [
+			'label' => __( 'Layout', 'ibb-rentals' ),
+		] );
+
+		$this->add_control( 'layout', [
+			'label'       => __( 'Layout', 'ibb-rentals' ),
+			'type'        => \Elementor\Controls_Manager::SELECT,
+			'default'     => 'slideshow',
+			'options'     => [
+				'slideshow' => __( 'Slideshow (large image + thumbnail strip)', 'ibb-rentals' ),
+				'carousel'  => __( 'Carousel (multi-slide horizontal scroll)', 'ibb-rentals' ),
+			],
+			'description' => __( 'Slideshow: one main image with a clickable thumbnail strip below — like Elementor Pro\'s Media Carousel slideshow skin. Carousel: multiple slides per view scrolling horizontally.', 'ibb-rentals' ),
+		] );
+
+		$this->add_control( 'thumbs_size', [
+			'label'     => __( 'Thumbnail image size', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::SELECT,
+			'default'   => 'thumbnail',
+			'options'   => [
+				'thumbnail' => __( 'Thumbnail', 'ibb-rentals' ),
+				'medium'    => __( 'Medium', 'ibb-rentals' ),
+			],
+			'condition' => [ 'layout' => 'slideshow' ],
+		] );
+		$this->add_control( 'thumbs_per_view', [
+			'label'     => __( 'Thumbnails per row', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::NUMBER,
+			'default'   => 5,
+			'min'       => 2,
+			'max'       => 10,
+			'condition' => [ 'layout' => 'slideshow' ],
 		] );
 
 		$this->add_control( 'slides_per_view', [
-			'label'   => __( 'Desktop', 'ibb-rentals' ),
-			'type'    => \Elementor\Controls_Manager::NUMBER,
-			'default' => 1,
-			'min'     => 1,
-			'max'     => 6,
+			'label'     => __( 'Slides per view (desktop)', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::NUMBER,
+			'default'   => 1,
+			'min'       => 1,
+			'max'       => 6,
+			'condition' => [ 'layout' => 'carousel' ],
 		] );
 		$this->add_control( 'slides_per_view_tablet', [
-			'label'   => __( 'Tablet', 'ibb-rentals' ),
-			'type'    => \Elementor\Controls_Manager::NUMBER,
-			'default' => 1,
-			'min'     => 1,
-			'max'     => 6,
+			'label'     => __( 'Slides per view (tablet)', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::NUMBER,
+			'default'   => 1,
+			'min'       => 1,
+			'max'       => 6,
+			'condition' => [ 'layout' => 'carousel' ],
 		] );
 		$this->add_control( 'slides_per_view_mobile', [
-			'label'   => __( 'Mobile', 'ibb-rentals' ),
-			'type'    => \Elementor\Controls_Manager::NUMBER,
-			'default' => 1,
-			'min'     => 1,
-			'max'     => 4,
+			'label'     => __( 'Slides per view (mobile)', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::NUMBER,
+			'default'   => 1,
+			'min'       => 1,
+			'max'       => 4,
+			'condition' => [ 'layout' => 'carousel' ],
 		] );
 		$this->add_control( 'space_between', [
-			'label'   => __( 'Space between (px)', 'ibb-rentals' ),
-			'type'    => \Elementor\Controls_Manager::NUMBER,
-			'default' => 16,
-			'min'     => 0,
-			'max'     => 100,
+			'label'     => __( 'Space between (px)', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::NUMBER,
+			'default'   => 16,
+			'min'       => 0,
+			'max'       => 100,
+			'condition' => [ 'layout' => 'carousel' ],
 		] );
 
 		$this->end_controls_section();
@@ -212,32 +246,97 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 			return;
 		}
 
-		$size   = (string) ( $settings['size'] ?? 'large' );
+		$layout       = ( $settings['layout'] ?? 'slideshow' ) === 'carousel' ? 'carousel' : 'slideshow';
+		$main_size    = (string) ( $settings['main_size'] ?? 'large' );
+		$thumbs_size  = (string) ( $settings['thumbs_size'] ?? 'thumbnail' );
+
 		$config = [
-			'slidesPerView'      => max( 1, (int) ( $settings['slides_per_view'] ?? 1 ) ),
-			'slidesPerViewTablet'=> max( 1, (int) ( $settings['slides_per_view_tablet'] ?? 1 ) ),
-			'slidesPerViewMobile'=> max( 1, (int) ( $settings['slides_per_view_mobile'] ?? 1 ) ),
-			'spaceBetween'       => max( 0, (int) ( $settings['space_between'] ?? 16 ) ),
-			'loop'               => ( $settings['loop'] ?? '' ) === 'yes',
-			'autoplay'           => ( $settings['autoplay'] ?? '' ) === 'yes',
-			'autoplayDelay'      => max( 500, (int) ( $settings['autoplay_delay'] ?? 4000 ) ),
-			'pauseOnHover'       => ( $settings['pause_on_hover'] ?? '' ) === 'yes',
-			'effect'             => ( $settings['effect'] ?? 'slide' ) === 'fade' ? 'fade' : 'slide',
-			'speed'              => max( 100, (int) ( $settings['speed'] ?? 500 ) ),
-			'showArrows'         => ( $settings['show_arrows'] ?? '' ) === 'yes',
-			'pagination'         => (string) ( $settings['pagination'] ?? 'bullets' ),
+			'layout'              => $layout,
+			'slidesPerView'       => max( 1, (int) ( $settings['slides_per_view'] ?? 1 ) ),
+			'slidesPerViewTablet' => max( 1, (int) ( $settings['slides_per_view_tablet'] ?? 1 ) ),
+			'slidesPerViewMobile' => max( 1, (int) ( $settings['slides_per_view_mobile'] ?? 1 ) ),
+			'spaceBetween'        => max( 0, (int) ( $settings['space_between'] ?? 16 ) ),
+			'thumbsPerView'       => max( 2, (int) ( $settings['thumbs_per_view'] ?? 5 ) ),
+			'loop'                => ( $settings['loop'] ?? '' ) === 'yes',
+			'autoplay'            => ( $settings['autoplay'] ?? '' ) === 'yes',
+			'autoplayDelay'       => max( 500, (int) ( $settings['autoplay_delay'] ?? 4000 ) ),
+			'pauseOnHover'        => ( $settings['pause_on_hover'] ?? '' ) === 'yes',
+			'effect'              => ( $settings['effect'] ?? 'slide' ) === 'fade' ? 'fade' : 'slide',
+			'speed'               => max( 100, (int) ( $settings['speed'] ?? 500 ) ),
+			'showArrows'          => ( $settings['show_arrows'] ?? '' ) === 'yes',
+			'pagination'          => (string) ( $settings['pagination'] ?? 'bullets' ),
 		];
 
-		$instance_id = 'ibb-carousel-' . $this->get_id();
+		if ( $layout === 'slideshow' ) {
+			$this->render_slideshow( $ids, $main_size, $thumbs_size, $config );
+		} else {
+			$this->render_carousel( $ids, $main_size, $config );
+		}
+	}
+
+	/**
+	 * @param array<int, int>     $ids
+	 * @param array<string,mixed> $config
+	 */
+	private function render_slideshow( array $ids, string $main_size, string $thumbs_size, array $config ): void {
 		?>
 		<div
-			class="ibb-property-carousel swiper"
-			id="<?php echo esc_attr( $instance_id ); ?>"
+			class="ibb-property-carousel ibb-property-carousel--slideshow"
+			data-ibb-carousel-config="<?php echo esc_attr( wp_json_encode( $config ) ); ?>"
+		>
+			<div class="ibb-property-carousel__main swiper">
+				<div class="swiper-wrapper">
+					<?php foreach ( $ids as $aid ) :
+						$img = wp_get_attachment_image( (int) $aid, $main_size, false, [
+							'class'   => 'ibb-property-carousel__image',
+							'loading' => 'lazy',
+						] );
+						if ( ! $img ) {
+							continue;
+						}
+						?>
+						<div class="swiper-slide ibb-property-carousel__slide"><?php echo $img; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+					<?php endforeach; ?>
+				</div>
+
+				<?php if ( $config['showArrows'] ) : ?>
+					<button type="button" class="swiper-button-prev ibb-property-carousel__prev" aria-label="<?php esc_attr_e( 'Previous slide', 'ibb-rentals' ); ?>"></button>
+					<button type="button" class="swiper-button-next ibb-property-carousel__next" aria-label="<?php esc_attr_e( 'Next slide', 'ibb-rentals' ); ?>"></button>
+				<?php endif; ?>
+			</div>
+
+			<div class="ibb-property-carousel__thumbs swiper">
+				<div class="swiper-wrapper">
+					<?php foreach ( $ids as $aid ) :
+						$thumb = wp_get_attachment_image( (int) $aid, $thumbs_size, false, [
+							'class'   => 'ibb-property-carousel__thumb-image',
+							'loading' => 'lazy',
+						] );
+						if ( ! $thumb ) {
+							continue;
+						}
+						?>
+						<div class="swiper-slide ibb-property-carousel__thumb"><?php echo $thumb; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+					<?php endforeach; ?>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * @param array<int, int>     $ids
+	 * @param array<string,mixed> $config
+	 */
+	private function render_carousel( array $ids, string $main_size, array $config ): void {
+		?>
+		<div
+			class="ibb-property-carousel ibb-property-carousel--carousel swiper"
 			data-ibb-carousel-config="<?php echo esc_attr( wp_json_encode( $config ) ); ?>"
 		>
 			<div class="swiper-wrapper">
 				<?php foreach ( $ids as $aid ) :
-					$img = wp_get_attachment_image( (int) $aid, $size, false, [
+					$img = wp_get_attachment_image( (int) $aid, $main_size, false, [
 						'class'   => 'ibb-property-carousel__image',
 						'loading' => 'lazy',
 					] );

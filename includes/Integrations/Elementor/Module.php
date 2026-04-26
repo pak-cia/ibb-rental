@@ -78,21 +78,79 @@ final class Module {
 ( function ( $ ) {
 	if ( typeof window === 'undefined' ) return;
 
-	function initIBBCarousel( $scope ) {
-		var $el = $scope.find( '.ibb-property-carousel' ).first();
-		if ( ! $el.length ) return;
-		var node = $el[0];
-
-		// Tear down any prior instance (editor re-renders on control change).
-		if ( node.swiper && typeof node.swiper.destroy === 'function' ) {
-			node.swiper.destroy( true, true );
+	function destroySwiperOn( el ) {
+		if ( el && el.swiper && typeof el.swiper.destroy === 'function' ) {
+			el.swiper.destroy( true, true );
 		}
+	}
 
-		var config;
-		try { config = JSON.parse( node.dataset.ibbCarouselConfig || '{}' ); } catch ( e ) { config = {}; }
-
+	function initIBBCarousel( $scope ) {
+		var $root = $scope.find( '.ibb-property-carousel' ).first();
+		if ( ! $root.length ) return;
+		var rootNode = $root[0];
 		var Swiper = window.Swiper;
 		if ( typeof Swiper !== 'function' ) return;
+
+		var config;
+		try { config = JSON.parse( rootNode.dataset.ibbCarouselConfig || '{}' ); } catch ( e ) { config = {}; }
+		var layout = ( config.layout === 'carousel' ) ? 'carousel' : 'slideshow';
+
+		if ( layout === 'slideshow' ) {
+			initSlideshow( rootNode, config );
+		} else {
+			initCarousel( rootNode, config );
+		}
+	}
+
+	function initSlideshow( rootNode, config ) {
+		var mainEl   = rootNode.querySelector( '.ibb-property-carousel__main' );
+		var thumbsEl = rootNode.querySelector( '.ibb-property-carousel__thumbs' );
+		if ( ! mainEl || ! thumbsEl ) return;
+
+		// Tear down prior instances (editor re-renders).
+		destroySwiperOn( mainEl );
+		destroySwiperOn( thumbsEl );
+
+		var thumbs = new window.Swiper( thumbsEl, {
+			spaceBetween: 8,
+			slidesPerView: config.thumbsPerView || 5,
+			watchSlidesProgress: true,
+			breakpoints: {
+				480: { slidesPerView: Math.min( 4, config.thumbsPerView || 5 ) },
+				768: { slidesPerView: config.thumbsPerView || 5 }
+			}
+		} );
+
+		var mainOpts = {
+			spaceBetween: 0,
+			slidesPerView: 1,
+			loop: !! config.loop,
+			speed: config.speed || 500,
+			effect: config.effect === 'fade' ? 'fade' : 'slide',
+			fadeEffect: { crossFade: true },
+			thumbs: { swiper: thumbs }
+		};
+
+		if ( config.autoplay ) {
+			mainOpts.autoplay = {
+				delay: config.autoplayDelay || 4000,
+				disableOnInteraction: false,
+				pauseOnMouseEnter: !! config.pauseOnHover
+			};
+		}
+
+		if ( config.showArrows ) {
+			mainOpts.navigation = {
+				nextEl: rootNode.querySelector( '.ibb-property-carousel__next' ),
+				prevEl: rootNode.querySelector( '.ibb-property-carousel__prev' )
+			};
+		}
+
+		new window.Swiper( mainEl, mainOpts );
+	}
+
+	function initCarousel( rootNode, config ) {
+		destroySwiperOn( rootNode );
 
 		var opts = {
 			slidesPerView: config.slidesPerView || 1,
@@ -118,20 +176,20 @@ final class Module {
 
 		if ( config.showArrows ) {
 			opts.navigation = {
-				nextEl: node.querySelector( '.ibb-property-carousel__next' ),
-				prevEl: node.querySelector( '.ibb-property-carousel__prev' )
+				nextEl: rootNode.querySelector( '.ibb-property-carousel__next' ),
+				prevEl: rootNode.querySelector( '.ibb-property-carousel__prev' )
 			};
 		}
 
 		if ( config.pagination ) {
 			opts.pagination = {
-				el: node.querySelector( '.ibb-property-carousel__pagination' ),
+				el: rootNode.querySelector( '.ibb-property-carousel__pagination' ),
 				type: config.pagination,
 				clickable: true
 			};
 		}
 
-		new Swiper( node, opts );
+		new window.Swiper( rootNode, opts );
 	}
 
 	$( window ).on( 'elementor/frontend/init', function () {
