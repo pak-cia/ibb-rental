@@ -89,6 +89,11 @@ final class Assets {
 		}
 		global $post;
 		if ( $post instanceof \WP_Post && $post->post_content ) {
+			foreach ( [ 'ibb/booking-form', 'ibb/gallery', 'ibb/property-details' ] as $block ) {
+				if ( has_block( $block, $post ) ) {
+					return true;
+				}
+			}
 			foreach ( [ 'ibb_property', 'ibb_search', 'ibb_calendar', 'ibb_booking_form', 'ibb_gallery', 'ibb_property_details' ] as $sc ) {
 				if ( has_shortcode( $post->post_content, $sc ) ) {
 					return true;

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `Assets::should_enqueue()` now also detects blocks via `has_block()`. Pages using only the IBB Gutenberg blocks (no shortcodes) no longer ship without Flatpickr, the lightbox JS, or the details-grid CSS.
+
 ### Added
 - `Blocks.php` — three server-rendered Gutenberg blocks for page-builder use:
   - `ibb/booking-form` — the booking widget for one property.
