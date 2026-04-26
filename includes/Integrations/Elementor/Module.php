@@ -10,9 +10,15 @@
  *
  * Wired into Elementor's lifecycle:
  *
- *   - On `elementor/loaded` (only fires when Elementor itself is active),
- *     register an `elementor/dynamic_tags/register` callback.
- *   - The callback registers our group + tag classes via the manager.
+ *   - Hook directly to `elementor/dynamic_tags/register`, which fires when
+ *     Elementor's dynamic-tags manager initialises (during editor load).
+ *     The action only exists / fires when Elementor itself is loaded, so
+ *     it doubles as the "is Elementor active?" gate.
+ *
+ *   - DO NOT use `elementor/loaded` as a gate. That action fires during
+ *     wp-settings.php's plugin-load loop, BEFORE `plugins_loaded` — by
+ *     the time `Plugin::boot()` runs (priority 20) and registers our
+ *     handler, the action has already fired and the handler never runs.
  *
  * Tag classes are `require_once`'d at registration time, not via PSR-4
  * autoload, because they extend Elementor base classes that don't exist
@@ -31,10 +37,6 @@ defined( 'ABSPATH' ) || exit;
 final class Module {
 
 	public function register(): void {
-		add_action( 'elementor/loaded', [ $this, 'on_elementor_loaded' ] );
-	}
-
-	public function on_elementor_loaded(): void {
 		add_action( 'elementor/dynamic_tags/register', [ $this, 'register_tags' ] );
 	}
 

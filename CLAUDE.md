@@ -53,7 +53,7 @@ A standalone WordPress plugin that turns a WooCommerce store into a vacation-ren
 - **WooCommerce 9.0+** — HPOS declared compatible. We use WC's product type system, cart/checkout filters, Action Scheduler (bundled with WC), `WC_Payment_Tokens` API, and the WC logger.
 - **PHP 8.1+** — uses readonly promoted properties, named arguments, enums-style constants, `match` expressions, `??=`, `str_starts_with`.
 - **Composer** with PSR-4 autoload + Mozart for vendor namespacing (`sabre/vobject` → `IBB\Rentals\Vendor\Sabre\VObject`). The plugin works without `composer install` thanks to a hand-rolled `Autoloader.php` for our own classes; the in-house `Ical/Parser.php` covers the iCal dialect every major OTA emits, so sabre/vobject is optional unless you encounter exotic feeds.
-- **Optional**: Elementor (Pro) — only if `elementor/loaded` fires; the integration is gated on `class_exists`.
+- **Optional**: Elementor (Pro) — the integration hooks directly to `elementor/dynamic_tags/register` (and `widgets/register` / `controls/register` for future leaf classes). Those actions only fire when Elementor is loaded and run after `plugins_loaded`. Do **not** use `elementor/loaded` — it fires during plugin-load, before our `Plugin::boot()` runs (see `Integrations/Elementor/TROUBLESHOOTING.md`).
 
 ### Architectural patterns
 

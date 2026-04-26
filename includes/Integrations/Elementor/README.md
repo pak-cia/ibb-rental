@@ -4,7 +4,7 @@ Self-contained module providing Elementor compatibility — currently a single d
 
 ## Files
 
-- `Module.php` — entry point. Loaded unconditionally by `Plugin::boot()`; gates itself on Elementor's `elementor/loaded` action so it's a no-op when Elementor isn't installed. Registers the IBB Rentals dynamic-tag group + tag classes via `elementor/dynamic_tags/register`. Hosts the shared `property_options()` helper used by tag controls.
+- `Module.php` — entry point. Loaded unconditionally by `Plugin::boot()`; hooks directly to `elementor/dynamic_tags/register` (which only fires when Elementor is active, so it's a no-op when Elementor isn't installed). Registers the IBB Rentals dynamic-tag group + tag classes there. Hosts the shared `property_options()` helper used by tag controls. **Do not switch this to `elementor/loaded`** — that action fires during plugin-loading, before our `Plugin::boot()` runs, so the handler would never fire (see TROUBLESHOOTING).
 - `DynamicTags/PropertyGalleryDynamicTag.php` — `Data_Tag` subclass returning `[{id, url}]` for the `gallery` dynamic-tag category. Two controls: Property (SELECT2 with "Current page" default) and Gallery slug (optional sub-gallery).
 
 ## Key patterns
