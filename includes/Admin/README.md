@@ -11,9 +11,12 @@ wp-admin user interface for the plugin: top-level "Rentals" menu, the tabbed pro
 ## Key patterns
 
 - **Footer-emitted JS** — Photos-tab JS is printed in `admin_print_footer_scripts` priority 99 with a polling `init` (retries up to 12s, idempotent via `data-ibb-init` flag). This avoids running the JS mid-metabox-render in Gutenberg.
-- **JSON in postmeta for complex configs** — `_ibb_los_discounts`, `_ibb_blackout_ranges`, `_ibb_galleries` are stored as JSON. The metabox renders/saves them; `Domain/Property` accessors decode and validate.
+- **JSON in postmeta for complex configs** — `_ibb_los_discounts`, `_ibb_blackout_ranges`, `_ibb_galleries` are stored as JSON. `Domain/Property` accessors decode and validate.
+- **Two save-time UI patterns**:
+  - **Native form-array inputs** for simple repeaters: each row is `field_name[index][key]`, the save handler iterates `$_POST['field_name']` and rebuilds the canonical structure. Used for **Length-of-stay discounts**. Works without JS — JS only enhances add/remove.
+  - **Hidden serialised state**: a `<textarea hidden>` holds the JSON, JS keeps it in sync as the user manipulates a richer UI (e.g. media-picker thumbnails). Used for **Photos / galleries**. Required when the data isn't naturally form-encodable.
+  - Pick form-arrays when possible — graceful degrade is free; pick hidden-state when the row contents are more than scalars.
 - **Slug uniqueness on save** — when persisting `_ibb_galleries`, the save handler de-dupes slugs (`bedroom-1`, `bedroom-1-2`, …) so the JS-side dedup isn't load-bearing.
-- **Hidden serialised state pattern** — gallery state lives in a `<textarea hidden>` that JS keeps in sync; the standard form submission picks it up. Same pattern can be used for new JSON-meta fields.
 
 ## Connects to
 

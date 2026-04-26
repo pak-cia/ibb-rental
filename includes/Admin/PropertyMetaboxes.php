@@ -50,6 +50,7 @@ final class PropertyMetaboxes {
 			return;
 		}
 		echo '<script>' . $this->galleries_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<script>' . $this->los_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	public function enqueue( string $hook ): void {
@@ -201,10 +202,7 @@ final class PropertyMetaboxes {
 		$this->row( __( 'Weekend days (ISO 1=Mon … 7=Sun)', 'ibb-rentals' ), $this->text( '_ibb_weekend_days', (string) $p->meta( '_ibb_weekend_days', '5,6,7' ) ) );
 		echo '</tbody></table>';
 
-		echo '<h4>' . esc_html__( 'Length-of-stay discounts', 'ibb-rentals' ) . '</h4>';
-		$los_json = wp_json_encode( $p->los_discounts() ) ?: '[]';
-		echo '<p class="description">' . esc_html__( 'JSON: an array of {"min_nights":N,"pct":X} entries. Highest min_nights match wins.', 'ibb-rentals' ) . '</p>';
-		printf( '<textarea name="_ibb_los_discounts" rows="4" class="large-text code">%s</textarea>', esc_textarea( $los_json ) );
+		$this->render_los_editor( $p );
 
 		echo '<h4>' . esc_html__( 'Seasonal rates', 'ibb-rentals' ) . '</h4>';
 		echo '<p class="description">' . esc_html__( 'Manage seasonal rate rows directly via the REST API or a future admin UI. Existing rows are shown read-only here.', 'ibb-rentals' ) . '</p>';
@@ -352,13 +350,38 @@ final class PropertyMetaboxes {
 			update_post_meta( $post_id, '_ibb_payment_mode', $mode === 'deposit' ? 'deposit' : 'full' );
 		}
 
-		foreach ( [ '_ibb_los_discounts', '_ibb_blackout_ranges' ] as $json_key ) {
-			if ( isset( $_POST[ $json_key ] ) ) {
-				$raw     = (string) wp_unslash( $_POST[ $json_key ] );
-				$decoded = json_decode( $raw, true );
-				$value   = is_array( $decoded ) ? wp_json_encode( $decoded ) : '[]';
-				update_post_meta( $post_id, $json_key, $value );
+		// LOS discounts: row-based UI now (was JSON textarea). Each row is
+		// `_ibb_los_discount_rows[N][min_nights]` + `[pct]`. Pairs with both
+		// values populated are kept; rows where either is missing/blank are
+		// dropped. Stored in the canonical `_ibb_los_discounts` JSON shape.
+		if ( isset( $_POST['_ibb_los_discount_rows'] ) && is_array( $_POST['_ibb_los_discount_rows'] ) ) {
+			$out  = [];
+			$seen = [];
+			foreach ( wp_unslash( $_POST['_ibb_los_discount_rows'] ) as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$min = isset( $row['min_nights'] ) ? (int) $row['min_nights'] : 0;
+				$pct = isset( $row['pct'] ) ? (float) $row['pct'] : 0.0;
+				if ( $min < 1 || $pct <= 0 || $pct > 100 ) {
+					continue;
+				}
+				if ( isset( $seen[ $min ] ) ) {
+					continue; // duplicate min_nights — keep the first.
+				}
+				$seen[ $min ] = true;
+				$out[] = [ 'min_nights' => $min, 'pct' => round( $pct, 2 ) ];
 			}
+			usort( $out, static fn( $a, $b ) => $b['min_nights'] <=> $a['min_nights'] );
+			update_post_meta( $post_id, '_ibb_los_discounts', wp_json_encode( $out ) ?: '[]' );
+		}
+
+		// Blackout ranges still uses the JSON textarea path (separate task).
+		if ( isset( $_POST['_ibb_blackout_ranges'] ) ) {
+			$raw     = (string) wp_unslash( $_POST['_ibb_blackout_ranges'] );
+			$decoded = json_decode( $raw, true );
+			$value   = is_array( $decoded ) ? wp_json_encode( $decoded ) : '[]';
+			update_post_meta( $post_id, '_ibb_blackout_ranges', $value );
 		}
 
 		if ( isset( $_POST['_ibb_galleries'] ) ) {
@@ -399,6 +422,79 @@ final class PropertyMetaboxes {
 
 	private function row( string $label, string $field ): void {
 		echo '<tr><th>' . esc_html( $label ) . '</th><td>' . $field . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	/**
+	 * Friendly editor for length-of-stay discounts.
+	 *
+	 * Replaces the original `_ibb_los_discounts` JSON textarea with a
+	 * table of (min nights, % off) rows. Each row is a pair of named
+	 * inputs `_ibb_los_discount_rows[N][min_nights]` and `[pct]` —
+	 * native form arrays, so saves work even with JS disabled. JS
+	 * adds row indexing and the +/- buttons.
+	 *
+	 * The legacy `_ibb_los_discounts` postmeta key is still the
+	 * canonical storage (a JSON-encoded array sorted desc by
+	 * min_nights). The save handler reads the new row inputs and
+	 * writes the canonical key — no migration needed for existing
+	 * properties since the rows are seeded from `los_discounts()`.
+	 */
+	private function render_los_editor( Property $p ): void {
+		$rows = $p->los_discounts();
+		// Sort ascending in the editor so the smallest stay shows first
+		// (matches how a user would think about it: "after 7 nights they
+		// get X off, after 14 nights they get Y off…"). Storage stays
+		// descending — sorted at save time.
+		usort( $rows, static fn( $a, $b ) => $a['min_nights'] <=> $b['min_nights'] );
+
+		echo '<h4>' . esc_html__( 'Length-of-stay discounts', 'ibb-rentals' ) . '</h4>';
+		echo '<p class="description">' . esc_html__( 'Discount % off the nightly subtotal once the stay reaches the minimum number of nights. The longest matching stay wins, so a guest booking 21 nights with both 7- and 14-night rules gets the 14-night discount.', 'ibb-rentals' ) . '</p>';
+
+		echo '<table class="ibb-los" id="ibb-los"><thead><tr>';
+		echo '<th class="ibb-los__col-nights">' . esc_html__( 'Min nights', 'ibb-rentals' ) . '</th>';
+		echo '<th class="ibb-los__col-pct">' . esc_html__( '% off', 'ibb-rentals' ) . '</th>';
+		echo '<th class="ibb-los__col-actions"></th>';
+		echo '</tr></thead><tbody id="ibb-los-rows">';
+
+		if ( ! $rows ) {
+			$this->render_los_row( 0, [ 'min_nights' => 7, 'pct' => 0.0 ], true );
+		} else {
+			foreach ( $rows as $i => $row ) {
+				$this->render_los_row( $i, $row, false );
+			}
+		}
+
+		echo '</tbody></table>';
+
+		// Hidden template row used by the JS to clone new rows.
+		echo '<template id="ibb-los-row-template">';
+		$this->render_los_row( '__INDEX__', [ 'min_nights' => '', 'pct' => '' ], true );
+		echo '</template>';
+
+		echo '<p><button type="button" class="button button-secondary" id="ibb-los-add">+ ' . esc_html__( 'Add discount tier', 'ibb-rentals' ) . '</button></p>';
+	}
+
+	/**
+	 * @param int|string $index   Numeric for real rows; "__INDEX__" for the JS template.
+	 * @param array{min_nights: int|string, pct: float|string} $row
+	 * @param bool       $is_blank Whether this is a placeholder/empty row (used for nothing-yet defaults).
+	 */
+	private function render_los_row( int|string $index, array $row, bool $is_blank ): void {
+		$nights_name = '_ibb_los_discount_rows[' . $index . '][min_nights]';
+		$pct_name    = '_ibb_los_discount_rows[' . $index . '][pct]';
+		echo '<tr class="ibb-los__row">';
+		printf(
+			'<td class="ibb-los__col-nights"><input type="number" name="%s" value="%s" min="1" step="1" class="small-text" /></td>',
+			esc_attr( $nights_name ),
+			esc_attr( (string) $row['min_nights'] )
+		);
+		printf(
+			'<td class="ibb-los__col-pct"><input type="number" name="%s" value="%s" min="0" max="100" step="0.1" class="small-text" /> %%</td>',
+			esc_attr( $pct_name ),
+			esc_attr( (string) $row['pct'] )
+		);
+		echo '<td class="ibb-los__col-actions"><button type="button" class="button-link ibb-los__remove" aria-label="' . esc_attr__( 'Remove tier', 'ibb-rentals' ) . '">×</button></td>';
+		echo '</tr>';
 	}
 
 	private function number( string $name, int|float $value, int|float $min = 0, int|float $step = 1 ): string {
@@ -443,6 +539,17 @@ final class PropertyMetaboxes {
 .ibb-image img { width:100%; height:100%; object-fit:cover; display:block; }
 .ibb-image__remove { position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.65); color:#fff; font-size:14px; line-height:1; cursor:pointer; }
 .ibb-image__remove:hover { background:#b32d2e; }
+
+.ibb-los { border-collapse:collapse; margin:8px 0 4px; max-width:520px; width:100%; }
+.ibb-los th { text-align:left; font-size:.8em; color:#646970; font-weight:600; padding:6px 8px 4px; border-bottom:1px solid #dcdcde; }
+.ibb-los td { padding:6px 8px; vertical-align:middle; }
+.ibb-los__col-nights { width:140px; }
+.ibb-los__col-pct { width:160px; }
+.ibb-los__col-actions { width:32px; text-align:right; }
+.ibb-los__row + .ibb-los__row td { border-top:1px solid #f0f0f1; }
+.ibb-los__remove { color:#b32d2e !important; font-size:18px; line-height:1; padding:2px 6px; text-decoration:none; }
+.ibb-los__remove:hover { color:#fff !important; background:#b32d2e; border-radius:3px; }
+.ibb-los__col-pct input { margin-right:4px; }
 CSS;
 	}
 
@@ -620,6 +727,68 @@ CSS;
     document.addEventListener('DOMContentLoaded', function(){ init(60); });
   } else {
     init(60);
+  }
+})();
+JS;
+	}
+
+	/**
+	 * Tiny enhancer for the LOS table:
+	 *   - "Add discount tier" clones the <template> row and appends it.
+	 *   - Clicking the × on a row removes it (or empties the last row,
+	 *     since the save handler already drops invalid rows).
+	 *
+	 * Indices in the cloned name attributes are rewritten with a
+	 * monotonic counter so duplicate `[N]` keys don't collide. The PHP
+	 * save handler doesn't actually care about the index — it iterates
+	 * the array values — but unique indices keep the DOM tidy.
+	 */
+	private function los_js(): string {
+		return <<<'JS'
+(function(){
+  function init() {
+    var root = document.getElementById('ibb-los');
+    if (!root) return;
+    if (root.dataset.ibbInit === '1') return;
+    root.dataset.ibbInit = '1';
+
+    var rowsEl = document.getElementById('ibb-los-rows');
+    var addBtn = document.getElementById('ibb-los-add');
+    var template = document.getElementById('ibb-los-row-template');
+    if (!rowsEl || !addBtn || !template) return;
+
+    var counter = rowsEl.children.length;
+
+    addBtn.addEventListener('click', function(){
+      var html = template.innerHTML.replace(/__INDEX__/g, String(counter++));
+      var holder = document.createElement('tbody');
+      holder.innerHTML = html;
+      var row = holder.querySelector('tr');
+      if (row) {
+        rowsEl.appendChild(row);
+        var firstInput = row.querySelector('input');
+        if (firstInput) firstInput.focus();
+      }
+    });
+
+    rowsEl.addEventListener('click', function(e){
+      if (!e.target.classList.contains('ibb-los__remove')) return;
+      var row = e.target.closest('tr');
+      if (!row) return;
+      // If this is the last row, just clear it instead of removing —
+      // keeps the table from collapsing to a confusing empty state.
+      if (rowsEl.children.length <= 1) {
+        row.querySelectorAll('input').forEach(function(input){ input.value = ''; });
+        return;
+      }
+      row.remove();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
 JS;
