@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- `ProductSync` no longer mirrors the property's `post_excerpt` / `post_content` to the WC product's short_description / description. The mirrored product is a backing object only; the Cart block was surfacing the property's prose ("content" in dev, marketing copy in production) inside the cart line. Property descriptions stay on the property page via `[ibb_property]`.
+
+### Fixed (earlier)
 - `is_sold_individually()` returns `false`; qty enforced to 1 via `clamp_quantity` filter + `reset_merged_quantity` action — eliminates "cannot add another" red notice on duplicate add-to-cart.
 - `CartHandler::apply_prices` now uses `deposit_due` for deposit-mode cart lines instead of the full stay total.
 - Cart-item dedup key derived from the signed quote-token hash so re-clicks merge while distinct bookings stay separate.

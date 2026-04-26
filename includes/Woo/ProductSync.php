@@ -124,8 +124,15 @@ final class ProductSync {
 
 		$product->set_name( $post->post_title );
 		$product->set_status( $post->post_status === 'publish' ? 'publish' : 'private' );
-		$product->set_short_description( $post->post_excerpt );
-		$product->set_description( $post->post_content );
+		// Description fields are intentionally blanked: the mirrored product is
+		// a backing object only (cart/order/payment plumbing). The Cart block
+		// surfaces product short_description / description in the cart line by
+		// default, which would leak the property's prose ("content") into the
+		// cart. The property's own descriptions stay on the property page via
+		// the [ibb_property] shortcode and don't need to round-trip via the
+		// product.
+		$product->set_short_description( '' );
+		$product->set_description( '' );
 		$product->set_catalog_visibility( 'hidden' );
 		$product->set_regular_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
 		$product->set_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
@@ -138,8 +145,9 @@ final class ProductSync {
 		$product = new \WC_Product_IBB_Booking();
 		$product->set_name( $post->post_title );
 		$product->set_status( $post->post_status === 'publish' ? 'publish' : 'private' );
-		$product->set_short_description( $post->post_excerpt );
-		$product->set_description( $post->post_content );
+		// See sync() for why descriptions are blanked.
+		$product->set_short_description( '' );
+		$product->set_description( '' );
 		$product->set_catalog_visibility( 'hidden' );
 		$product->set_virtual( true );
 		$product->set_sold_individually( false );

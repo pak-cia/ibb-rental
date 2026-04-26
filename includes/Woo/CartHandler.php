@@ -186,10 +186,12 @@ final class CartHandler {
 	}
 
 	private function meta_line( string $label, string $value_html ): string {
-		// Inline `font-weight:600` because some themes strip the default
-		// boldness off plain `<strong>` elements — defeats that without
-		// fighting the theme via a separate stylesheet.
-		return '<strong style="font-weight:600">' . esc_html( $label ) . ':</strong> ' . $value_html;
+		// `!important` is needed on the inline style because many block themes
+		// (Twenty Twenty-Five among them) declare `strong { font-weight: ... !important }`
+		// in their global stylesheet, and a non-!important inline declaration
+		// loses to an !important declaration in any source. Localised to the
+		// element via inline style — no separate theme-fighting stylesheet.
+		return '<strong style="font-weight:600!important">' . esc_html( $label ) . ':</strong> ' . $value_html;
 	}
 
 	public function lock_quantity( string $product_quantity, string $cart_item_key, array $cart_item ): string {

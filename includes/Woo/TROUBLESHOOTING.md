@@ -38,6 +38,18 @@ Result: identical re-clicks merge silently into the existing line; different boo
 
 ---
 
+## Property's prose leaks into the cart line ("content" or post excerpt visible below the product name)
+
+**Symptom:** the cart row shows the property's `post_content` or `post_excerpt` text below the product name and price, before the booking meta. Looks like a stray descriptive blurb the user didn't expect to surface in a transactional context.
+
+**Root cause:** `ProductSync::sync()` and `::create_product()` were mirroring the property's `post_excerpt` → product `short_description` and `post_content` → product `description`. The WC Cart block (Twenty Twenty-Five default) renders `short_description` (and sometimes `description`) inside the product-name cell automatically.
+
+**Fix:** the mirrored product is a backing object only (used for cart/order/payment plumbing), it doesn't need its own descriptions. Both `set_short_description('')` and `set_description('')` in both the create and update paths. The property's actual prose stays on the property's own page via `[ibb_property]` (which renders `post_content` through `apply_filters('the_content', …)`) — no round-trip via the product is needed.
+
+**If you ever want to opt back in:** add a property-level setting (e.g. "Include description in cart line") and conditionally populate the product fields. Don't blanket-restore — most people will never want the property's full prose duplicated in the cart.
+
+---
+
 ## Mirrored product disappears from edit screen
 
 **Likely cause:** the user trashed the property without realising it cascades. `ProductSync::on_trash` trashes the linked product. Untrash via Properties → Trash → restore the property; `on_untrash` restores the product.

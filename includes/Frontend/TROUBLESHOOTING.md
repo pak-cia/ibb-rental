@@ -95,7 +95,7 @@ This is theme-immune by construction:
 - `<br>` line breaks render identically regardless of `display: block` vs `display: inline` on the surrounding wrapper. Whatever the theme does to `dl.variation` or `.wc-block-components-product-details__item`, our internal layout still has one item per line.
 - One single entry means only one `<dl>` (classic) or one `<li>` (block cart) wrapper — no risk of theme CSS collapsing multiple wrappers next to each other.
 - Promoting the first field to `key` means the entry's natural label IS already a useful piece of data ("Check-in: <date>"); no separate "Booking:" prefix that themes render as a stray label.
-- Inline `font-weight: 600` on the strong tags overrides themes (e.g. Twenty Twenty-Five) that strip bold off plain `<strong>`. Inline style has higher specificity than theme stylesheets, no `!important` needed.
+- Inline `font-weight: 600 !important` on the strong tags. The `!important` is needed because many block themes (Twenty Twenty-Five included) declare `strong { font-weight: ... !important }` in their global stylesheet — and in CSS, an `!important` declaration in *any* source beats a non-`!important` declaration in any other source, regardless of inline-vs-stylesheet specificity. Localised to the element via inline style — no separate theme-fighting stylesheet, no risk of regressing across themes. (This is the one place an inline `!important` is appropriate: defeating an `!important` declaration on a tightly-scoped element.)
 - Works in classic cart, Cart block, mini cart, and order-confirmation page from the same code. No CSS file, no per-context branching.
 
 **Test checklist for any future cart-meta change:**
