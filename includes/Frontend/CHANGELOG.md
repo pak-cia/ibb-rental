@@ -4,7 +4,7 @@
 
 ### Fixed
 - `Assets::should_enqueue()` now also detects blocks via `has_block()`. Pages using only the IBB Gutenberg blocks (no shortcodes) no longer ship without Flatpickr, the lightbox JS, or the details-grid CSS.
-- Cart / checkout line-item meta now renders as one row per field instead of an inline-flow run-on string. New `Assets::maybe_enqueue_cart_styles()` injects scoped CSS on `is_cart()` / `is_checkout()` pages when an IBB item is present, forcing `dl.variation` into a 2-column grid (collapses to single-column on mobile).
+- Cart / checkout line-item meta now renders as one row per field instead of an inline-flow run-on string. `Assets::maybe_enqueue_cart_styles()` enqueues whenever the cart contains an IBB item (no `is_cart()` gate so the WC Cart block on non-default-cart-pages also picks it up). Covers both classic (`dl.variation`) and block-cart (`.wc-block-components-product-details`) markup, with `!important` to defeat theme overrides.
 
 ### Added
 - `Blocks.php` — three server-rendered Gutenberg blocks for page-builder use:

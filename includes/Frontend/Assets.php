@@ -26,16 +26,19 @@ final class Assets {
 	}
 
 	/**
-	 * On cart / checkout pages where the cart actually contains a booking,
-	 * inject CSS that lays out our line-item meta as block-level rows
-	 * instead of WC's default inline flow. Most modern themes (esp. block
-	 * themes) render `dl.variation` inline by default, which mashes our
-	 * Check-in / Check-out / Stay total / Deposit / Balance lines together.
+	 * Inject CSS that stacks our cart-line-item meta as block-level label/value
+	 * rows. Most modern themes render WC's `dl.variation` markup as inline-flow
+	 * (mashing all our Check-in / Check-out / Total / Deposit lines together);
+	 * the WooCommerce Cart *block* uses different markup
+	 * (`wc-block-components-product-details`), so we cover both.
+	 *
+	 * Enqueues on every frontend pageload when the cart contains an IBB item.
+	 * The CSS only matches cart-page markup, so emitting it on non-cart pages
+	 * is a no-op — and this avoids depending on `is_cart()`/`is_checkout()`,
+	 * which silently miss when the user has the cart configured as a custom
+	 * page or via the Cart block.
 	 */
 	public function maybe_enqueue_cart_styles(): void {
-		if ( ! function_exists( 'is_cart' ) || ( ! is_cart() && ! is_checkout() ) ) {
-			return;
-		}
 		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
 			return;
 		}
@@ -56,60 +59,104 @@ final class Assets {
 
 	private function cart_css(): string {
 		return <<<CSS
-/* Stack each booking line-item meta row vertically on its own line. */
-.woocommerce-cart-form dl.variation,
+/*
+ * Classic cart / checkout (shortcode-based or `[woocommerce_cart]`):
+ * WC emits a <dl class="variation"> with dt/dd pairs.
+ * `!important` is used to defeat themes that style `dl.variation > *`
+ * as inline-flow with higher specificity than a plain class selector.
+ */
+.woocommerce dl.variation,
 .cart_item dl.variation,
+.woocommerce-cart-form dl.variation,
 .woocommerce-checkout-review-order-table dl.variation {
-	display: grid;
-	grid-template-columns: max-content 1fr;
-	column-gap: 14px;
-	row-gap: 4px;
-	margin: 10px 0 0;
-	font-size: 0.92em;
-	line-height: 1.4;
+	display: grid !important;
+	grid-template-columns: max-content 1fr !important;
+	column-gap: 14px !important;
+	row-gap: 4px !important;
+	margin: 10px 0 0 !important;
+	font-size: 0.92em !important;
+	line-height: 1.4 !important;
+	float: none !important;
 }
-.woocommerce-cart-form dl.variation dt,
+.woocommerce dl.variation dt,
 .cart_item dl.variation dt,
+.woocommerce-cart-form dl.variation dt,
 .woocommerce-checkout-review-order-table dl.variation dt {
-	font-weight: 600;
-	color: #475569;
-	margin: 0;
-	float: none;
-	clear: none;
-	white-space: nowrap;
+	font-weight: 600 !important;
+	color: #475569 !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	float: none !important;
+	clear: none !important;
+	display: block !important;
+	white-space: nowrap !important;
 }
-.woocommerce-cart-form dl.variation dt::after,
-.cart_item dl.variation dt::after,
-.woocommerce-checkout-review-order-table dl.variation dt::after {
-	content: '';
-}
-.woocommerce-cart-form dl.variation dd,
+.woocommerce dl.variation dd,
 .cart_item dl.variation dd,
+.woocommerce-cart-form dl.variation dd,
 .woocommerce-checkout-review-order-table dl.variation dd {
-	margin: 0;
-	color: #0f172a;
-	float: none;
-	clear: none;
+	margin: 0 !important;
+	padding: 0 !important;
+	color: #0f172a !important;
+	float: none !important;
+	clear: none !important;
+	display: block !important;
 }
-.woocommerce-cart-form dl.variation dd p,
+.woocommerce dl.variation dd p,
 .cart_item dl.variation dd p,
+.woocommerce-cart-form dl.variation dd p,
 .woocommerce-checkout-review-order-table dl.variation dd p {
-	margin: 0;
+	margin: 0 !important;
 }
 
-/* Mobile: collapse the two-column grid to single-column with the label
-   above its value. */
+/*
+ * Block-based cart / checkout (Twenty Twenty-Five default, WC Cart block):
+ * WC emits <ul class="wc-block-components-product-details"> with
+ * <li class="wc-block-components-product-details__item"> children.
+ */
+.wc-block-components-product-details {
+	display: grid !important;
+	grid-template-columns: max-content 1fr !important;
+	column-gap: 14px !important;
+	row-gap: 4px !important;
+	list-style: none !important;
+	padding: 0 !important;
+	margin: 10px 0 0 !important;
+	font-size: 0.92em !important;
+	line-height: 1.4 !important;
+}
+.wc-block-components-product-details__item {
+	display: contents !important;
+}
+.wc-block-components-product-details__name {
+	font-weight: 600 !important;
+	color: #475569 !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	white-space: nowrap !important;
+}
+.wc-block-components-product-details__value {
+	margin: 0 !important;
+	padding: 0 !important;
+	color: #0f172a !important;
+}
+
+/* Mobile: collapse the two-column grid to single-column. */
 @media (max-width: 600px) {
-	.woocommerce-cart-form dl.variation,
+	.woocommerce dl.variation,
 	.cart_item dl.variation,
-	.woocommerce-checkout-review-order-table dl.variation {
-		grid-template-columns: 1fr;
-		row-gap: 2px;
+	.woocommerce-cart-form dl.variation,
+	.woocommerce-checkout-review-order-table dl.variation,
+	.wc-block-components-product-details {
+		grid-template-columns: 1fr !important;
+		row-gap: 2px !important;
 	}
-	.woocommerce-cart-form dl.variation dt,
+	.woocommerce dl.variation dt,
 	.cart_item dl.variation dt,
-	.woocommerce-checkout-review-order-table dl.variation dt {
-		margin-top: 6px;
+	.woocommerce-cart-form dl.variation dt,
+	.woocommerce-checkout-review-order-table dl.variation dt,
+	.wc-block-components-product-details__name {
+		margin-top: 6px !important;
 	}
 }
 CSS;

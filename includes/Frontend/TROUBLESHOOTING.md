@@ -69,13 +69,20 @@ add_action( 'wp_enqueue_scripts', function() {
 
 **Symptom:** in the cart row, all the booking meta (Check-in, Check-out, Nights, Guests, Stay total, Deposit charged today, Balance due, Security deposit) appears as one mashed-together line: *"Check-in: 2026-06-20 / Check-out: 2026-07-01 / Nights: 11 / Guests: 3 …"*.
 
-**Root cause:** WC emits each line-item meta entry as a `<dt>` / `<dd>` pair inside a single `<dl class="variation">`. Most modern themes (block themes especially, including Twenty Twenty-Five) style `dl.variation > *` as inline-flow by default, so all the dt/dd pairs collapse onto one line.
+**Root causes (yes, multiple — easy to fall back into one):**
 
-**Fix:** `Assets::maybe_enqueue_cart_styles()` enqueues a small CSS block on `is_cart()` / `is_checkout()` pages **only when** the cart contains an IBB booking line. The CSS forces `dl.variation` into a 2-column CSS grid (label / value) with a single-column collapse on mobile.
+1. **Markup variant**: WC has two completely different cart renderings — the classic shortcode-based cart (`<dl class="variation">` with dt/dd pairs) and the WC Cart **block** (`<ul class="wc-block-components-product-details">` with `<li>` items). Targeting only one leaves the other inline.
+2. **Theme specificity**: most modern themes (Twenty Twenty-Five especially) style `dl.variation > *` as inline-flow with higher specificity than a plain class selector. Without `!important` or matching specificity, our CSS loses.
+3. **Page-detection brittleness**: gating the enqueue on `is_cart() || is_checkout()` silently misses when the cart is the WC Cart block on a page that isn't formally registered as the WC Cart Page in settings.
 
-**Scope of the override:** the CSS is scoped to `.woocommerce-cart-form`, `.cart_item`, and `.woocommerce-checkout-review-order-table`. It will affect *any* product variation displayed in those areas while an IBB item is in the cart, not just our line items. Most themes display variations one-per-line anyway, so the change is usually invisible for non-IBB lines.
+**Fix:** `Assets::maybe_enqueue_cart_styles()`:
+- Enqueues unconditionally on every frontend pageload **when the cart contains an IBB item** — no `is_cart()` gate. The CSS only matches cart-page markup so this isn't pollution.
+- Targets both classic (`dl.variation`) and block-cart (`.wc-block-components-product-details` + `.wc-block-components-product-details__item` with `display: contents`) markup.
+- Uses `!important` on every rule to defeat theme overrides.
 
-**If the cart looks broken on a specific theme:** check the theme's WC override CSS for `dl.variation` rules with higher specificity. Bump our selectors with `body` prefix or `:where()` if needed.
+**Scope of the override:** while an IBB item is in the cart, the CSS affects every `dl.variation` and `wc-block-components-product-details` on the site. In practice that's only cart/checkout pages, and most themes display variations one-per-line anyway, so the change is usually invisible for non-IBB lines.
+
+**If the cart still looks broken on a specific theme:** open DevTools → Elements → inspect a meta row → check the "Computed" tab for `display`. If it's still `inline` despite our `!important`, the theme has even higher specificity (e.g. `body.theme-x .cart_item .product-name dl.variation`). Bump our selectors with a body prefix or use a `:where()`-wrapped competitor.
 
 ---
 
