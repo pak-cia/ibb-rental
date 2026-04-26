@@ -22,6 +22,49 @@ final class Assets {
 
 	public function register(): void {
 		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue' ] );
+		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue_cart_styles' ] );
+	}
+
+	/**
+	 * Tiny scoped stylesheet for the cart-line-meta labels.
+	 *
+	 * Why a stylesheet instead of inline style on the <strong> tags: the
+	 * WC Cart block's StoreAPI pipeline (or a security plugin filtering
+	 * `wp_kses_allowed_html` on some installs) strips the `style` attribute
+	 * from <strong> elements in the cart-item-data response. Class
+	 * attributes survive every reasonable kses config, so we hang the
+	 * bolding off `.ibb-cart-meta-label` and ship the rule here.
+	 *
+	 * Scoped to our own class name — no theme conflicts, no theme-fighting
+	 * selectors targeting `.cart_item` / `dl.variation` / etc.
+	 *
+	 * Enqueues whenever the cart contains an IBB item, regardless of
+	 * which page is rendering. The CSS only matches elements we emit, so
+	 * it's a no-op everywhere else.
+	 */
+	public function maybe_enqueue_cart_styles(): void {
+		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return;
+		}
+		$has_ibb = false;
+		foreach ( WC()->cart->get_cart() as $item ) {
+			if ( ! empty( $item['ibb'] ) ) {
+				$has_ibb = true;
+				break;
+			}
+		}
+		if ( ! $has_ibb ) {
+			return;
+		}
+		wp_register_style( 'ibb-rentals-cart', false, [], IBB_RENTALS_VERSION );
+		wp_enqueue_style( 'ibb-rentals-cart' );
+		// `!important` here defeats the user-agent's `strong { font-weight: bolder }`
+		// when the inherited body weight is light (e.g. Twenty Twenty-Five at 300,
+		// where `bolder` resolves to 400 and looks effectively non-bold).
+		wp_add_inline_style(
+			'ibb-rentals-cart',
+			'.ibb-cart-meta-label{font-weight:700!important}'
+		);
 	}
 
 	public function maybe_enqueue(): void {

@@ -79,28 +79,25 @@ add_action( 'wp_enqueue_scripts', function() {
 
 **What works:**
 
-`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry with an **empty `key`**. ALL meta — including the first field — lives inside the `display` value, with each label wrapped in `<strong style="font-weight:700!important">`:
+`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry with an **empty `key`**. ALL meta — including the first field — lives inside the `display` value. Each label is wrapped in `<strong class="ibb-cart-meta-label">` (no inline style — see below for why) and `Frontend\Assets::maybe_enqueue_cart_styles()` ships a tiny stylesheet `.ibb-cart-meta-label{font-weight:700!important}`.
 
 ```php
 $item_data[] = [
     'key'     => '',
-    'display' => '<strong style="font-weight:700!important">Check-in:</strong> 2026-06-20<br>'
-               . '<strong style="font-weight:700!important">Check-out:</strong> 2026-07-01<br>'
-               . '<strong style="font-weight:700!important">Nights:</strong> 11<br>...',
+    'display' => '<strong class="ibb-cart-meta-label">Check-in:</strong> 2026-06-20<br>'
+               . '<strong class="ibb-cart-meta-label">Check-out:</strong> 2026-07-01<br>...',
 ];
 ```
 
-Why empty key (and not "Check-in" / "Booking" / etc.) — discovered by testing on Twenty Twenty-Five with the Cart block:
+**Three failure modes we've exhausted to land on this:**
 
-- The Cart block's React component renders the entry's `name` (= our `key`) inside `<span class="wc-block-components-product-details__name">`. That span inherits theme styles, and Twenty Twenty-Five's body declares `font-weight: 300`. There's no way to make this span bold from the data side: the StoreAPI strips HTML from the name field via `wp_strip_all_tags`. So whatever you put in `key`, the cart-block-rendered label uses the theme's font-weight — light/300 in Twenty Twenty-Five.
-- Putting "Check-in" as the key meant the first label was always lighter than the rest (which DID have my bold-styled `<strong>`). Visually inconsistent.
-- An empty `key` makes the cart block skip the `__name` span entirely, and the classic cart's `<dt>` collapses to just `:`. Either is acceptable. ALL labels — including Check-in — now come from inside `display`, where my `<strong style="font-weight:700!important">` markup fully controls the styling.
+1. **Multiple entries (one per field).** WC's classic cart wraps each entry in `<dl class="variation">`; modern themes flatten these inline-flow. Multiple wrappers + theme CSS = mashed-together text.
+2. **Single entry with `key='Booking'` + bold styling in display.** The Cart block's React component renders the `key` (it calls it `name`) inside `<span class="wc-block-components-product-details__name">`, which inherits the theme's body font-weight. The StoreAPI strips HTML from the name field via `wp_strip_all_tags`, so there's no way to bold it from the data side. Result: an inconsistent first label vs the rest.
+3. **Single entry with empty `key` + inline `style="font-weight:700!important"` on each `<strong>` in display.** Looks correct on paper — `wp_kses_post` allows `style` on strong via global attributes. But the WC Cart block's StoreAPI `display` field arrives at React's RawHTML with the `style` attribute **stripped**. We don't know exactly which step does it (could be a security plugin filtering `wp_kses_allowed_html`, could be a WC StoreAPI quirk, could be the way React's RawHTML interprets the JSON), but DevTools confirms: the rendered `<strong>` has no `style` attribute, only the user-agent default of `font-weight: bolder` which resolves to 400 against a body weight of 300.
 
-Theme-immune by construction:
+**Why class survives:** the `class` attribute is on the global allowlist for *every* tag in `wp_kses_allowed_html('post')`. No security plugin or WC pipeline I've seen strips it. So we put the bold-styling rule on the class via a tiny stylesheet enqueued from `Frontend\Assets`. Class selector specificity (0,1,0) beats body/element rules (0,0,1), and `!important` defeats the user-agent's `strong { font-weight: bolder }` and any theme cascade involving `!important` on body weight.
 
-- `<br>` line breaks render identically regardless of `display: block` vs `display: inline` on the surrounding wrapper.
-- Inline `font-weight: 700 !important` on the strong tags. The `!important` is needed because many block themes (Twenty Twenty-Five) declare `body { font-weight: 300 }` and rely on cascade — once any `!important` declaration is in play for any property in the inheritance chain, inline non-`!important` declarations lose. Inline `!important` is the right tool here: tightly scoped to our own elements, no cross-element specificity arms race.
-- Works in classic cart, Cart block, mini cart, and order-confirmation page from the same code. No CSS file, no per-context branching.
+**Scope:** the stylesheet is two lines long and only matches our own `.ibb-cart-meta-label` class. No theme conflicts. Enqueued only when the cart actually contains an IBB item.
 
 **Test checklist for any future cart-meta change:**
 - [ ] Classic cart (`[woocommerce_cart]` shortcode) on the active theme

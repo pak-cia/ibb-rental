@@ -188,7 +188,14 @@ final class CartHandler {
 	}
 
 	private function meta_line( string $label, string $value_html ): string {
-		return '<strong style="font-weight:700!important">' . esc_html( $label ) . ':</strong> ' . $value_html;
+		// Class instead of inline style: the WC Cart block's StoreAPI
+		// pipeline (or a security plugin filtering kses_allowed_html on
+		// some installs) strips the `style` attribute from <strong> in
+		// the cart-item-data response despite wp_kses_post allowing it
+		// by default. Class attributes survive every reasonable kses
+		// config, so we hang the bolding off our own class and ship a
+		// tiny matching stylesheet from Frontend\Assets.
+		return '<strong class="ibb-cart-meta-label">' . esc_html( $label ) . ':</strong> ' . $value_html;
 	}
 
 	public function lock_quantity( string $product_quantity, string $cart_item_key, array $cart_item ): string {
