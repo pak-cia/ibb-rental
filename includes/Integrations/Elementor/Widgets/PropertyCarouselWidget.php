@@ -220,6 +220,241 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		] );
 
 		$this->end_controls_section();
+
+		$this->register_style_controls();
+	}
+
+	private function register_style_controls(): void {
+		// ---------- Image / slide ----------
+		$this->start_controls_section( 'section_style_image', [
+			'label' => __( 'Image', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_responsive_control( 'image_height', [
+			'label'      => __( 'Height', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px', 'vh' ],
+			'range'      => [
+				'px' => [ 'min' => 100, 'max' => 1000 ],
+				'vh' => [ 'min' => 10, 'max' => 100 ],
+			],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel--slideshow .ibb-property-carousel__main .ibb-property-carousel__image,
+				 {{WRAPPER}} .ibb-property-carousel--carousel .ibb-property-carousel__image' => 'height: {{SIZE}}{{UNIT}}; object-fit: cover;',
+			],
+		] );
+
+		$this->add_control( 'image_object_fit', [
+			'label'     => __( 'Object fit', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::SELECT,
+			'default'   => 'cover',
+			'options'   => [
+				'cover'   => __( 'Cover (crop)', 'ibb-rentals' ),
+				'contain' => __( 'Contain (letterbox)', 'ibb-rentals' ),
+				'fill'    => __( 'Fill (stretch)', 'ibb-rentals' ),
+			],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel__image' => 'object-fit: {{VALUE}};',
+			],
+			'condition' => [ 'image_height[size]!' => '' ],
+		] );
+
+		$this->add_responsive_control( 'image_border_radius', [
+			'label'      => __( 'Border radius', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+			'size_units' => [ 'px', '%' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel__image,
+				 {{WRAPPER}} .ibb-property-carousel--slideshow .ibb-property-carousel__main' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+			'name'     => 'image_border',
+			'selector' => '{{WRAPPER}} .ibb-property-carousel__image',
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [
+			'name'     => 'image_box_shadow',
+			'selector' => '{{WRAPPER}} .ibb-property-carousel--slideshow .ibb-property-carousel__main, {{WRAPPER}} .ibb-property-carousel--carousel .ibb-property-carousel__slide',
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Navigation arrows ----------
+		$this->start_controls_section( 'section_style_arrows', [
+			'label'     => __( 'Arrows', 'ibb-rentals' ),
+			'tab'       => \Elementor\Controls_Manager::TAB_STYLE,
+			'condition' => [ 'show_arrows' => 'yes' ],
+		] );
+
+		$this->add_control( 'arrows_color', [
+			'label'     => __( 'Color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next' => 'color: {{VALUE}};',
+			],
+		] );
+
+		$this->add_control( 'arrows_bg', [
+			'label'     => __( 'Background', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next' => 'background: {{VALUE}};',
+			],
+		] );
+
+		$this->add_control( 'arrows_bg_hover', [
+			'label'     => __( 'Background (hover)', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev:hover,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next:hover' => 'background: {{VALUE}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'arrows_size', [
+			'label'      => __( 'Button size', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 20, 'max' => 80 ] ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'arrows_icon_size', [
+			'label'      => __( 'Icon size', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 8, 'max' => 40 ] ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next' => '--swiper-navigation-size: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_control( 'arrows_border_radius', [
+			'label'      => __( 'Border radius', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+			'size_units' => [ 'px', '%' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'arrows_offset', [
+			'label'      => __( 'Side offset', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 0, 'max' => 80 ] ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev' => 'left: {{SIZE}}{{UNIT}};',
+				'{{WRAPPER}} .ibb-property-carousel .swiper-button-next' => 'right: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Pagination ----------
+		$this->start_controls_section( 'section_style_pagination', [
+			'label'     => __( 'Pagination', 'ibb-rentals' ),
+			'tab'       => \Elementor\Controls_Manager::TAB_STYLE,
+			'condition' => [ 'pagination!' => '', 'layout' => 'carousel' ],
+		] );
+
+		$this->add_control( 'pagination_color', [
+			'label'     => __( 'Color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-pagination-bullet,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-pagination-fraction,
+				 {{WRAPPER}} .ibb-property-carousel .swiper-pagination-progressbar' => '--swiper-pagination-color: {{VALUE}}; background-color: {{VALUE}};',
+			],
+		] );
+
+		$this->add_control( 'pagination_color_active', [
+			'label'     => __( 'Active color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel .swiper-pagination-bullet-active' => 'background: {{VALUE}}; opacity: 1;',
+			],
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Thumbnails (slideshow only) ----------
+		$this->start_controls_section( 'section_style_thumbs', [
+			'label'     => __( 'Thumbnails', 'ibb-rentals' ),
+			'tab'       => \Elementor\Controls_Manager::TAB_STYLE,
+			'condition' => [ 'layout' => 'slideshow' ],
+		] );
+
+		$this->add_responsive_control( 'thumbs_gap', [
+			'label'      => __( 'Gap below main image', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 0, 'max' => 60 ] ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel--slideshow' => 'gap: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'thumbs_aspect_ratio', [
+			'label'      => __( 'Aspect ratio', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'range'      => [ 'px' => [ 'min' => 0.5, 'max' => 3, 'step' => 0.05 ] ],
+			'default'    => [ 'size' => 1.4 ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel__thumb-image' => 'aspect-ratio: {{SIZE}};',
+			],
+		] );
+
+		$this->add_control( 'thumbs_border_radius', [
+			'label'      => __( 'Border radius', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+			'size_units' => [ 'px', '%' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel__thumb' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_control( 'thumbs_inactive_opacity', [
+			'label'     => __( 'Inactive opacity', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::SLIDER,
+			'range'     => [ 'px' => [ 'min' => 0.1, 'max' => 1, 'step' => 0.05 ] ],
+			'default'   => [ 'size' => 0.55 ],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel__thumb' => 'opacity: {{SIZE}};',
+			],
+		] );
+
+		$this->add_control( 'thumbs_active_outline', [
+			'label'     => __( 'Active outline color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'default'   => '#2563eb',
+			'selectors' => [
+				'{{WRAPPER}} .ibb-property-carousel__thumb.swiper-slide-thumb-active' => 'outline-color: {{VALUE}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'thumbs_active_outline_width', [
+			'label'      => __( 'Active outline width', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 0, 'max' => 8 ] ],
+			'default'    => [ 'size' => 2 ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-property-carousel__thumb' => 'outline-width: {{SIZE}}{{UNIT}};',
+			],
+		] );
+
+		$this->end_controls_section();
 	}
 
 	protected function render(): void {

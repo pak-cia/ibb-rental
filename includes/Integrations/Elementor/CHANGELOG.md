@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Style tab on `PropertyCarouselWidget`**: four sections wired to selectors so styling lives in Elementor's UI (no Custom CSS needed for the common cases).
+  - **Image** — height (responsive), object-fit, border, border-radius, box-shadow.
+  - **Arrows** — color, background, hover background, button size, icon size, border-radius, side offset. Conditional on `show_arrows = yes`.
+  - **Pagination** — color + active color. Conditional on `pagination != ''` and carousel layout (slideshow uses thumbs, not pagination).
+  - **Thumbnails** — gap below main, aspect ratio, border-radius, inactive opacity, active outline color + width. Conditional on slideshow layout.
+  - All selectors are scoped under `{{WRAPPER}}` so multiple carousels on the same page can be styled independently. No `!important`; selector specificity beats the base stylesheet cleanly.
+
 ### Fixed
 - **Property Carousel renders 33,554,400px-wide slides in Elementor 4.x editor preview.** Swiper was inits'ing before the parent flex container had a measured width — saw 0px, computed `slidesPerView: 1` math against that, locked the absurd value in. Combined with `loop: true` slide duplication, the wrapper translated to `-3.355e+07px`. Earlier fix had loaded Swiper into the preview but didn't address the timing-of-layout bug. Four-layer fix in place now:
   - `Module::register_widget_scripts()` registers a fallback `swiper` handle (jsDelivr-hosted Swiper 8.4.5) only if no other plugin has claimed it first.
