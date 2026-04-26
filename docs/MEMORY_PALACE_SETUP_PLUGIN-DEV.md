@@ -373,7 +373,162 @@ How to clone and get running locally. End-user install lives in readme.txt.
 
 ---
 
-## Step 5 — Monthly compile pass
+## Step 5 — Distribution packaging
+
+The four-doc-per-component system produces a lot of markdown that is **dev-only**: it should never ship to end users via the plugin zip or the WordPress.org plugin directory. Set up exclusion mechanisms before the first release, not after, so a routine `./build.sh` produces a clean zip without manual scrubbing.
+
+Three mechanisms cover the common build paths:
+
+| Build path | Reads | Use case |
+|---|---|---|
+| `git archive` | `.gitattributes` `export-ignore` | Default — works wherever git does, no extra tools |
+| `wp dist-archive .` (wp-cli) | `.distignore` | If wp-cli is on PATH |
+| `10up/action-wordpress-plugin-deploy` | `.distignore` | GitHub Actions auto-deploy to WordPress.org SVN |
+| `rsync --exclude-from=.distignore` | `.distignore` | Working-tree builds with uncommitted changes |
+
+**Keep `.distignore` and `.gitattributes` in lock-step.** Both files should exclude the same paths; that way any of the four build paths produces the same zip. If you change one, change the other.
+
+### What to exclude
+
+The dev-only paths the system creates:
+
+```
+# Memory Palace dev docs — readme.txt is the user-facing readme and stays.
+README.md
+CLAUDE.md
+RUNBOOK.md
+TROUBLESHOOTING.md
+CHANGELOG.md
+docs/
+.claude/
+
+# Per-component four-doc set under includes/ and templates/.
+includes/*/README.md
+includes/*/RUNBOOK.md
+includes/*/TROUBLESHOOTING.md
+includes/*/CHANGELOG.md
+templates/README.md
+templates/RUNBOOK.md
+templates/TROUBLESHOOTING.md
+templates/CHANGELOG.md
+```
+
+Plus the usual dev-tooling exclusions:
+
+```
+.git
+.gitignore
+.gitattributes
+.distignore
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+tests
+phpunit.xml
+phpunit.xml.dist
+node_modules
+composer.json
+composer.lock
+package.json
+package-lock.json
+webpack.config.js
+build.sh
+assets/src
+```
+
+For `.gitattributes`, the same paths take an `export-ignore` attribute:
+
+```
+# Memory Palace dev docs.
+README.md            export-ignore
+CLAUDE.md            export-ignore
+RUNBOOK.md           export-ignore
+TROUBLESHOOTING.md   export-ignore
+CHANGELOG.md         export-ignore
+docs/                export-ignore
+.claude/             export-ignore
+
+includes/**/README.md          export-ignore
+includes/**/RUNBOOK.md         export-ignore
+includes/**/TROUBLESHOOTING.md export-ignore
+includes/**/CHANGELOG.md       export-ignore
+templates/README.md            export-ignore
+templates/RUNBOOK.md           export-ignore
+templates/TROUBLESHOOTING.md   export-ignore
+templates/CHANGELOG.md         export-ignore
+```
+
+### A one-command build script
+
+`build.sh` at the plugin root, gitignore the `dist/` output:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+PLUGIN_SLUG="<your-plugin-slug>"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+DIST_DIR="$ROOT/dist"
+
+VERSION=$(grep -E '^\s*\*\s*Version:' "$ROOT/${PLUGIN_SLUG}.php" | head -1 \
+  | sed 's/.*Version:[[:space:]]*//' | tr -d '[:space:]')
+
+OUTPUT="$DIST_DIR/${PLUGIN_SLUG}-${VERSION}.zip"
+mkdir -p "$DIST_DIR"
+rm -f "$OUTPUT"
+
+# Production-only composer deps if applicable.
+if [ -f "$ROOT/composer.json" ] && command -v composer >/dev/null 2>&1; then
+  (cd "$ROOT" && composer install --no-dev --optimize-autoloader --quiet)
+fi
+
+# git archive respects .gitattributes export-ignore.
+(cd "$ROOT" && git archive --format=zip --prefix="${PLUGIN_SLUG}/" HEAD > "$OUTPUT")
+
+# Fold vendor/ into the archive if it exists on disk (gitignored, so git
+# archive doesn't include it on its own).
+if [ -d "$ROOT/vendor" ]; then
+  STAGING="$DIST_DIR/_vendor_staging/$PLUGIN_SLUG"
+  mkdir -p "$STAGING"
+  rsync -a "$ROOT/vendor" "$STAGING/"
+  (cd "$DIST_DIR/_vendor_staging" && zip -rq "$OUTPUT" "$PLUGIN_SLUG/vendor")
+  rm -rf "$DIST_DIR/_vendor_staging"
+fi
+
+echo "Built $OUTPUT"
+```
+
+Add to `.gitignore`:
+
+```
+/dist/
+```
+
+### Verify a build is clean
+
+After the first build, smoke-test that no dev files leaked through:
+
+```bash
+unzip -l dist/<plugin-slug>-<version>.zip | grep -iE \
+  'README\.md|RUNBOOK|TROUBLESH|CHANGELOG|CLAUDE|\.claude|docs/|tests/|composer\.json|build\.sh|\.gitattributes|\.gitignore|\.distignore'
+```
+
+Should return nothing. The user-facing `readme.txt` (no `.md`) does not match this pattern, so it correctly stays in the zip.
+
+### When to reset / update exclusions
+
+- Adding a new top-level component dir under `includes/` → `includes/*/...md` glob already covers it.
+- Adding a sub-sub-component (rare) → may need to extend the glob to `includes/**/*.md` in `.distignore` (note: `.distignore` glob support is tool-dependent — wp-cli's dist-archive uses fnmatch).
+- Adding a new dev-only top-level folder (e.g. `bin/`, `scripts/`) → add it to both `.distignore` and `.gitattributes`.
+
+### Document the build in the root RUNBOOK
+
+The plugin-level `RUNBOOK.md` should have a "Build a distribution ZIP" section pointing at `./build.sh` and explaining the verification command. So the *next* maintainer doesn't have to discover any of this.
+
+---
+
+## Step 6 — Monthly compile pass
 
 Same as the server version. Schedule a recurring reminder: first of each month.
 
@@ -525,6 +680,14 @@ If the plugin is brand-new (no history yet), skip this — fresh issues will acc
 - [ ] `.claude/settings.local.json` added to `.gitignore`
 - [ ] Each developer has added doc file permissions to their personal `~/.claude/settings.json`
 - [ ] Hook smoke-tested by editing a doc file and confirming it auto-commits
+
+**Distribution packaging**
+- [ ] `.distignore` excludes Memory Palace dev docs (root + per-component) plus dev tooling
+- [ ] `.gitattributes` mirrors the same exclusions via `export-ignore`
+- [ ] `build.sh` at plugin root, executable, version pulled from plugin header
+- [ ] `/dist/` added to `.gitignore`
+- [ ] Build smoke-tested: `./build.sh` produces a zip with zero dev files (verify via the grep command above)
+- [ ] `RUNBOOK.md` documents the build flow
 
 **Ongoing**
 - [ ] Monthly compile pass scheduled
