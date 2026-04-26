@@ -200,5 +200,6 @@ For end-user install instructions see [readme.txt](readme.txt).
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Plugin-wide known issues and fixes |
 | [CHANGELOG.md](CHANGELOG.md) | Plugin-wide change history |
 | [docs/architecture.md](docs/architecture.md) | Architecture decision record — original v0.1.0 plan, boundary choices, full risk register, public hooks contract, testing strategy |
+| [docs/MEMORY_PALACE_SETUP_PLUGIN-DEV.md](docs/MEMORY_PALACE_SETUP_PLUGIN-DEV.md) | Setup guide for the four-doc-per-component system this repo follows. Already in place here; preserved for replicating it on other plugin repos. |
 
 Each component directory carries its own four-doc set — see the components table above.

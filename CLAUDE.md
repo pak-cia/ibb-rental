@@ -13,6 +13,8 @@ One directory per component under `includes/`. Each contains:
 
 Root-level docs cover the plugin as a whole. The repo root [`README.md`](README.md) has a table linking to every component README.
 
+The full setup guide for this system (so it can be replicated on other plugin repos) lives at [`docs/MEMORY_PALACE_SETUP_PLUGIN-DEV.md`](docs/MEMORY_PALACE_SETUP_PLUGIN-DEV.md).
+
 ## Knowledge filing rules
 
 **Before starting work on a component:**
