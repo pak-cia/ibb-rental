@@ -39,6 +39,133 @@ final class Module {
 
 	public function register(): void {
 		add_action( 'elementor/dynamic_tags/register', [ $this, 'register_tags' ] );
+		add_action( 'elementor/widgets/register', [ $this, 'register_widgets' ] );
+		add_action( 'elementor/elements/categories_registered', [ $this, 'register_widget_category' ] );
+		add_action( 'elementor/frontend/after_register_scripts', [ $this, 'register_widget_scripts' ] );
+		add_action( 'elementor/preview/enqueue_scripts', [ $this, 'enqueue_widget_scripts_for_preview' ] );
+	}
+
+	/**
+	 * Register the carousel-init JS against Elementor's frontend script
+	 * registry. The script is queued for any page that uses our carousel
+	 * widget; declared in PropertyCarouselWidget::get_script_depends().
+	 *
+	 * Inits Swiper per-widget-instance via Elementor's
+	 * `frontend/element_ready/ibb_property_carousel.default` hook so each
+	 * carousel gets its own Swiper, even when the editor re-renders on
+	 * control changes or multiple carousels live on the same page.
+	 */
+	public function register_widget_scripts(): void {
+		wp_register_script(
+			'ibb-rentals-elementor-carousel',
+			'',
+			[ 'jquery', 'swiper', 'elementor-frontend' ],
+			IBB_RENTALS_VERSION,
+			true
+		);
+		wp_add_inline_script( 'ibb-rentals-elementor-carousel', $this->carousel_init_js() );
+	}
+
+	public function enqueue_widget_scripts_for_preview(): void {
+		// In Elementor's editor preview, our widget's get_script_depends()
+		// is honoured, but we also enqueue the init script directly so live
+		// previews in the editor work without first publishing.
+		wp_enqueue_script( 'ibb-rentals-elementor-carousel' );
+	}
+
+	private function carousel_init_js(): string {
+		return <<<'JS'
+( function ( $ ) {
+	if ( typeof window === 'undefined' ) return;
+
+	function initIBBCarousel( $scope ) {
+		var $el = $scope.find( '.ibb-property-carousel' ).first();
+		if ( ! $el.length ) return;
+		var node = $el[0];
+
+		// Tear down any prior instance (editor re-renders on control change).
+		if ( node.swiper && typeof node.swiper.destroy === 'function' ) {
+			node.swiper.destroy( true, true );
+		}
+
+		var config;
+		try { config = JSON.parse( node.dataset.ibbCarouselConfig || '{}' ); } catch ( e ) { config = {}; }
+
+		var Swiper = window.Swiper;
+		if ( typeof Swiper !== 'function' ) return;
+
+		var opts = {
+			slidesPerView: config.slidesPerView || 1,
+			spaceBetween: typeof config.spaceBetween === 'number' ? config.spaceBetween : 16,
+			loop: !! config.loop,
+			speed: config.speed || 500,
+			effect: config.effect === 'fade' ? 'fade' : 'slide',
+			fadeEffect: { crossFade: true },
+			breakpoints: {
+				480: { slidesPerView: config.slidesPerViewMobile || 1 },
+				768: { slidesPerView: config.slidesPerViewTablet || 1 },
+				1024: { slidesPerView: config.slidesPerView || 1 }
+			}
+		};
+
+		if ( config.autoplay ) {
+			opts.autoplay = {
+				delay: config.autoplayDelay || 4000,
+				disableOnInteraction: false,
+				pauseOnMouseEnter: !! config.pauseOnHover
+			};
+		}
+
+		if ( config.showArrows ) {
+			opts.navigation = {
+				nextEl: node.querySelector( '.ibb-property-carousel__next' ),
+				prevEl: node.querySelector( '.ibb-property-carousel__prev' )
+			};
+		}
+
+		if ( config.pagination ) {
+			opts.pagination = {
+				el: node.querySelector( '.ibb-property-carousel__pagination' ),
+				type: config.pagination,
+				clickable: true
+			};
+		}
+
+		new Swiper( node, opts );
+	}
+
+	$( window ).on( 'elementor/frontend/init', function () {
+		if ( ! window.elementorFrontend || ! window.elementorFrontend.hooks ) return;
+		window.elementorFrontend.hooks.addAction(
+			'frontend/element_ready/ibb_property_carousel.default',
+			initIBBCarousel
+		);
+	} );
+} )( window.jQuery );
+JS;
+	}
+
+	public function register_widget_category( $manager ): void {
+		$manager->add_category( 'ibb-rentals', [
+			'title' => __( 'IBB Rentals', 'ibb-rentals' ),
+			'icon'  => 'eicon-palmtree',
+		] );
+	}
+
+	public function register_widgets( $widgets_manager ): void {
+		$widget_files = [
+			'BookingFormWidget',
+			'PropertyDetailsWidget',
+			'PropertyGalleryWidget',
+			'PropertyCarouselWidget',
+		];
+		foreach ( $widget_files as $name ) {
+			require_once __DIR__ . '/Widgets/' . $name . '.php';
+			$cls = '\\IBB\\Rentals\\Integrations\\Elementor\\Widgets\\' . $name;
+			if ( class_exists( $cls ) && method_exists( $widgets_manager, 'register' ) ) {
+				$widgets_manager->register( new $cls() );
+			}
+		}
 	}
 
 	public function register_tags( $manager ): void {

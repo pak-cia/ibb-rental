@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- **Four Elementor widgets** under `Widgets/`. All grouped in a new "IBB Rentals" widget category (palmtree icon).
+  - `BookingFormWidget` — date-picker + quote + add-to-cart for one property. Mirrors the `ibb/booking-form` block.
+  - `PropertyDetailsWidget` — property metadata with per-field switchers and grid/compact/list layout.
+  - `PropertyGalleryWidget` — static gallery grid with the built-in lightbox.
+  - `PropertyCarouselWidget` — Swiper-driven slide carousel populated from a property's photos. Built specifically because Pro's Media Carousel uses a Repeater for slides and can't accept array-returning gallery dynamic tags. Controls: property + gallery, slides-per-view (desktop/tablet/mobile), space-between, navigation arrows, pagination (none/bullets/fraction/progress), loop, autoplay (with delay + pause-on-hover), transition effect (slide/fade), transition speed.
+- `Module::register_widgets()` and `Module::register_widget_category()` — register on `elementor/widgets/register` and `elementor/elements/categories_registered` respectively. Same hook-timing rule as dynamic tags (don't use `elementor/loaded`).
+- `Module::carousel_init_js()` — registered as `ibb-rentals-elementor-carousel` script handle. Hooks `frontend/element_ready/ibb_property_carousel.default` so each carousel instance gets its own Swiper, including across editor re-renders.
+
 ### Changed
 - **Tag return shape simplified to `[{id}]`** (was `[{id, url}]`). Matches Elementor's idiomatic gallery-dynamic-tag shape (WC's Product Gallery, Pro's Featured Image Gallery). Some widgets ignore extra fields but strictly validate the shape, so keeping it minimal maximizes compatibility across Pro Gallery / Image Carousel / Basic Gallery / third-party widgets that use a GALLERY control. Widgets resolve URLs / sizes themselves via their own "Image Size" controls.
 - **Gallery control is now a SELECT** (was free-text `slug`). Options are pulled from `Module::gallery_slug_options()` — the union of every distinct gallery slug across every property, with "All photos" pinned at the top as the default. Editors can no longer typo a slug into oblivion.

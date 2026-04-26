@@ -21,8 +21,75 @@ defined( 'ABSPATH' ) || exit;
 final class Assets {
 
 	public function register(): void {
+		// Always-register on priority 1 so handles exist even when nothing
+		// on the page triggers `should_enqueue()`. Elementor widgets declare
+		// `ibb-rentals-frontend` / `flatpickr` etc. via get_style_depends()
+		// and get_script_depends(); Elementor's renderer auto-enqueues those
+		// when the widget is on the page.
+		add_action( 'wp_enqueue_scripts', [ $this, 'register_assets' ], 1 );
 		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'maybe_enqueue_cart_styles' ] );
+	}
+
+	/**
+	 * Register every front-end style/script handle the plugin owns. Called
+	 * on `wp_enqueue_scripts` priority 1 (before any conditional enqueue).
+	 *
+	 * Registration is unconditional; enqueuing is gated below and from
+	 * Elementor widgets via their `get_*_depends()` methods.
+	 */
+	public function register_assets(): void {
+		wp_register_style(
+			'flatpickr',
+			'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css',
+			[],
+			'4.6.13'
+		);
+		wp_register_script(
+			'flatpickr',
+			'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js',
+			[],
+			'4.6.13',
+			true
+		);
+
+		wp_register_style( 'ibb-rentals-frontend', false, [], IBB_RENTALS_VERSION );
+		wp_add_inline_style( 'ibb-rentals-frontend', $this->css() );
+
+		wp_register_script( 'ibb-rentals-booking', false, [ 'flatpickr' ], IBB_RENTALS_VERSION, true );
+		wp_add_inline_script(
+			'ibb-rentals-booking',
+			sprintf(
+				'window.IBBRentals=%s;',
+				wp_json_encode( [
+					'restUrl'  => esc_url_raw( rest_url( 'ibb-rentals/v1' ) ),
+					'cartUrl'  => function_exists( 'wc_get_cart_url' ) ? esc_url_raw( wc_get_cart_url() ) : '',
+					'addToCart'=> function_exists( 'wc_get_cart_url' ) ? esc_url_raw( add_query_arg( 'wc-ajax', 'add_to_cart', wc_get_cart_url() ) ) : '',
+					'nonce'    => wp_create_nonce( 'wp_rest' ),
+					'currency' => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '$',
+					'i18n'     => [
+						'pickDates'      => __( 'Select your check-in and check-out dates', 'ibb-rentals' ),
+						'unavailable'    => __( 'Selected dates are not available.', 'ibb-rentals' ),
+						'loading'        => __( 'Loading…', 'ibb-rentals' ),
+						'bookNow'        => __( 'Book now', 'ibb-rentals' ),
+						'total'          => __( 'Total', 'ibb-rentals' ),
+						'depositDue'     => __( 'Deposit due now', 'ibb-rentals' ),
+						'balanceDue'     => __( 'Balance due', 'ibb-rentals' ),
+						'balanceDueOn'   => __( 'on', 'ibb-rentals' ),
+						'nights'         => __( 'nights', 'ibb-rentals' ),
+						'night'          => __( 'night', 'ibb-rentals' ),
+						'avgPerNight'    => __( '/ night avg.', 'ibb-rentals' ),
+						'subtotal'       => __( 'Subtotal', 'ibb-rentals' ),
+						'losDiscount'    => __( 'Long-stay discount', 'ibb-rentals' ),
+						'cleaningFee'    => __( 'Cleaning fee', 'ibb-rentals' ),
+						'extraGuestFee'  => __( 'Extra guests', 'ibb-rentals' ),
+						'securityDeposit'=> __( 'Security deposit (refundable)', 'ibb-rentals' ),
+					],
+				] )
+			),
+			'before'
+		);
+		wp_add_inline_script( 'ibb-rentals-booking', $this->js() );
 	}
 
 	/**
@@ -71,59 +138,12 @@ final class Assets {
 		if ( ! $this->should_enqueue() ) {
 			return;
 		}
-
-		wp_enqueue_style(
-			'flatpickr',
-			'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css',
-			[],
-			'4.6.13'
-		);
-		wp_enqueue_script(
-			'flatpickr',
-			'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js',
-			[],
-			'4.6.13',
-			true
-		);
-
-		wp_register_style( 'ibb-rentals-frontend', false, [], IBB_RENTALS_VERSION );
+		// Handles + their inline data are already registered in
+		// `register_assets()`. Just enqueue the ones we need.
+		wp_enqueue_style( 'flatpickr' );
+		wp_enqueue_script( 'flatpickr' );
 		wp_enqueue_style( 'ibb-rentals-frontend' );
-		wp_add_inline_style( 'ibb-rentals-frontend', $this->css() );
-
-		wp_register_script( 'ibb-rentals-booking', false, [ 'flatpickr' ], IBB_RENTALS_VERSION, true );
 		wp_enqueue_script( 'ibb-rentals-booking' );
-		wp_add_inline_script(
-			'ibb-rentals-booking',
-			sprintf(
-				'window.IBBRentals=%s;',
-				wp_json_encode( [
-					'restUrl'  => esc_url_raw( rest_url( 'ibb-rentals/v1' ) ),
-					'cartUrl'  => esc_url_raw( wc_get_cart_url() ),
-					'addToCart'=> esc_url_raw( add_query_arg( 'wc-ajax', 'add_to_cart', wc_get_cart_url() ) ),
-					'nonce'    => wp_create_nonce( 'wp_rest' ),
-					'currency' => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '$',
-					'i18n'     => [
-						'pickDates'      => __( 'Select your check-in and check-out dates', 'ibb-rentals' ),
-						'unavailable'    => __( 'Selected dates are not available.', 'ibb-rentals' ),
-						'loading'        => __( 'Loading…', 'ibb-rentals' ),
-						'bookNow'        => __( 'Book now', 'ibb-rentals' ),
-						'total'          => __( 'Total', 'ibb-rentals' ),
-						'depositDue'     => __( 'Deposit due now', 'ibb-rentals' ),
-						'balanceDue'     => __( 'Balance due', 'ibb-rentals' ),
-						'balanceDueOn'   => __( 'on', 'ibb-rentals' ),
-						'nights'         => __( 'nights', 'ibb-rentals' ),
-						'night'          => __( 'night', 'ibb-rentals' ),
-						'avgPerNight'    => __( '/ night avg.', 'ibb-rentals' ),
-						'subtotal'       => __( 'Subtotal', 'ibb-rentals' ),
-						'losDiscount'    => __( 'Long-stay discount', 'ibb-rentals' ),
-						'cleaningFee'    => __( 'Cleaning fee', 'ibb-rentals' ),
-						'extraGuestFee'  => __( 'Extra guests', 'ibb-rentals' ),
-						'securityDeposit'=> __( 'Security deposit (refundable)', 'ibb-rentals' ),
-					],
-				] )
-			)
-		);
-		wp_add_inline_script( 'ibb-rentals-booking', $this->js() );
 	}
 
 	private function should_enqueue(): bool {
@@ -131,6 +151,18 @@ final class Assets {
 			return true;
 		}
 		global $post;
+		if ( $post instanceof \WP_Post ) {
+			// Elementor widgets — stored in `_elementor_data` post meta as JSON,
+			// not in post_content, so has_shortcode/has_block won't find them.
+			$elementor_data = (string) get_post_meta( $post->ID, '_elementor_data', true );
+			if ( $elementor_data !== '' ) {
+				foreach ( [ 'ibb_booking_form', 'ibb_property_details', 'ibb_property_gallery', 'ibb_property_carousel' ] as $widget ) {
+					if ( strpos( $elementor_data, '"widgetType":"' . $widget . '"' ) !== false ) {
+						return true;
+					}
+				}
+			}
+		}
 		if ( $post instanceof \WP_Post && $post->post_content ) {
 			foreach ( [ 'ibb/booking-form', 'ibb/gallery', 'ibb/property-details' ] as $block ) {
 				if ( has_block( $block, $post ) ) {
@@ -178,6 +210,16 @@ final class Assets {
 .ibb-booking__submit[disabled] { opacity:.5; cursor:not-allowed; }
 .ibb-booking__error { color:#b91c1c; font-size:.9em; margin:8px 0; }
 .ibb-booking__loading { color:#64748b; font-size:.9em; padding:8px 0; }
+
+.ibb-property-carousel { width:100%; overflow:hidden; position:relative; }
+.ibb-property-carousel .swiper-slide { display:flex; align-items:center; justify-content:center; }
+.ibb-property-carousel__image { width:100%; height:auto; display:block; border-radius:6px; }
+.ibb-property-carousel .swiper-button-prev,
+.ibb-property-carousel .swiper-button-next { color:#fff; background:rgba(0,0,0,.45); width:36px; height:36px; border-radius:50%; --swiper-navigation-size: 16px; backdrop-filter:blur(4px); }
+.ibb-property-carousel .swiper-button-prev:hover,
+.ibb-property-carousel .swiper-button-next:hover { background:rgba(0,0,0,.7); }
+.ibb-property-carousel .swiper-pagination-bullet { background:#fff; opacity:.7; }
+.ibb-property-carousel .swiper-pagination-bullet-active { opacity:1; }
 
 .ibb-details--grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:12px; padding:14px 0; }
 .ibb-details--grid .ibb-details__item { display:flex; flex-direction:column; align-items:flex-start; padding:10px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; }
