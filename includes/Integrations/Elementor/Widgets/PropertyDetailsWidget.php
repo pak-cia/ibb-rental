@@ -27,7 +27,12 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 	public function get_icon(): string         { return 'eicon-info-box'; }
 	public function get_categories(): array    { return [ 'ibb-rentals' ]; }
 	public function get_keywords(): array      { return [ 'property', 'details', 'specs', 'amenities', 'ibb' ]; }
-	public function get_style_depends(): array { return [ 'ibb-rentals-frontend' ]; }
+	public function get_style_depends(): array {
+		// `elementor-icons` ships the eicon-* glyph font we default to. Without
+		// this, the front-end renders the `<i class="eicon-person">` tag fine
+		// but the glyph itself is empty (no font face loaded).
+		return [ 'ibb-rentals-frontend', 'elementor-icons' ];
+	}
 
 	/** @return array<string, string> */
 	private function field_options(): array {
@@ -261,6 +266,7 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 			'type'       => \Elementor\Controls_Manager::SLIDER,
 			'size_units' => [ 'px', 'em' ],
 			'range'      => [ 'px' => [ 'min' => 8, 'max' => 80 ] ],
+			'default'    => [ 'size' => 20, 'unit' => 'px' ],
 			'selectors'  => [
 				'{{WRAPPER}} .ibb-details__icon i'   => 'font-size: {{SIZE}}{{UNIT}};',
 				'{{WRAPPER}} .ibb-details__icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
