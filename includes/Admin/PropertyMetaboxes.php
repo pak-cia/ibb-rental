@@ -1,0 +1,606 @@
+<?php
+/**
+ * Tabbed metabox for the property edit screen.
+ *
+ * Each tab maps to one logical configuration area: details, rates, rules,
+ * availability, iCal. The metabox owns its own tiny CSS/JS — bundled inline
+ * so the build pipeline doesn't have to ship anything for this to work.
+ *
+ * Save handlers nonce-check, sanitize, then write postmeta. Rate rows go to
+ * the custom `ibb_rates` table via RateRepository, NOT postmeta.
+ */
+
+declare( strict_types=1 );
+
+namespace IBB\Rentals\Admin;
+
+use IBB\Rentals\Domain\Property;
+use IBB\Rentals\Ical\Exporter;
+use IBB\Rentals\PostTypes\PropertyPostType;
+use IBB\Rentals\Repositories\FeedRepository;
+use IBB\Rentals\Repositories\RateRepository;
+use IBB\Rentals\Woo\GatewayCapabilities;
+
+defined( 'ABSPATH' ) || exit;
+
+final class PropertyMetaboxes {
+
+	private const NONCE = 'ibb_property_meta';
+
+	public function __construct(
+		private RateRepository $rates,
+		private FeedRepository $feeds,
+		private Exporter $ical_exporter,
+		private GatewayCapabilities $gateways,
+	) {}
+
+	public function register(): void {
+		add_action( 'add_meta_boxes_' . PropertyPostType::POST_TYPE, [ $this, 'add_metabox' ] );
+		add_action( 'save_post_' . PropertyPostType::POST_TYPE, [ $this, 'save' ], 10, 2 );
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue' ] );
+		add_action( 'admin_print_footer_scripts', [ $this, 'print_footer_js' ], 99 );
+	}
+
+	public function print_footer_js(): void {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || $screen->post_type !== PropertyPostType::POST_TYPE ) {
+			return;
+		}
+		if ( ! in_array( $screen->base, [ 'post' ], true ) ) {
+			return;
+		}
+		echo '<script>' . $this->galleries_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	public function enqueue( string $hook ): void {
+		global $post;
+		if ( ! $post instanceof \WP_Post || $post->post_type !== PropertyPostType::POST_TYPE ) {
+			return;
+		}
+		if ( ! in_array( $hook, [ 'post.php', 'post-new.php' ], true ) ) {
+			return;
+		}
+		wp_enqueue_media();
+		wp_register_style( 'ibb-rentals-admin', false, [], IBB_RENTALS_VERSION );
+		wp_enqueue_style( 'ibb-rentals-admin' );
+		wp_add_inline_style( 'ibb-rentals-admin', $this->css() );
+	}
+
+	public function add_metabox(): void {
+		add_meta_box(
+			'ibb-property-config',
+			__( 'Rental configuration', 'ibb-rentals' ),
+			[ $this, 'render' ],
+			PropertyPostType::POST_TYPE,
+			'normal',
+			'high'
+		);
+	}
+
+	public function render( \WP_Post $post ): void {
+		$property = Property::from_post( $post );
+		if ( ! $property ) {
+			return;
+		}
+		wp_nonce_field( self::NONCE, self::NONCE . '_nonce' );
+
+		$tabs = [
+			'details'      => __( 'Details', 'ibb-rentals' ),
+			'photos'       => __( 'Photos', 'ibb-rentals' ),
+			'rates'        => __( 'Rates', 'ibb-rentals' ),
+			'rules'        => __( 'Booking rules', 'ibb-rentals' ),
+			'availability' => __( 'Availability', 'ibb-rentals' ),
+			'ical'         => __( 'iCal', 'ibb-rentals' ),
+		];
+
+		echo '<div class="ibb-tabs">';
+		echo '<ul class="ibb-tabs__nav">';
+		foreach ( $tabs as $key => $label ) {
+			printf(
+				'<li><a href="#ibb-tab-%1$s" data-tab="%1$s">%2$s</a></li>',
+				esc_attr( $key ),
+				esc_html( $label )
+			);
+		}
+		echo '</ul>';
+
+		echo '<div class="ibb-tabs__panels">';
+		$this->render_details( $property );
+		$this->render_photos( $property );
+		$this->render_rates( $property );
+		$this->render_rules( $property );
+		$this->render_availability( $property );
+		$this->render_ical( $property );
+		echo '</div></div>';
+
+		echo '<script>(function(){var tabs=document.querySelector(".ibb-tabs");if(!tabs)return;var links=tabs.querySelectorAll(".ibb-tabs__nav a");function activate(name){links.forEach(function(a){a.classList.toggle("is-active",a.dataset.tab===name)});tabs.querySelectorAll(".ibb-tab").forEach(function(p){p.classList.toggle("is-active",p.id==="ibb-tab-"+name)});}links.forEach(function(a){a.addEventListener("click",function(e){e.preventDefault();activate(a.dataset.tab);});});activate(links[0].dataset.tab);})();</script>';
+	}
+
+	private function render_details( Property $p ): void {
+		echo '<div class="ibb-tab" id="ibb-tab-details"><table class="form-table"><tbody>';
+		$this->row( __( 'Max guests', 'ibb-rentals' ),     $this->number( '_ibb_max_guests', $p->max_guests(), 1 ) );
+		$this->row( __( 'Bedrooms', 'ibb-rentals' ),       $this->number( '_ibb_bedrooms', $p->bedrooms(), 0 ) );
+		$this->row( __( 'Bathrooms', 'ibb-rentals' ),      $this->number( '_ibb_bathrooms', $p->bathrooms(), 0, 0.5 ) );
+		$this->row( __( 'Beds', 'ibb-rentals' ),           $this->number( '_ibb_beds', $p->beds(), 0 ) );
+		$this->row( __( 'Address', 'ibb-rentals' ),        $this->text(   '_ibb_address', (string) $p->meta( '_ibb_address', '' ) ) );
+		$this->row( __( 'Latitude', 'ibb-rentals' ),       $this->text(   '_ibb_lat', (string) $p->meta( '_ibb_lat', '' ) ) );
+		$this->row( __( 'Longitude', 'ibb-rentals' ),      $this->text(   '_ibb_lng', (string) $p->meta( '_ibb_lng', '' ) ) );
+		$this->row( __( 'Check-in time', 'ibb-rentals' ),  $this->time(   '_ibb_check_in_time', $p->check_in_time() ) );
+		$this->row( __( 'Check-out time', 'ibb-rentals' ), $this->time(   '_ibb_check_out_time', $p->check_out_time() ) );
+		echo '</tbody></table></div>';
+	}
+
+	private function render_photos( Property $p ): void {
+		$galleries = $p->galleries();
+
+		// Hydrate each gallery's attachments with a thumbnail URL so the JS
+		// can render existing items immediately on page load (without a
+		// secondary REST round-trip).
+		$hydrated = [];
+		foreach ( $galleries as $g ) {
+			$items = [];
+			foreach ( $g['attachments'] as $aid ) {
+				$src = wp_get_attachment_image_src( (int) $aid, 'thumbnail' );
+				$items[] = [
+					'id'    => (int) $aid,
+					'thumb' => $src ? (string) $src[0] : '',
+					'alt'   => (string) get_post_meta( (int) $aid, '_wp_attachment_image_alt', true ),
+				];
+			}
+			$hydrated[] = [
+				'slug'        => $g['slug'],
+				'label'       => $g['label'],
+				'attachments' => $items,
+			];
+		}
+
+		echo '<div class="ibb-tab" id="ibb-tab-photos">';
+		echo '<p class="description">' . esc_html__( 'Organise property photos into named galleries (e.g. "Main", "Bedroom 1", "Pool"). Use the [ibb_gallery] shortcode or the IBB dynamic tag in Elementor to reference them on the front-end.', 'ibb-rentals' ) . '</p>';
+
+		echo '<div class="ibb-galleries" id="ibb-galleries">';
+		printf(
+			'<textarea name="_ibb_galleries" id="ibb-galleries-data" hidden>%s</textarea>',
+			esc_textarea( wp_json_encode( $galleries ) ?: '[]' )
+		);
+
+		// Initial state passed to JS so the first paint shows existing thumbnails
+		// without needing to fetch them.
+		printf(
+			'<script type="application/json" id="ibb-galleries-initial">%s</script>',
+			wp_json_encode( $hydrated ) ?: '[]'
+		);
+
+		echo '<div class="ibb-galleries__add">';
+		echo '<input type="text" id="ibb-new-gallery-label" placeholder="' . esc_attr__( 'New gallery name (e.g. Bedroom 1)', 'ibb-rentals' ) . '" />';
+		echo '<button type="button" class="button button-secondary" id="ibb-add-gallery">+ ' . esc_html__( 'Add gallery', 'ibb-rentals' ) . '</button>';
+		echo '</div>';
+
+		echo '<div class="ibb-galleries__list" id="ibb-galleries-list"></div>';
+
+		echo '</div></div>';
+	}
+
+	private function render_rates( Property $p ): void {
+		$rate_rows = $this->rates->find_for_property( $p->id );
+		echo '<div class="ibb-tab" id="ibb-tab-rates"><table class="form-table"><tbody>';
+		$this->row( __( 'Base nightly rate', 'ibb-rentals' ),    $this->number( '_ibb_base_rate', $p->base_rate(), 0, 0.01 ) );
+		$this->row( __( 'Weekend uplift (%)', 'ibb-rentals' ),   $this->number( '_ibb_weekend_uplift_pct', $p->weekend_uplift_pct(), 0, 0.1 ) );
+		$this->row( __( 'Weekend days (ISO 1=Mon … 7=Sun)', 'ibb-rentals' ), $this->text( '_ibb_weekend_days', (string) $p->meta( '_ibb_weekend_days', '5,6,7' ) ) );
+		echo '</tbody></table>';
+
+		echo '<h4>' . esc_html__( 'Length-of-stay discounts', 'ibb-rentals' ) . '</h4>';
+		$los_json = wp_json_encode( $p->los_discounts() ) ?: '[]';
+		echo '<p class="description">' . esc_html__( 'JSON: an array of {"min_nights":N,"pct":X} entries. Highest min_nights match wins.', 'ibb-rentals' ) . '</p>';
+		printf( '<textarea name="_ibb_los_discounts" rows="4" class="large-text code">%s</textarea>', esc_textarea( $los_json ) );
+
+		echo '<h4>' . esc_html__( 'Seasonal rates', 'ibb-rentals' ) . '</h4>';
+		echo '<p class="description">' . esc_html__( 'Manage seasonal rate rows directly via the REST API or a future admin UI. Existing rows are shown read-only here.', 'ibb-rentals' ) . '</p>';
+		if ( $rate_rows ) {
+			echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'From', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'To', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Rate', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Priority', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Label', 'ibb-rentals' ) . '</th></tr></thead><tbody>';
+			foreach ( $rate_rows as $r ) {
+				printf(
+					'<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>',
+					esc_html( (string) $r['date_from'] ),
+					esc_html( (string) $r['date_to'] ),
+					esc_html( (string) $r['nightly_rate'] ),
+					(int) $r['priority'],
+					esc_html( (string) $r['label'] )
+				);
+			}
+			echo '</tbody></table>';
+		}
+		echo '</div>';
+	}
+
+	private function render_rules( Property $p ): void {
+		echo '<div class="ibb-tab" id="ibb-tab-rules"><table class="form-table"><tbody>';
+		$this->row( __( 'Min nights', 'ibb-rentals' ),               $this->number( '_ibb_min_nights', $p->min_nights(), 1 ) );
+		$this->row( __( 'Max nights (0 = no limit)', 'ibb-rentals' ), $this->number( '_ibb_max_nights', $p->max_nights(), 0 ) );
+		$this->row( __( 'Min advance days', 'ibb-rentals' ),         $this->number( '_ibb_advance_booking_days', $p->advance_booking_days(), 0 ) );
+		$this->row( __( 'Max advance days (0 = no limit)', 'ibb-rentals' ), $this->number( '_ibb_max_advance_days', $p->max_advance_days(), 0 ) );
+		$this->row( __( 'Cleaning fee', 'ibb-rentals' ),             $this->number( '_ibb_cleaning_fee', $p->cleaning_fee(), 0, 0.01 ) );
+		$this->row( __( 'Extra-guest fee (per guest, per night)', 'ibb-rentals' ), $this->number( '_ibb_extra_guest_fee', $p->extra_guest_fee(), 0, 0.01 ) );
+		$this->row( __( 'Extra-guest threshold', 'ibb-rentals' ),    $this->number( '_ibb_extra_guest_threshold', $p->extra_guest_threshold(), 0 ) );
+		$this->row( __( 'Security deposit (informational)', 'ibb-rentals' ), $this->number( '_ibb_security_deposit', $p->security_deposit(), 0, 0.01 ) );
+
+		$mode = $p->payment_mode();
+		echo '<tr><th><label>' . esc_html__( 'Payment mode', 'ibb-rentals' ) . '</label></th><td>';
+		echo '<select name="_ibb_payment_mode">';
+		printf( '<option value="full" %s>%s</option>', selected( $mode, 'full', false ), esc_html__( 'Full payment at booking', 'ibb-rentals' ) );
+		printf( '<option value="deposit" %s>%s</option>', selected( $mode, 'deposit', false ), esc_html__( 'Deposit + balance later', 'ibb-rentals' ) );
+		echo '</select></td></tr>';
+		$this->row( __( 'Deposit %', 'ibb-rentals' ),                 $this->number( '_ibb_deposit_pct', $p->deposit_pct(), 0, 1 ) );
+		$this->row( __( 'Balance due (days before check-in)', 'ibb-rentals' ), $this->number( '_ibb_balance_due_days_before', $p->balance_due_days_before(), 0 ) );
+		echo '</tbody></table>';
+
+		echo '<h4>' . esc_html__( 'Gateway capabilities', 'ibb-rentals' ) . '</h4>';
+		$summary = $this->gateways->active_gateway_summary();
+		if ( $summary ) {
+			echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Gateway', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Balance path', 'ibb-rentals' ) . '</th></tr></thead><tbody>';
+			foreach ( $summary as $g ) {
+				printf(
+					'<tr><td>%s</td><td><code>%s</code></td></tr>',
+					esc_html( $g['title'] ),
+					esc_html( $g['path'] )
+				);
+			}
+			echo '</tbody></table>';
+			echo '<p class="description">' . esc_html__( 'auto_charge = stored card off-session. payment_link = guest receives a pay-for-order email before check-in.', 'ibb-rentals' ) . '</p>';
+		} else {
+			echo '<p>' . esc_html__( 'No active WooCommerce gateways detected.', 'ibb-rentals' ) . '</p>';
+		}
+		echo '</div>';
+	}
+
+	private function render_availability( Property $p ): void {
+		echo '<div class="ibb-tab" id="ibb-tab-availability">';
+		echo '<h4>' . esc_html__( 'Blackout ranges', 'ibb-rentals' ) . '</h4>';
+		$json = wp_json_encode( $p->blackout_ranges() ) ?: '[]';
+		echo '<p class="description">' . esc_html__( 'JSON: an array of {"start":"YYYY-MM-DD","end":"YYYY-MM-DD"} ranges where bookings are refused.', 'ibb-rentals' ) . '</p>';
+		printf( '<textarea name="_ibb_blackout_ranges" rows="4" class="large-text code">%s</textarea>', esc_textarea( $json ) );
+		echo '<p class="description">' . esc_html__( 'Manual block-outs use the dedicated calendar tool (Rentals → Calendar). They live in the bookings system and respect the audit log.', 'ibb-rentals' ) . '</p>';
+		echo '</div>';
+	}
+
+	private function render_ical( Property $p ): void {
+		echo '<div class="ibb-tab" id="ibb-tab-ical">';
+
+		$feed_url = $this->ical_exporter->feed_url( $p->id );
+		echo '<h4>' . esc_html__( 'Export feed for OTAs', 'ibb-rentals' ) . '</h4>';
+		echo '<p class="description">' . esc_html__( 'Paste this URL into Airbnb / Booking.com / Agoda / VRBO as your inbound calendar feed. Direct bookings made on this site will appear there as "Reserved".', 'ibb-rentals' ) . '</p>';
+		printf( '<input type="text" readonly value="%s" class="large-text code" onclick="this.select()" />', esc_attr( $feed_url ) );
+
+		echo '<h4>' . esc_html__( 'Import feeds from OTAs', 'ibb-rentals' ) . '</h4>';
+		$rows = $this->feeds->find_for_property( $p->id );
+		if ( $rows ) {
+			echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Label', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Source', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'URL', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Last sync', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Status', 'ibb-rentals' ) . '</th></tr></thead><tbody>';
+			foreach ( $rows as $r ) {
+				printf(
+					'<tr><td>%s</td><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>',
+					esc_html( (string) $r['label'] ),
+					esc_html( (string) $r['source'] ),
+					esc_html( (string) $r['url'] ),
+					esc_html( (string) ( $r['last_synced_at'] ?: '—' ) ),
+					esc_html( (string) ( $r['last_status'] ?: '—' ) )
+				);
+			}
+			echo '</tbody></table>';
+		} else {
+			echo '<p>' . esc_html__( 'No import feeds configured. Add one via the Rentals → Feeds admin page.', 'ibb-rentals' ) . '</p>';
+		}
+		echo '</div>';
+	}
+
+	public function save( int $post_id, \WP_Post $post ): void {
+		if ( ! isset( $_POST[ self::NONCE . '_nonce' ] ) ) {
+			return;
+		}
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( (string) $_POST[ self::NONCE . '_nonce' ] ) ), self::NONCE ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+
+		$numeric_keys = [
+			'_ibb_max_guests', '_ibb_bedrooms', '_ibb_bathrooms', '_ibb_beds',
+			'_ibb_base_rate', '_ibb_weekend_uplift_pct',
+			'_ibb_min_nights', '_ibb_max_nights',
+			'_ibb_advance_booking_days', '_ibb_max_advance_days',
+			'_ibb_cleaning_fee', '_ibb_extra_guest_fee', '_ibb_extra_guest_threshold',
+			'_ibb_security_deposit', '_ibb_deposit_pct', '_ibb_balance_due_days_before',
+		];
+		foreach ( $numeric_keys as $key ) {
+			if ( isset( $_POST[ $key ] ) ) {
+				update_post_meta( $post_id, $key, (float) wp_unslash( $_POST[ $key ] ) );
+			}
+		}
+
+		$text_keys = [ '_ibb_address', '_ibb_lat', '_ibb_lng', '_ibb_weekend_days', '_ibb_check_in_time', '_ibb_check_out_time' ];
+		foreach ( $text_keys as $key ) {
+			if ( isset( $_POST[ $key ] ) ) {
+				update_post_meta( $post_id, $key, sanitize_text_field( (string) wp_unslash( $_POST[ $key ] ) ) );
+			}
+		}
+
+		if ( isset( $_POST['_ibb_payment_mode'] ) ) {
+			$mode = (string) wp_unslash( $_POST['_ibb_payment_mode'] );
+			update_post_meta( $post_id, '_ibb_payment_mode', $mode === 'deposit' ? 'deposit' : 'full' );
+		}
+
+		foreach ( [ '_ibb_los_discounts', '_ibb_blackout_ranges' ] as $json_key ) {
+			if ( isset( $_POST[ $json_key ] ) ) {
+				$raw     = (string) wp_unslash( $_POST[ $json_key ] );
+				$decoded = json_decode( $raw, true );
+				$value   = is_array( $decoded ) ? wp_json_encode( $decoded ) : '[]';
+				update_post_meta( $post_id, $json_key, $value );
+			}
+		}
+
+		if ( isset( $_POST['_ibb_galleries'] ) ) {
+			$raw     = (string) wp_unslash( $_POST['_ibb_galleries'] );
+			$decoded = json_decode( $raw, true );
+			$out     = [];
+			$seen    = [];
+			if ( is_array( $decoded ) ) {
+				foreach ( $decoded as $g ) {
+					if ( ! is_array( $g ) ) {
+						continue;
+					}
+					$label = isset( $g['label'] ) ? sanitize_text_field( (string) $g['label'] ) : '';
+					if ( $label === '' ) {
+						continue;
+					}
+					$slug = isset( $g['slug'] ) && $g['slug'] !== ''
+						? sanitize_key( (string) $g['slug'] )
+						: sanitize_title( $label );
+					$slug = $slug !== '' ? $slug : 'gallery';
+
+					// Enforce slug uniqueness within this property.
+					$base = $slug;
+					$i    = 2;
+					while ( isset( $seen[ $slug ] ) ) {
+						$slug = $base . '-' . $i;
+						$i++;
+					}
+					$seen[ $slug ] = true;
+
+					$ids = array_values( array_filter( array_map( 'intval', (array) ( $g['attachments'] ?? [] ) ) ) );
+					$out[] = [ 'slug' => $slug, 'label' => $label, 'attachments' => $ids ];
+				}
+			}
+			update_post_meta( $post_id, '_ibb_galleries', wp_json_encode( $out ) ?: '[]' );
+		}
+	}
+
+	private function row( string $label, string $field ): void {
+		echo '<tr><th>' . esc_html( $label ) . '</th><td>' . $field . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	private function number( string $name, int|float $value, int|float $min = 0, int|float $step = 1 ): string {
+		return sprintf(
+			'<input type="number" name="%s" value="%s" min="%s" step="%s" class="small-text" />',
+			esc_attr( $name ),
+			esc_attr( (string) $value ),
+			esc_attr( (string) $min ),
+			esc_attr( (string) $step )
+		);
+	}
+
+	private function text( string $name, string $value ): string {
+		return sprintf( '<input type="text" name="%s" value="%s" class="regular-text" />', esc_attr( $name ), esc_attr( $value ) );
+	}
+
+	private function time( string $name, string $value ): string {
+		return sprintf( '<input type="time" name="%s" value="%s" />', esc_attr( $name ), esc_attr( $value ) );
+	}
+
+	private function css(): string {
+		return <<<CSS
+.ibb-tabs__nav { display:flex; gap:4px; margin:0 0 12px; border-bottom:1px solid #ccd0d4; padding:0; }
+.ibb-tabs__nav li { margin:0; }
+.ibb-tabs__nav a { display:block; padding:8px 14px; text-decoration:none; color:#1d2327; border:1px solid transparent; border-bottom:0; border-radius:4px 4px 0 0; }
+.ibb-tabs__nav a.is-active { background:#fff; border-color:#ccd0d4; margin-bottom:-1px; font-weight:600; }
+.ibb-tab { display:none; padding:8px 0; }
+.ibb-tab.is-active { display:block; }
+.ibb-tab h4 { margin-top:18px; }
+
+.ibb-galleries__add { display:flex; gap:8px; margin:12px 0 18px; }
+.ibb-galleries__add input { flex:1; max-width:340px; }
+.ibb-gallery { background:#fff; border:1px solid #dcdcde; border-radius:6px; padding:14px 16px; margin-bottom:14px; }
+.ibb-gallery__header { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.ibb-gallery__label { flex:1; min-width:180px; max-width:340px; font-size:1em; font-weight:600; padding:6px 8px; }
+.ibb-gallery__slug { color:#646970; font-family:Consolas, Menlo, monospace; font-size:.85em; padding:2px 8px; background:#f0f0f1; border-radius:3px; }
+.ibb-gallery__shortcode { color:#646970; font-family:Consolas, Menlo, monospace; font-size:.78em; user-select:all; cursor:text; }
+.ibb-gallery__delete { color:#b32d2e; }
+.ibb-gallery__images { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; margin-bottom:10px; min-height:8px; }
+.ibb-gallery__images:empty::before { content:attr(data-empty); color:#8c8f94; font-size:.85em; padding:14px; grid-column:1/-1; text-align:center; border:1px dashed #c3c4c7; border-radius:4px; }
+.ibb-image { position:relative; aspect-ratio:1; border-radius:4px; overflow:hidden; border:1px solid #dcdcde; background:#f0f0f1; }
+.ibb-image img { width:100%; height:100%; object-fit:cover; display:block; }
+.ibb-image__remove { position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.65); color:#fff; font-size:14px; line-height:1; cursor:pointer; }
+.ibb-image__remove:hover { background:#b32d2e; }
+CSS;
+	}
+
+	private function galleries_js(): string {
+		return <<<'JS'
+(function(){
+  function init(retries) {
+    var root = document.getElementById('ibb-galleries');
+    if (!root) {
+      if (retries > 0) { setTimeout(function(){ init(retries - 1); }, 200); }
+      return;
+    }
+    if (root.dataset.ibbInit === '1') return; // idempotent
+    root.dataset.ibbInit = '1';
+    if (!window.wp || !window.wp.media) {
+      console.warn('[ibb-rentals] wp.media not available; gallery picker disabled.');
+      return;
+    }
+    boot(root);
+  }
+
+  function boot(root) {
+  var hidden = document.getElementById('ibb-galleries-data');
+  var listEl = document.getElementById('ibb-galleries-list');
+  var addBtn = document.getElementById('ibb-add-gallery');
+  var addInput = document.getElementById('ibb-new-gallery-label');
+  var initialEl = document.getElementById('ibb-galleries-initial');
+
+  var state = [];
+  try { state = JSON.parse((initialEl && initialEl.textContent) || '[]'); } catch (e) { state = []; }
+
+  function slugify(label) {
+    return String(label).toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substr(0, 60) || 'gallery';
+  }
+
+  function uniqueSlug(base) {
+    var taken = state.map(function(g){ return g.slug; });
+    var slug = base, n = 2;
+    while (taken.indexOf(slug) !== -1) { slug = base + '-' + n++; }
+    return slug;
+  }
+
+  function persist() {
+    // Strip thumbnails before serializing — we only store IDs server-side.
+    var stripped = state.map(function(g){
+      return {
+        slug: g.slug,
+        label: g.label,
+        attachments: (g.attachments || []).map(function(a){ return a.id; })
+      };
+    });
+    hidden.value = JSON.stringify(stripped);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[c];
+    });
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+    if (state.length === 0) {
+      listEl.innerHTML = '<p class="description"><em>No galleries yet — add one above.</em></p>';
+      persist();
+      return;
+    }
+    state.forEach(function(g, gi){
+      var card = document.createElement('div');
+      card.className = 'ibb-gallery';
+      card.dataset.idx = gi;
+
+      var imagesHtml = (g.attachments || []).map(function(a, ai){
+        var thumb = a.thumb || '';
+        return '<div class="ibb-image" data-idx="' + ai + '">' +
+          (thumb ? '<img src="' + escapeHtml(thumb) + '" alt="' + escapeHtml(a.alt || '') + '">' : '') +
+          '<button type="button" class="ibb-image__remove" aria-label="Remove">×</button>' +
+          '</div>';
+      }).join('');
+
+      var shortcode = '[ibb_gallery gallery="' + escapeHtml(g.slug) + '"]';
+
+      card.innerHTML =
+        '<div class="ibb-gallery__header">' +
+          '<input type="text" class="ibb-gallery__label" value="' + escapeHtml(g.label) + '">' +
+          '<code class="ibb-gallery__slug">' + escapeHtml(g.slug) + '</code>' +
+          '<code class="ibb-gallery__shortcode" title="Click to copy">' + escapeHtml(shortcode) + '</code>' +
+          '<button type="button" class="button button-link-delete ibb-gallery__delete">Remove gallery</button>' +
+        '</div>' +
+        '<div class="ibb-gallery__images" data-empty="No images yet — click ‘Add images’ to choose from the media library.">' + imagesHtml + '</div>' +
+        '<button type="button" class="button button-secondary ibb-gallery__add-images">+ Add images</button>';
+
+      listEl.appendChild(card);
+    });
+    persist();
+  }
+
+  // Add new gallery
+  addBtn.addEventListener('click', function(){
+    var label = (addInput.value || '').trim();
+    if (label === '') { addInput.focus(); return; }
+    var slug = uniqueSlug(slugify(label));
+    state.push({ slug: slug, label: label, attachments: [] });
+    addInput.value = '';
+    render();
+  });
+  addInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); }
+  });
+
+  // Per-gallery interactions
+  listEl.addEventListener('click', function(e){
+    var card = e.target.closest('.ibb-gallery');
+    if (!card) return;
+    var gi = parseInt(card.dataset.idx, 10);
+    var gallery = state[gi];
+    if (!gallery) return;
+
+    if (e.target.classList.contains('ibb-gallery__delete')) {
+      if (!confirm('Remove gallery "' + gallery.label + '"? Images stay in your media library.')) return;
+      state.splice(gi, 1);
+      render();
+      return;
+    }
+
+    if (e.target.classList.contains('ibb-image__remove')) {
+      var imgWrap = e.target.closest('.ibb-image');
+      var ai = parseInt(imgWrap.dataset.idx, 10);
+      gallery.attachments.splice(ai, 1);
+      render();
+      return;
+    }
+
+    if (e.target.classList.contains('ibb-gallery__add-images')) {
+      var frame = wp.media({
+        title: 'Add images to "' + gallery.label + '"',
+        multiple: true,
+        library: { type: 'image' },
+        button: { text: 'Add to gallery' }
+      });
+      frame.on('select', function(){
+        var sel = frame.state().get('selection').toJSON();
+        sel.forEach(function(item){
+          if (gallery.attachments.some(function(a){ return a.id === item.id; })) return;
+          var thumb = (item.sizes && item.sizes.thumbnail && item.sizes.thumbnail.url) ||
+                      (item.sizes && item.sizes.medium && item.sizes.medium.url) ||
+                      item.url || '';
+          gallery.attachments.push({ id: item.id, thumb: thumb, alt: item.alt || '' });
+        });
+        render();
+      });
+      frame.open();
+      return;
+    }
+  });
+
+  // Live label edits → re-derive slug if not already manually unique-collided
+  listEl.addEventListener('input', function(e){
+    if (!e.target.classList.contains('ibb-gallery__label')) return;
+    var card = e.target.closest('.ibb-gallery');
+    var gi = parseInt(card.dataset.idx, 10);
+    var gallery = state[gi];
+    if (!gallery) return;
+    gallery.label = e.target.value;
+    persist();
+  });
+
+  render();
+  } // end boot()
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ init(60); });
+  } else {
+    init(60);
+  }
+})();
+JS;
+	}
+}

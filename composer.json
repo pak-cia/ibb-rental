@@ -1,0 +1,53 @@
+{
+	"name": "ibb/ibb-rentals",
+	"description": "Tourism vacation-rental property management for WooCommerce — direct bookings, iCal calendar sync, seasonal pricing, deposit + balance payments.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=8.1",
+		"sabre/vobject": "^4.5"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^9.6",
+		"yoast/phpunit-polyfills": "^2.0",
+		"wp-phpunit/wp-phpunit": "^6.5",
+		"brain/monkey": "^2.6",
+		"coenjacobs/mozart": "^0.7"
+	},
+	"autoload": {
+		"psr-4": {
+			"IBB\\Rentals\\": "includes/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"IBB\\Rentals\\Tests\\": "tests/"
+		}
+	},
+	"extra": {
+		"mozart": {
+			"dep_namespace": "IBB\\Rentals\\Vendor\\",
+			"dep_directory": "/includes/Vendor/",
+			"classmap_directory": "/includes/Vendor/classes/",
+			"classmap_prefix": "IBB_Rentals_",
+			"packages": [
+				"sabre/vobject"
+			],
+			"delete_vendor_directories": true
+		}
+	},
+	"scripts": {
+		"mozart-compose": "vendor/bin/mozart compose",
+		"post-install-cmd": [
+			"@mozart-compose"
+		],
+		"post-update-cmd": [
+			"@mozart-compose"
+		]
+	},
+	"config": {
+		"allow-plugins": {
+			"composer/installers": true
+		}
+	}
+}

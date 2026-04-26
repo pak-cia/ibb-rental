@@ -1,0 +1,30 @@
+# Files and directories that the build script excludes from the distribution zip.
+# Lines starting with `#` are comments. Patterns match relative to the plugin root.
+
+.git
+.gitignore
+.distignore
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Source-only assets — we ship `assets/build/` only.
+assets/src
+
+# Tests and dev-only docs.
+tests
+phpunit.xml
+phpunit.xml.dist
+.phpunit.result.cache
+.phpunit.cache
+
+# Build tooling.
+node_modules
+composer.json
+composer.lock
+package.json
+package-lock.json
+webpack.config.js
+build.sh
+CHANGELOG.md
