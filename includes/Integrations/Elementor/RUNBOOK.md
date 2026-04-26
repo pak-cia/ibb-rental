@@ -52,6 +52,42 @@ The tag declares the `gallery` dynamic-tag category and returns an array of `{id
 3. Inside `register_widgets()`, `require_once` the widget file and call `$widgets_manager->register( new $cls() )`.
 4. Wire the new method into `Module::on_elementor_loaded()` so it fires alongside `register_tags`.
 
+## Wire colors / typography to Elementor Global kit slots
+
+Every color / typography control on every IBB widget should adopt the active kit's tokens by default. That way switching kits or recolouring the site palette propagates to our widgets with zero per-widget edits, but the defaults are still overridable inline.
+
+**Color controls** — pass the `global` key:
+
+```php
+$this->add_control( 'foo_color', [
+    'label'     => __( 'Color', 'ibb-rentals' ),
+    'type'      => \Elementor\Controls_Manager::COLOR,
+    'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_PRIMARY ],
+    'selectors' => [ '{{WRAPPER}} .ibb-foo' => 'color: {{VALUE}};' ],
+] );
+```
+
+**Typography controls** — same idea on `Group_Control_Typography`:
+
+```php
+$this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+    'name'     => 'foo_typography',
+    'global'   => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Typography::TYPOGRAPHY_PRIMARY ],
+    'selector' => '{{WRAPPER}} .ibb-foo',
+] );
+```
+
+**Standard slot mapping for IBB widgets** (keep consistent across new widgets):
+
+| Role | Color slot | Typography slot |
+|---|---|---|
+| Heading / value text | `COLOR_PRIMARY` | `TYPOGRAPHY_PRIMARY` |
+| Body / label text | `COLOR_TEXT` | `TYPOGRAPHY_TEXT` |
+| Accent fill (CTA bg, active state) | `COLOR_ACCENT` | — |
+| CTA button text | — | `TYPOGRAPHY_ACCENT` |
+
+Always scope the selector under `{{WRAPPER}}` so multiple instances on a page style independently.
+
 ## Force-refresh the property list inside Elementor's panel
 
 `Module::property_options()` caches per request. Reload the editor (full browser refresh) after adding a new property — the cache is one-request-only, so the next editor load picks up the change.

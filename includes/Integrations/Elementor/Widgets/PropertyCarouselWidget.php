@@ -292,6 +292,7 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		$this->add_control( 'arrows_color', [
 			'label'     => __( 'Color', 'ibb-rentals' ),
 			'type'      => \Elementor\Controls_Manager::COLOR,
+			'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_TEXT ],
 			'selectors' => [
 				'{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
 				 {{WRAPPER}} .ibb-property-carousel .swiper-button-next' => 'color: {{VALUE}};',
@@ -381,6 +382,7 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		$this->add_control( 'pagination_color_active', [
 			'label'     => __( 'Active color', 'ibb-rentals' ),
 			'type'      => \Elementor\Controls_Manager::COLOR,
+			'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_ACCENT ],
 			'selectors' => [
 				'{{WRAPPER}} .ibb-property-carousel .swiper-pagination-bullet-active' => 'background: {{VALUE}}; opacity: 1;',
 			],
@@ -437,7 +439,7 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 		$this->add_control( 'thumbs_active_outline', [
 			'label'     => __( 'Active outline color', 'ibb-rentals' ),
 			'type'      => \Elementor\Controls_Manager::COLOR,
-			'default'   => '#2563eb',
+			'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_ACCENT ],
 			'selectors' => [
 				'{{WRAPPER}} .ibb-property-carousel__thumb.swiper-slide-thumb-active' => 'outline-color: {{VALUE}};',
 			],

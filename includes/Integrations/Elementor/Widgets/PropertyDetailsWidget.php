@@ -100,6 +100,155 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 		] );
 
 		$this->end_controls_section();
+
+		$this->register_style_controls();
+	}
+
+	private function register_style_controls(): void {
+		// ---------- Grid items (grid layout only) ----------
+		$this->start_controls_section( 'section_style_grid', [
+			'label'     => __( 'Grid items', 'ibb-rentals' ),
+			'tab'       => \Elementor\Controls_Manager::TAB_STYLE,
+			'condition' => [ 'layout' => 'grid' ],
+		] );
+
+		$this->add_responsive_control( 'grid_min_col_width', [
+			'label'      => __( 'Min column width', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 80, 'max' => 300 ] ],
+			'default'    => [ 'size' => 110, 'unit' => 'px' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-details--grid' => 'grid-template-columns: repeat(auto-fit, minmax({{SIZE}}{{UNIT}}, 1fr));',
+			],
+		] );
+
+		$this->add_responsive_control( 'grid_gap', [
+			'label'      => __( 'Gap between items', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 0, 'max' => 60 ] ],
+			'selectors'  => [ '{{WRAPPER}} .ibb-details--grid' => 'gap: {{SIZE}}{{UNIT}};' ],
+		] );
+
+		$this->add_control( 'grid_item_bg', [
+			'label'     => __( 'Item background', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [ '{{WRAPPER}} .ibb-details--grid .ibb-details__item' => 'background: {{VALUE}};' ],
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+			'name'     => 'grid_item_border',
+			'selector' => '{{WRAPPER}} .ibb-details--grid .ibb-details__item',
+		] );
+
+		$this->add_control( 'grid_item_radius', [
+			'label'      => __( 'Item border radius', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+			'size_units' => [ 'px', '%' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-details--grid .ibb-details__item' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'grid_item_padding', [
+			'label'      => __( 'Item padding', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+			'size_units' => [ 'px', 'em' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-details--grid .ibb-details__item' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			],
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Value (the bigger / bolder text) ----------
+		$this->start_controls_section( 'section_style_value', [
+			'label' => __( 'Value', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_control( 'value_color', [
+			'label'     => __( 'Color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_PRIMARY ],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-details__value,
+				 {{WRAPPER}} .ibb-details--compact strong,
+				 {{WRAPPER}} .ibb-details--list dd' => 'color: {{VALUE}};',
+			],
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+			'name'     => 'value_typography',
+			'global'   => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Typography::TYPOGRAPHY_PRIMARY ],
+			'selector' => '{{WRAPPER}} .ibb-details__value, {{WRAPPER}} .ibb-details--compact strong, {{WRAPPER}} .ibb-details--list dd',
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Label ----------
+		$this->start_controls_section( 'section_style_label', [
+			'label' => __( 'Label', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_control( 'label_color', [
+			'label'     => __( 'Color', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'global'    => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Colors::COLOR_TEXT ],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-details__label,
+				 {{WRAPPER}} .ibb-details--list dt' => 'color: {{VALUE}};',
+				'{{WRAPPER}} .ibb-details--compact'  => 'color: {{VALUE}};',
+			],
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+			'name'     => 'label_typography',
+			'global'   => [ 'default' => \Elementor\Core\Kits\Documents\Tabs\Global_Typography::TYPOGRAPHY_TEXT ],
+			'selector' => '{{WRAPPER}} .ibb-details__label, {{WRAPPER}} .ibb-details--list dt, {{WRAPPER}} .ibb-details--compact',
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Alignment ----------
+		$this->start_controls_section( 'section_style_alignment', [
+			'label' => __( 'Alignment', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_responsive_control( 'text_align', [
+			'label'     => __( 'Alignment', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::CHOOSE,
+			'options'   => [
+				'flex-start' => [ 'title' => __( 'Left', 'ibb-rentals' ),   'icon' => 'eicon-text-align-left' ],
+				'center'     => [ 'title' => __( 'Center', 'ibb-rentals' ), 'icon' => 'eicon-text-align-center' ],
+				'flex-end'   => [ 'title' => __( 'Right', 'ibb-rentals' ),  'icon' => 'eicon-text-align-right' ],
+			],
+			'selectors_dictionary' => [
+				'flex-start' => 'flex-start',
+				'center'     => 'center',
+				'flex-end'   => 'flex-end',
+			],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-details--grid .ibb-details__item' => 'align-items: {{VALUE}};',
+			],
+		] );
+
+		$this->add_responsive_control( 'text_align_compact', [
+			'label'     => __( 'Compact / list alignment', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::CHOOSE,
+			'options'   => [
+				'left'   => [ 'title' => __( 'Left', 'ibb-rentals' ),   'icon' => 'eicon-text-align-left' ],
+				'center' => [ 'title' => __( 'Center', 'ibb-rentals' ), 'icon' => 'eicon-text-align-center' ],
+				'right'  => [ 'title' => __( 'Right', 'ibb-rentals' ),  'icon' => 'eicon-text-align-right' ],
+			],
+			'condition' => [ 'layout!' => 'grid' ],
+			'selectors' => [ '{{WRAPPER}} .ibb-details--compact, {{WRAPPER}} .ibb-details--list' => 'text-align: {{VALUE}};' ],
+		] );
+
+		$this->end_controls_section();
 	}
 
 	protected function render(): void {

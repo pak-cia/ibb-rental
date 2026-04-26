@@ -90,6 +90,92 @@ class PropertyGalleryWidget extends \Elementor\Widget_Base {
 		] );
 
 		$this->end_controls_section();
+
+		$this->register_style_controls();
+	}
+
+	private function register_style_controls(): void {
+		// ---------- Grid ----------
+		$this->start_controls_section( 'section_style_grid', [
+			'label' => __( 'Grid', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_responsive_control( 'gap', [
+			'label'      => __( 'Gap between images', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::SLIDER,
+			'size_units' => [ 'px' ],
+			'range'      => [ 'px' => [ 'min' => 0, 'max' => 60 ] ],
+			'default'    => [ 'size' => 8, 'unit' => 'px' ],
+			'selectors'  => [ '{{WRAPPER}} .ibb-gallery-display' => 'gap: {{SIZE}}{{UNIT}};' ],
+		] );
+
+		$this->end_controls_section();
+
+		// ---------- Image ----------
+		$this->start_controls_section( 'section_style_image', [
+			'label' => __( 'Image', 'ibb-rentals' ),
+			'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+		] );
+
+		$this->add_responsive_control( 'aspect_ratio', [
+			'label'   => __( 'Aspect ratio', 'ibb-rentals' ),
+			'type'    => \Elementor\Controls_Manager::SLIDER,
+			'range'   => [ 'px' => [ 'min' => 0.5, 'max' => 3, 'step' => 0.05 ] ],
+			'default' => [ 'size' => 1 ],
+			'selectors' => [ '{{WRAPPER}} .ibb-gallery-display__item' => 'aspect-ratio: {{SIZE}};' ],
+		] );
+
+		$this->add_control( 'object_fit', [
+			'label'     => __( 'Object fit', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::SELECT,
+			'default'   => 'cover',
+			'options'   => [
+				'cover'   => __( 'Cover (crop)', 'ibb-rentals' ),
+				'contain' => __( 'Contain (letterbox)', 'ibb-rentals' ),
+			],
+			'selectors' => [ '{{WRAPPER}} .ibb-gallery-display__image' => 'object-fit: {{VALUE}};' ],
+		] );
+
+		$this->add_responsive_control( 'image_radius', [
+			'label'      => __( 'Border radius', 'ibb-rentals' ),
+			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+			'size_units' => [ 'px', '%' ],
+			'selectors'  => [
+				'{{WRAPPER}} .ibb-gallery-display__item' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			],
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+			'name'     => 'image_border',
+			'selector' => '{{WRAPPER}} .ibb-gallery-display__item',
+		] );
+
+		$this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [
+			'name'     => 'image_shadow',
+			'selector' => '{{WRAPPER}} .ibb-gallery-display__item',
+		] );
+
+		$this->add_control( 'hover_zoom', [
+			'label'   => __( 'Hover zoom', 'ibb-rentals' ),
+			'type'    => \Elementor\Controls_Manager::SLIDER,
+			'range'   => [ 'px' => [ 'min' => 1, 'max' => 1.5, 'step' => 0.01 ] ],
+			'default' => [ 'size' => 1.03 ],
+			'selectors' => [
+				'{{WRAPPER}} .ibb-gallery-display__item:hover .ibb-gallery-display__image' => 'transform: scale({{SIZE}});',
+			],
+		] );
+
+		$this->add_control( 'hover_overlay', [
+			'label'     => __( 'Hover overlay', 'ibb-rentals' ),
+			'type'      => \Elementor\Controls_Manager::COLOR,
+			'selectors' => [
+				'{{WRAPPER}} .ibb-gallery-display__item' => 'position: relative;',
+				'{{WRAPPER}} .ibb-gallery-display__item:hover::after' => 'content: ""; position: absolute; inset: 0; background: {{VALUE}}; pointer-events: none; transition: background .2s;',
+			],
+		] );
+
+		$this->end_controls_section();
 	}
 
 	protected function render(): void {

@@ -3,12 +3,16 @@
 ## [Unreleased]
 
 ### Added
-- **Style tab on `PropertyCarouselWidget`**: four sections wired to selectors so styling lives in Elementor's UI (no Custom CSS needed for the common cases).
-  - **Image** — height (responsive), object-fit, border, border-radius, box-shadow.
-  - **Arrows** — color, background, hover background, button size, icon size, border-radius, side offset. Conditional on `show_arrows = yes`.
-  - **Pagination** — color + active color. Conditional on `pagination != ''` and carousel layout (slideshow uses thumbs, not pagination).
-  - **Thumbnails** — gap below main, aspect ratio, border-radius, inactive opacity, active outline color + width. Conditional on slideshow layout.
-  - All selectors are scoped under `{{WRAPPER}}` so multiple carousels on the same page can be styled independently. No `!important`; selector specificity beats the base stylesheet cleanly.
+- **Style tabs on every Elementor widget** (`BookingFormWidget`, `PropertyDetailsWidget`, `PropertyGalleryWidget`, `PropertyCarouselWidget`). All color + typography controls are wired to Elementor's **Global Colors** / **Global Typography** kit slots so the widgets adopt the active theme/kit's design tokens by default and can be overridden inline. Mapping:
+  - Headings + value text → `Global_Colors::COLOR_PRIMARY` + `Global_Typography::TYPOGRAPHY_PRIMARY`.
+  - Body / labels → `Global_Colors::COLOR_TEXT` + `Global_Typography::TYPOGRAPHY_TEXT`.
+  - Accent fills (Book button, active pagination dot, active thumbnail outline) → `Global_Colors::COLOR_ACCENT`.
+  - Button typography → `Global_Typography::TYPOGRAPHY_ACCENT`.
+- `BookingFormWidget` Style tab: Box (background, border, radius, padding, max-width, shadow), Title (color + typography), Fields (label color + typography, input color/bg/border/radius, stepper button bg + color), Quote panel (bg, text color, typography, total color), Book button (normal + hover tabs for color and bg, typography, radius, padding).
+- `PropertyDetailsWidget` Style tab: Grid items (min column width, gap, item bg/border/radius/padding — conditional on grid layout), Value (color + typography), Label (color + typography), Alignment (responsive choose for grid `align-items`, separate text-align for compact/list).
+- `PropertyGalleryWidget` Style tab: Grid (gap), Image (aspect ratio, object-fit, border-radius, border, box-shadow, hover zoom, hover overlay color).
+- All style selectors scoped under `{{WRAPPER}}` so multiple instances of the same widget on a page style independently. No `!important`; selector specificity beats the base stylesheet cleanly.
+- **Style tab on `PropertyCarouselWidget`** (initial pass that this expands on): Image / Arrows / Pagination / Thumbnails sections with the standard Elementor border + radius + shadow + color + size controls.
 
 ### Fixed
 - **Property Carousel renders 33,554,400px-wide slides in Elementor 4.x editor preview.** Swiper was inits'ing before the parent flex container had a measured width — saw 0px, computed `slidesPerView: 1` math against that, locked the absurd value in. Combined with `loop: true` slide duplication, the wrapper translated to `-3.355e+07px`. Earlier fix had loaded Swiper into the preview but didn't address the timing-of-layout bug. Four-layer fix in place now:
