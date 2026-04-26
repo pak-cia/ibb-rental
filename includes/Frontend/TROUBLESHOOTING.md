@@ -79,23 +79,27 @@ add_action( 'wp_enqueue_scripts', function() {
 
 **What works:**
 
-`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry. The first field (Check-in) becomes the entry's `key`; remaining fields go in `display` as `<br>`-separated lines. Each inline label uses `<strong style="font-weight:600">`:
+`CartHandler::render_item_meta()` (hooked to `woocommerce_get_item_data`) emits a **single** entry with an **empty `key`**. ALL meta — including the first field — lives inside the `display` value, with each label wrapped in `<strong style="font-weight:700!important">`:
 
 ```php
 $item_data[] = [
-    'key'     => 'Check-in',
-    'display' => '2026-06-20<br>'
-               . '<strong style="font-weight:600">Check-out:</strong> 2026-07-01<br>'
-               . '<strong style="font-weight:600">Nights:</strong> 11<br>...',
+    'key'     => '',
+    'display' => '<strong style="font-weight:700!important">Check-in:</strong> 2026-06-20<br>'
+               . '<strong style="font-weight:700!important">Check-out:</strong> 2026-07-01<br>'
+               . '<strong style="font-weight:700!important">Nights:</strong> 11<br>...',
 ];
 ```
 
-This is theme-immune by construction:
+Why empty key (and not "Check-in" / "Booking" / etc.) — discovered by testing on Twenty Twenty-Five with the Cart block:
 
-- `<br>` line breaks render identically regardless of `display: block` vs `display: inline` on the surrounding wrapper. Whatever the theme does to `dl.variation` or `.wc-block-components-product-details__item`, our internal layout still has one item per line.
-- One single entry means only one `<dl>` (classic) or one `<li>` (block cart) wrapper — no risk of theme CSS collapsing multiple wrappers next to each other.
-- Promoting the first field to `key` means the entry's natural label IS already a useful piece of data ("Check-in: <date>"); no separate "Booking:" prefix that themes render as a stray label.
-- Inline `font-weight: 600 !important` on the strong tags. The `!important` is needed because many block themes (Twenty Twenty-Five included) declare `strong { font-weight: ... !important }` in their global stylesheet — and in CSS, an `!important` declaration in *any* source beats a non-`!important` declaration in any other source, regardless of inline-vs-stylesheet specificity. Localised to the element via inline style — no separate theme-fighting stylesheet, no risk of regressing across themes. (This is the one place an inline `!important` is appropriate: defeating an `!important` declaration on a tightly-scoped element.)
+- The Cart block's React component renders the entry's `name` (= our `key`) inside `<span class="wc-block-components-product-details__name">`. That span inherits theme styles, and Twenty Twenty-Five's body declares `font-weight: 300`. There's no way to make this span bold from the data side: the StoreAPI strips HTML from the name field via `wp_strip_all_tags`. So whatever you put in `key`, the cart-block-rendered label uses the theme's font-weight — light/300 in Twenty Twenty-Five.
+- Putting "Check-in" as the key meant the first label was always lighter than the rest (which DID have my bold-styled `<strong>`). Visually inconsistent.
+- An empty `key` makes the cart block skip the `__name` span entirely, and the classic cart's `<dt>` collapses to just `:`. Either is acceptable. ALL labels — including Check-in — now come from inside `display`, where my `<strong style="font-weight:700!important">` markup fully controls the styling.
+
+Theme-immune by construction:
+
+- `<br>` line breaks render identically regardless of `display: block` vs `display: inline` on the surrounding wrapper.
+- Inline `font-weight: 700 !important` on the strong tags. The `!important` is needed because many block themes (Twenty Twenty-Five) declare `body { font-weight: 300 }` and rely on cascade — once any `!important` declaration is in play for any property in the inheritance chain, inline non-`!important` declarations lose. Inline `!important` is the right tool here: tightly scoped to our own elements, no cross-element specificity arms race.
 - Works in classic cart, Cart block, mini cart, and order-confirmation page from the same code. No CSS file, no per-context branching.
 
 **Test checklist for any future cart-meta change:**

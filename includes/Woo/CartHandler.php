@@ -126,20 +126,26 @@ final class CartHandler {
 	/**
 	 * Render booking meta as a single woocommerce_get_item_data entry.
 	 *
-	 * The first field (Check-in) is promoted to the entry's `key`, so the
-	 * surrounding cart markup uses it as the meta label — the cart shows
-	 * "Check-in: <date>" naturally without an extra "Booking:" prefix that
-	 * themes don't render cleanly.
+	 * Strategy: emit ALL meta inside the `display` field, with each label
+	 * wrapped in `<strong style="font-weight:700!important">` so every
+	 * label (including Check-in) has consistent bold styling under our
+	 * direct control.
 	 *
-	 * The remaining fields go in the `display` value as <br>-separated
-	 * lines. Each inline label uses `<strong style="font-weight:600">` —
-	 * inline style defeats themes (esp. block themes like Twenty
-	 * Twenty-Five) that strip bold from `<strong>`.
+	 * The `key` is intentionally empty. The classic cart's <dt> for an
+	 * empty key renders as just ":" (acceptable artifact at most), and the
+	 * Cart block's React component skips the `__name` span entirely when
+	 * the name is empty. Either way: no theme-controlled label leaks in.
 	 *
 	 * <br>-based linebreaks render identically regardless of the
-	 * surrounding wrapper (`dl.variation` in classic cart, `li` in the
-	 * Cart block) being block-level or inline-flow, so this works in
-	 * every cart context without theme-fighting CSS.
+	 * surrounding wrapper being block-level or inline-flow, so this works
+	 * in every cart context without theme-fighting CSS.
+	 *
+	 * `!important` on the inline font-weight is needed because many block
+	 * themes (Twenty Twenty-Five included) declare `body { font-weight:
+	 * 300 }` and rely on cascade — and once any !important declaration
+	 * is in play (for any property), inline non-!important declarations
+	 * lose. This is the one place inline !important is the right tool:
+	 * tightly scoped to our own elements, no cross-element specificity arms race.
 	 *
 	 * @param array<int, array<string, mixed>> $item_data
 	 * @param array<string, mixed>             $cart_item
@@ -151,47 +157,38 @@ final class CartHandler {
 			return $item_data;
 		}
 
-		$tail = [];
-		$tail[] = $this->meta_line( __( 'Check-out', 'ibb-rentals' ), esc_html( (string) $quote['checkout'] ) );
-		$tail[] = $this->meta_line( __( 'Nights', 'ibb-rentals' ),    (string) (int) $quote['nights'] );
-		$tail[] = $this->meta_line( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
+		$lines = [];
+		$lines[] = $this->meta_line( __( 'Check-in', 'ibb-rentals' ),  esc_html( (string) $quote['checkin'] ) );
+		$lines[] = $this->meta_line( __( 'Check-out', 'ibb-rentals' ), esc_html( (string) $quote['checkout'] ) );
+		$lines[] = $this->meta_line( __( 'Nights', 'ibb-rentals' ),    (string) (int) $quote['nights'] );
+		$lines[] = $this->meta_line( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
 
 		if ( ( $quote['payment_mode'] ?? 'full' ) === 'deposit' ) {
-			$tail[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
-			$tail[] = $this->meta_line( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
-			$tail[] = $this->meta_line(
+			$lines[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
+			$lines[] = $this->meta_line( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
+			$lines[] = $this->meta_line(
 				__( 'Balance due', 'ibb-rentals' ),
 				wc_price( (float) $quote['balance_due'] ) . ' <small>(' . esc_html__( 'on', 'ibb-rentals' ) . ' ' . esc_html( (string) $quote['balance_due_date'] ) . ')</small>'
 			);
 		}
 
 		if ( ! empty( $quote['security_deposit'] ) && (float) $quote['security_deposit'] > 0 ) {
-			$tail[] = $this->meta_line(
+			$lines[] = $this->meta_line(
 				__( 'Security deposit', 'ibb-rentals' ),
 				wc_price( (float) $quote['security_deposit'] ) . ' <small>(' . esc_html__( 'refundable, not charged today', 'ibb-rentals' ) . ')</small>'
 			);
 		}
 
-		$display = esc_html( (string) $quote['checkin'] );
-		if ( $tail ) {
-			$display .= '<br>' . implode( '<br>', $tail );
-		}
-
 		$item_data[] = [
-			'key'     => __( 'Check-in', 'ibb-rentals' ),
-			'display' => $display,
+			'key'     => '',
+			'display' => implode( '<br>', $lines ),
 		];
 
 		return $item_data;
 	}
 
 	private function meta_line( string $label, string $value_html ): string {
-		// `!important` is needed on the inline style because many block themes
-		// (Twenty Twenty-Five among them) declare `strong { font-weight: ... !important }`
-		// in their global stylesheet, and a non-!important inline declaration
-		// loses to an !important declaration in any source. Localised to the
-		// element via inline style — no separate theme-fighting stylesheet.
-		return '<strong style="font-weight:600!important">' . esc_html( $label ) . ':</strong> ' . $value_html;
+		return '<strong style="font-weight:700!important">' . esc_html( $label ) . ':</strong> ' . $value_html;
 	}
 
 	public function lock_quantity( string $product_quantity, string $cart_item_key, array $cart_item ): string {
