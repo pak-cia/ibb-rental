@@ -3,10 +3,12 @@
 ## [Unreleased]
 
 ### Fixed
-- **Property Carousel renders empty grey rectangle in Elementor 4.x editor preview.** The `swiper` script handle is auto-enqueued by Elementor 3.x from `get_script_depends()`, but Elementor 4.x's atomic-widgets pipeline doesn't always carry that into the preview iframe — the carousel HTML lands on the page with no Swiper instance to drive it. Three-layer fix:
+- **Property Carousel renders 33,554,400px-wide slides in Elementor 4.x editor preview.** Swiper was inits'ing before the parent flex container had a measured width — saw 0px, computed `slidesPerView: 1` math against that, locked the absurd value in. Combined with `loop: true` slide duplication, the wrapper translated to `-3.355e+07px`. Earlier fix had loaded Swiper into the preview but didn't address the timing-of-layout bug. Four-layer fix in place now:
   - `Module::register_widget_scripts()` registers a fallback `swiper` handle (jsDelivr-hosted Swiper 8.4.5) only if no other plugin has claimed it first.
   - `Module::enqueue_widget_scripts_for_preview()` (hooked to `elementor/preview/enqueue_scripts`) force-enqueues `swiper` + `ibb-rentals-elementor-carousel` inside the preview iframe.
-  - `.ibb-property-carousel .swiper:not(.swiper-initialized) .swiper-wrapper` flex fallback so slides remain visible even if Swiper init fails — diagnostic-friendly.
+  - `rebindLayout()` JS helper calls `swiper.update()` after every `<img>` load, on container `ResizeObserver` events, and on 100ms + 500ms `setTimeout` backstops — recomputes slide widths once the container actually has a measured width.
+  - CSS guards: `box-sizing: border-box` on all descendants + `max-width: 100%` on the root, `.swiper`, slides, and images so a transient miscalculation can't escape the container.
+  - Plus a pre-init flex fallback: `.swiper:not(.swiper-initialized) .swiper-wrapper` flexes slides so they remain visible even if Swiper never inits.
 - **Diagnostic editor placeholder** on `PropertyCarouselWidget`. When `render()` would exit silently (no property resolved, or resolved property has no images in the chosen gallery), the widget now emits an `.ibb-property-carousel-placeholder` warning box explaining which path was hit — but only inside Elementor's editor / preview mode. Front-end stays silent. Pattern documented in `TROUBLESHOOTING.md` for any new leaf widget.
 - All four widgets and the dynamic tag now route property resolution through a single `Module::resolve_property_for_widget()` helper. Previously each widget called `Property::from_id(get_the_ID())` directly and silently rendered empty when the editor was viewing a non-property page (e.g. "Elementor #36"). The shared helper falls back to the first published property in that case — purely an editor-preview convenience, real single-property templates still resolve to the current property. Removed the dynamic tag's duplicate `resolve_property()` method.
 

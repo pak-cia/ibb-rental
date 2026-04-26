@@ -211,14 +211,16 @@ final class Assets {
 .ibb-booking__error { color:#b91c1c; font-size:.9em; margin:8px 0; }
 .ibb-booking__loading { color:#64748b; font-size:.9em; padding:8px 0; }
 
-.ibb-property-carousel { width:100%; position:relative; min-height:120px; }
-/* Visible until Swiper initialises and adds .swiper-initialized — without
-   this the editor preview shows an empty grey rectangle when Swiper fails
-   to load (e.g. on Elementor 4.x atomic-widgets editor preview). */
+.ibb-property-carousel { width:100%; max-width:100%; position:relative; min-height:120px; box-sizing:border-box; }
+.ibb-property-carousel * { box-sizing:border-box; }
+.ibb-property-carousel .swiper { width:100%; max-width:100%; overflow:hidden; }
+/* Pre-init fallback: keep slides visible (and reasonably sized) while
+   Swiper hasn't initialised yet — without this the editor preview shows
+   an empty grey rectangle on Elementor 4.x atomic-widgets builds. */
 .ibb-property-carousel .swiper:not(.swiper-initialized) .swiper-wrapper { display:flex; gap:8px; flex-wrap:wrap; }
-.ibb-property-carousel .swiper:not(.swiper-initialized) .swiper-slide { width:auto; flex:0 0 auto; }
-.ibb-property-carousel .swiper-slide { display:flex; align-items:center; justify-content:center; }
-.ibb-property-carousel__image { width:100%; height:auto; display:block; border-radius:6px; }
+.ibb-property-carousel .swiper:not(.swiper-initialized) .swiper-slide { width:auto; max-width:100%; flex:0 0 auto; }
+.ibb-property-carousel .swiper-slide { display:flex; align-items:center; justify-content:center; max-width:100%; }
+.ibb-property-carousel__image { width:100%; max-width:100%; height:auto; display:block; border-radius:6px; }
 .ibb-property-carousel-placeholder { padding:14px 16px; background:#fef3c7; border:1px dashed #d97706; border-radius:6px; color:#78350f; font-size:.9em; line-height:1.4; }
 .ibb-property-carousel .swiper-button-prev,
 .ibb-property-carousel .swiper-button-next { color:#fff; background:rgba(0,0,0,.45); width:36px; height:36px; border-radius:50%; --swiper-navigation-size: 16px; backdrop-filter:blur(4px); }

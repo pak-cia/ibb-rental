@@ -110,6 +110,36 @@ final class Module {
 		}
 	}
 
+	// Force a Swiper instance to recompute its layout once the container
+	// actually has a width and once each image has loaded. This guards
+	// against the "33554400px slide width" failure mode in the Elementor
+	// editor preview iframe, where Swiper inits before flex layout has
+	// settled and locks in absurd values computed against the wrong
+	// container size.
+	function rebindLayout( swiperInstance, rootNode ) {
+		if ( ! swiperInstance || typeof swiperInstance.update !== 'function' ) return;
+		var update = function () {
+			if ( swiperInstance.destroyed ) return;
+			swiperInstance.update();
+		};
+		// 1) On every <img> load inside the widget.
+		var imgs = rootNode.querySelectorAll( 'img' );
+		Array.prototype.forEach.call( imgs, function ( img ) {
+			if ( img.complete && img.naturalWidth > 0 ) return;
+			img.addEventListener( 'load', update, { once: true } );
+			img.addEventListener( 'error', update, { once: true } );
+		} );
+		// 2) On container resize (e.g. the editor iframe finishing layout).
+		if ( typeof window.ResizeObserver === 'function' ) {
+			var ro = new window.ResizeObserver( update );
+			ro.observe( rootNode );
+		}
+		// 3) Belt-and-braces: a couple of timed updates in case neither
+		//    of the above fires (cached image + no ResizeObserver support).
+		setTimeout( update, 100 );
+		setTimeout( update, 500 );
+	}
+
 	function initIBBCarousel( $scope ) {
 		var $root = $scope.find( '.ibb-property-carousel' ).first();
 		if ( ! $root.length ) return;
@@ -172,7 +202,9 @@ final class Module {
 			};
 		}
 
-		new window.Swiper( mainEl, mainOpts );
+		var mainSwiper = new window.Swiper( mainEl, mainOpts );
+		rebindLayout( mainSwiper, mainEl );
+		rebindLayout( thumbs, thumbsEl );
 	}
 
 	function initCarousel( rootNode, config ) {
@@ -215,7 +247,8 @@ final class Module {
 			};
 		}
 
-		new window.Swiper( rootNode, opts );
+		var sw = new window.Swiper( rootNode, opts );
+		rebindLayout( sw, rootNode );
 	}
 
 	$( window ).on( 'elementor/frontend/init', function () {

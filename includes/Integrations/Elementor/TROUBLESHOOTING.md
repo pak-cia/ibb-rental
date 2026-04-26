@@ -53,19 +53,34 @@ The fallback is an editor-preview convenience so widgets show *something* while 
 
 **If you specifically want a non-property page to render the widget empty when no property is in scope,** pick the property explicitly in the control (don't rely on "Current page").
 
-## Carousel renders empty grey rectangle in Elementor 4.x editor
+## Carousel renders huge / empty grey rectangle in Elementor 4.x editor
 
-**Symptom:** Property Carousel widget shows neither images nor a yellow placeholder — just an empty grey container — in the Elementor editor preview iframe. Saved + viewed on the front-end, it renders fine.
+**Symptom:** Property Carousel renders an empty grey rectangle, OR a single image scaled to absurd dimensions (e.g. 33,554,400 × 33,554,400 px), inside the Elementor editor preview iframe. Saved + viewed on the front-end, it renders fine.
 
-**Root cause:** Elementor 4.x with atomic widgets enqueues widget dependencies differently than 3.x. The `swiper` script handle that 3.x auto-enqueued from `get_script_depends()` is no longer guaranteed to run inside the editor preview iframe — the carousel HTML is on the page but Swiper never instantiates, so the `.swiper-slide` elements stay in their natural-flow grey state.
+**Diagnostic:** with the preview iframe's devtools open, inspect a `.swiper-slide` — if its inline style shows `width: 3.355e+07px`, that's Swiper computing slide width from a container that had width 0 at init time and locking in `slidesPerView: 1` math against it.
 
-**Fix in place:**
+**Root causes (compound):**
 
-1. **Defensive Swiper registration** in `Module::register_widget_scripts()` — if no other plugin has registered the `swiper` handle, we register our own copy from jsDelivr as a fallback. Doesn't override Elementor's own copy when it exists.
-2. **Force-enqueue inside preview** in `Module::enqueue_widget_scripts_for_preview()` (hooked to `elementor/preview/enqueue_scripts`) — enqueues `swiper` + `ibb-rentals-elementor-carousel` unconditionally inside the preview iframe.
-3. **CSS fallback layout** — `.ibb-property-carousel .swiper:not(.swiper-initialized) .swiper-wrapper { display:flex; flex-wrap:wrap; gap:8px; }` so even if Swiper fails, the slides flow visibly instead of stacking invisibly.
+1. Elementor 4.x atomic-widgets pipeline doesn't always carry `get_script_depends()` into the preview iframe → Swiper handle wasn't loading inside the editor.
+2. Even when Swiper loads, the editor preview iframe sometimes inits Swiper *before* the parent flex container has a measured width — Swiper sees 0 width and produces a useless layout.
+3. With `loop: true`, Swiper duplicates slides; combined with the absurd width, the duplicates push the wrapper to `transform: translate3d(-3.355e+07px, …)`.
 
-**Diagnostic if the issue returns:** open the editor preview iframe's devtools console and run `typeof window.Swiper` — should be `'function'`. If it's `'undefined'`, the Swiper script didn't load; check the Network tab for a 404 on `swiper-bundle.min.js`.
+**Fix in place (four layers):**
+
+- **Script availability**: defensive `swiper` handle registration in `Module::register_widget_scripts()` (jsDelivr fallback only when no one else has claimed the handle), and force-enqueue inside the preview iframe in `Module::enqueue_widget_scripts_for_preview()` (hooked to `elementor/preview/enqueue_scripts`).
+- **Layout rebinding**: `rebindLayout()` in `carousel_init_js()` runs after each Swiper instance is constructed. It calls `swiper.update()` once each `<img>` finishes loading, again whenever the container's `ResizeObserver` fires, and twice on a setTimeout backstop (100ms + 500ms) for cached images + browsers without ResizeObserver. Recomputes slide widths against the now-real container width.
+- **CSS guards**: `box-sizing: border-box` on every descendant; `max-width: 100%` on the carousel root, the `.swiper`, every slide, and the `<img>` so even a transient miscalculation by Swiper can't escape the container.
+- **Pre-init flex fallback**: `.swiper:not(.swiper-initialized) .swiper-wrapper { display:flex; flex-wrap:wrap; gap:8px; }` so a never-inited Swiper still shows the slides visibly.
+
+**Diagnostic flowchart if the issue returns:**
+
+1. Inspect a `.swiper-slide` in devtools.
+   - Width is `3355…px` → layout-rebinding broke; check the console for "swiper.update is not a function" or that the `rebindLayout` `setTimeout`s actually fire.
+   - Width is reasonable but the slide is invisible → CSS broke; check `display:flex` on `.swiper-wrapper`.
+2. Run `typeof window.Swiper` in the preview iframe's console.
+   - `'undefined'` → Swiper script didn't load; check Network for the jsDelivr URL.
+   - `'function'` → Swiper loaded; init-time bug.
+3. Run `document.querySelector('.ibb-property-carousel__main').swiper` in the iframe console — should return a Swiper instance with `params`, `slides`, etc. If null, the `frontend/element_ready/ibb_property_carousel.default` hook never fired.
 
 ## Editor placeholder pattern (for new widgets)
 
