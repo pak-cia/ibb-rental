@@ -45,14 +45,47 @@ Delete the option `ibb_rentals_token_secret` (e.g. via Tools → wp-cli `wp opti
 
 ## Build a distribution ZIP
 
+A one-command build is provided. From the plugin root:
+
 ```bash
-composer install --no-dev --optimize-autoloader
-composer mozart-compose          # only if sabre/vobject is bundled
-# (npm build for blocks, when added)
-zip -r ibb-rentals.zip . -x@.distignore
+./build.sh                # default — packages HEAD via `git archive`
+./build.sh --working      # packages your working tree (uncommitted changes too)
 ```
 
-`.distignore` lists the dev-only paths that should not ship.
+Output lands in `dist/ibb-rentals-<version>.zip`. The `dist/` folder is gitignored.
+
+### What gets stripped
+
+The Memory Palace dev docs (`README.md`, `CLAUDE.md`, `RUNBOOK.md`, `TROUBLESHOOTING.md`, `CHANGELOG.md` at every level — including all `includes/*/*.md` and `templates/*.md`), the `docs/` folder, the `.claude/` folder, `tests/`, `composer.json` / `package.json` / lockfiles, `webpack.config.js`, `build.sh` itself, `.gitignore` / `.gitattributes` / `.distignore`, and OS junk (`.DS_Store`, `Thumbs.db`).
+
+The user-facing `readme.txt` (WordPress.org plugin-directory format) **does** ship. So does everything under `includes/` (PHP only, no markdown), `templates/single-ibb_property.php`, the main bootstrap `ibb-rentals.php`, `uninstall.php`, and (if present) `vendor/` from `composer install --no-dev`.
+
+### Three ways to package
+
+The build script defaults to `git archive` because it works without extra tools. Three exclusion mechanisms are kept in lock-step so any of them produce the same result:
+
+| Tool | Reads | Use case |
+|---|---|---|
+| `./build.sh` (default) | `.gitattributes` `export-ignore` | Local dev builds, CI, anyone with git |
+| `./build.sh --working` | `.distignore` (via rsync) | Working tree with uncommitted changes |
+| `wp dist-archive .` (wp-cli) | `.distignore` | If you already have wp-cli in the path |
+| 10up/action-wordpress-plugin-deploy (GitHub Actions) | `.distignore` | Auto-deploy to WordPress.org plugin SVN |
+
+If you change exclusion rules, update **both** `.distignore` and `.gitattributes` so all three paths agree.
+
+### Verify what's in the zip
+
+```bash
+unzip -l dist/ibb-rentals-<version>.zip
+```
+
+Quick check that no dev files leaked through:
+
+```bash
+unzip -l dist/ibb-rentals-<version>.zip | grep -iE 'README\.md|RUNBOOK|TROUBLESH|CHANGELOG|CLAUDE|\.claude|docs/|tests/|composer\.json|build\.sh|\.gitattributes|\.gitignore|\.distignore'
+```
+
+Should match nothing (the user-facing `readme.txt` does NOT match this pattern).
 
 ## Push to GitHub
 
