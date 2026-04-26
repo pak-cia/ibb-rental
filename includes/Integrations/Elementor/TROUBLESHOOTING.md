@@ -23,7 +23,7 @@ This was the bug that stopped the Property Gallery dynamic tag from appearing af
 
 **Likely causes (after the timing-bug fix above is in place):**
 
-1. **Wrong widget category.** The tag declares `gallery` category. It only appears on widget controls that accept gallery dynamic tags (Pro Gallery, Pro Image Carousel). The free Image widget accepts `image` category dynamic tags, not `gallery` — different category, different list.
+1. **The widget structurally can't accept a gallery dynamic tag.** Widgets that use a `Repeater` control for slides (Pro's Media Carousel, Pro Slider, Slides widget) cannot consume array-returning gallery tags — each slide is its own item with its own single-image control. See [RUNBOOK.md → widget compatibility](RUNBOOK.md#which-elementor-widgets-is-the-dynamic-tag-compatible-with) for the full table. **Diagnostic:** if WC's "Product Gallery" or Elementor's "Featured Image Gallery" doesn't appear in this widget either, then no gallery dynamic tag will — it's a widget-design constraint, not a bug.
 2. **Elementor isn't Pro.** Dynamic tags are an Elementor Pro feature. Without Pro, `elementor/dynamic_tags/register` never fires.
 3. **The tag class file errored during `require_once`.** Check the WP error log for `IBB\Rentals\Integrations\Elementor\DynamicTags\PropertyGalleryDynamicTag` parse / type errors.
 4. **Editor cache.** Hard-refresh the editor browser tab. If still missing, run Elementor → Tools → Regenerate Files & Data.

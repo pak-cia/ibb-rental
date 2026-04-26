@@ -87,13 +87,19 @@ class PropertyGalleryDynamicTag extends \Elementor\Core\DynamicTags\Data_Tag {
 			$ids = $property->all_attachments();
 		}
 
+		// Match Elementor's idiomatic gallery-dynamic-tag return shape: a
+		// flat list of { id: <int> } entries (see how WC's Product Gallery
+		// and Elementor Pro's Featured Image Gallery do it). Widgets resolve
+		// URLs / sizes themselves via wp_get_attachment_image_src() based on
+		// their own "Image Size" control. Including a `url` field here can
+		// confuse some widgets (Pro Gallery, Image Carousel) that ignore it
+		// but strictly validate the entry shape — keep the return minimal.
 		$out = [];
 		foreach ( $ids as $aid ) {
-			$url = wp_get_attachment_image_url( (int) $aid, 'full' );
-			if ( ! $url ) {
+			if ( ! wp_attachment_is_image( (int) $aid ) ) {
 				continue;
 			}
-			$out[] = [ 'id' => (int) $aid, 'url' => (string) $url ];
+			$out[] = [ 'id' => (int) $aid ];
 		}
 		return $out;
 	}

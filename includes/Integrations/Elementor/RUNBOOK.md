@@ -4,15 +4,38 @@
 
 In Elementor's editor:
 
-1. Add a Gallery widget (free version supports basic; Pro Gallery supports masonry/justified).
+1. Add any widget that uses Elementor's **GALLERY** control (see widget compatibility below).
 2. Click the Images control's dynamic-tag (database) icon.
 3. Pick **IBB Rentals → Property Gallery**.
 4. Set:
    - **Property** → `Current page` (default; auto-resolves from `get_the_ID()` on a property's single template) or a specific property by name.
-   - **Gallery slug** → leave empty for all photos, or enter a sub-gallery slug like `bedroom-1`, `pool`, `kitchen`.
+   - **Gallery** → "All photos" (default — combines every gallery) or a specific named gallery slug.
 5. Save the layout.
 
 The tag re-evaluates on every render — switching properties (e.g. on a single-property template viewing different posts) automatically picks up the right images.
+
+## Which Elementor widgets is the dynamic tag compatible with?
+
+The tag declares the `gallery` dynamic-tag category and returns an array of `{id}` items. It works in **any widget that uses an `Elementor\Controls_Manager::GALLERY` control** with `dynamic.active = true`.
+
+**Compatible widgets** (verified):
+
+| Widget | Source | Control type |
+|---|---|---|
+| Basic Gallery (Image Gallery) | Elementor Free | GALLERY |
+| Image Carousel | Elementor Free | GALLERY |
+| Pro Gallery | Elementor Pro | GALLERY |
+| Any third-party widget that uses a GALLERY control with dynamic active | — | GALLERY |
+
+**Not compatible** (structural mismatch — these widgets expect single images per slide via a Repeater control, not an array):
+
+| Widget | Source | Control type | Why |
+|---|---|---|---|
+| Media Carousel | Elementor Pro | REPEATER (slides) | Each slide is its own item with its own IMAGE control; can't be populated from an array-returning gallery tag |
+| Slides | Elementor Pro | REPEATER (slides) | Same |
+| Pro Slider | Elementor Pro | REPEATER (slides) | Same |
+
+**Workaround for incompatible widgets:** drop our `[ibb_gallery]` shortcode (or the `IBB · Property gallery` Gutenberg block) into a Shortcode widget / HTML widget instead. The shortcode renders a full lightbox-enabled grid (your slider's animated layout isn't preserved, but the photos render).
 
 ## Add a new dynamic tag
 
