@@ -1,7 +1,8 @@
 /vendor/
 /node_modules/
 /assets/build/
-/dist/                          # build.sh output
+# build.sh output:
+/dist/
 /build/
 *.log
 .DS_Store
