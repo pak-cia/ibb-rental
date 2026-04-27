@@ -13,8 +13,10 @@ namespace IBB\Rentals\Rest;
 
 use IBB\Rentals\Plugin;
 use IBB\Rentals\Rest\Controllers\AvailabilityController;
+use IBB\Rentals\Rest\Controllers\BookingsController;
 use IBB\Rentals\Rest\Controllers\FeedsController;
 use IBB\Rentals\Rest\Controllers\IcalController;
+use IBB\Rentals\Rest\Controllers\PropertiesController;
 use IBB\Rentals\Rest\Controllers\QuoteController;
 
 defined( 'ABSPATH' ) || exit;
@@ -32,6 +34,7 @@ final class RouteRegistrar {
 	}
 
 	public function register_routes(): void {
+		( new PropertiesController() )->register( self::NAMESPACE );
 		( new AvailabilityController( $this->plugin->availability_service() ) )->register( self::NAMESPACE );
 		( new QuoteController(
 			$this->plugin->availability_service(),
@@ -39,5 +42,6 @@ final class RouteRegistrar {
 		) )->register( self::NAMESPACE );
 		( new IcalController( $this->plugin->ical_exporter() ) )->register( self::NAMESPACE );
 		( new FeedsController( $this->plugin->feed_repo(), $this->plugin->ical_importer() ) )->register( self::NAMESPACE );
+		( new BookingsController( $this->plugin->booking_repo() ) )->register( self::NAMESPACE );
 	}
 }

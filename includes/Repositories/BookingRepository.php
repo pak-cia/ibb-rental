@@ -87,4 +87,47 @@ final class BookingRepository {
 	public function update_status( int $id, string $status ): void {
 		$this->update( $id, [ 'status' => $status ] );
 	}
+
+	/**
+	 * Multi-filter query used by the REST /bookings endpoint and the admin
+	 * bookings list table. All parameters are optional — pass null to skip.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	public function find_filtered(
+		?int    $property_id = null,
+		?string $status      = null,
+		?string $from        = null,
+		?string $to          = null
+	): array {
+		$where = [];
+		$args  = [];
+
+		if ( $property_id !== null ) {
+			$where[] = 'property_id = %d';
+			$args[]  = $property_id;
+		}
+		if ( $status !== null && $status !== '' ) {
+			$where[] = 'status = %s';
+			$args[]  = $status;
+		}
+		if ( $from !== null && $from !== '' ) {
+			$where[] = 'checkin >= %s';
+			$args[]  = $from;
+		}
+		if ( $to !== null && $to !== '' ) {
+			$where[] = 'checkout <= %s';
+			$args[]  = $to;
+		}
+
+		$clause = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
+		$sql    = "SELECT * FROM {$this->table} $clause ORDER BY checkin DESC";
+
+		if ( $args ) {
+			// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$sql = $this->db->prepare( $sql, ...$args );
+		}
+
+		return $this->db->get_results( $sql, ARRAY_A ) ?: [];
+	}
 }
