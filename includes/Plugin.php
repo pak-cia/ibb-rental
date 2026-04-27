@@ -15,9 +15,11 @@ use IBB\Rentals\Admin\AdminCalendar;
 use IBB\Rentals\Admin\Menu;
 use IBB\Rentals\Admin\PropertyMetaboxes;
 use IBB\Rentals\Emails\BookingConfirmationEmail;
+use IBB\Rentals\Emails\BookingReminderEmail;
 use IBB\Rentals\Cron\Jobs\ChargeBalanceJob;
 use IBB\Rentals\Cron\Jobs\CleanupHoldsJob;
 use IBB\Rentals\Cron\Jobs\ImportFeedJob;
+use IBB\Rentals\Cron\Jobs\ReminderEmailJob;
 use IBB\Rentals\Cron\Jobs\SendPaymentLinkJob;
 use IBB\Rentals\Frontend\Assets;
 use IBB\Rentals\Frontend\Blocks;
@@ -114,9 +116,11 @@ final class Plugin {
 		add_action( Hooks::AS_CLEANUP_HOLDS, [ $this, 'run_cleanup_holds' ] );
 		add_action( Hooks::AS_CHARGE_BALANCE, [ $this, 'run_charge_balance' ] );
 		add_action( Hooks::AS_SEND_PAYMENT_LINK, [ $this, 'run_send_payment_link' ], 10, 2 );
-		add_action( Hooks::AS_IMPORT_FEED, [ $this, 'run_import_feed' ] );
+		add_action( Hooks::AS_IMPORT_FEED,    [ $this, 'run_import_feed' ] );
+		add_action( Hooks::AS_SEND_REMINDER,  [ $this, 'run_send_reminder' ] );
 
 		add_action( Hooks::BOOKING_CREATED, [ $this, 'schedule_balance_flow' ], 10, 4 );
+		add_action( Hooks::BOOKING_CREATED, [ $this, 'schedule_reminder' ],     30, 4 );
 
 		add_filter( 'woocommerce_email_classes', [ $this, 'register_emails' ] );
 
@@ -139,9 +143,28 @@ final class Plugin {
 		( new SendPaymentLinkJob( $this->balance_service() ) )->handle( $booking_id, $kind );
 	}
 
+	public function run_send_reminder( int $booking_id ): void {
+		( new ReminderEmailJob() )->handle( $booking_id );
+	}
+
+	public function schedule_reminder( int $booking_id, \WC_Order $_order, \WC_Order_Item_Product $_item, string $_payment_mode ): void {
+		$booking = $this->booking_repo()->find_by_id( $booking_id );
+		if ( ! $booking || empty( $booking['checkin'] ) ) {
+			return;
+		}
+		// 09:00 site time, 3 days before check-in.
+		$tz        = new \DateTimeZone( wp_timezone_string() );
+		$checkin   = new \DateTimeImmutable( (string) $booking['checkin'] . ' 09:00:00', $tz );
+		$send_at   = $checkin->modify( '-3 days' );
+		if ( $send_at->getTimestamp() > time() && function_exists( 'as_schedule_single_action' ) ) {
+			as_schedule_single_action( $send_at->getTimestamp(), Hooks::AS_SEND_REMINDER, [ $booking_id ], Hooks::AS_GROUP );
+		}
+	}
+
 	/** @param array<string, \WC_Email> $emails */
 	public function register_emails( array $emails ): array {
 		$emails['IBB_Booking_Confirmation'] = new BookingConfirmationEmail();
+		$emails['IBB_Booking_Reminder']     = new BookingReminderEmail();
 		return $emails;
 	}
 
