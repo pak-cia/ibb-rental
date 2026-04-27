@@ -15,8 +15,15 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 - **Distribution build** — `build.sh` produces a clean dist zip via `git archive` (default) or `rsync --exclude-from=.distignore` (`--working` flag). `.distignore` and `.gitattributes` mirror each other to exclude all Memory Palace dev docs, `.claude/`, `docs/`, tests, and dev tooling.
 - **Memory Palace docs** — `CLAUDE.md`, root `RUNBOOK.md` / `TROUBLESHOOTING.md`, four-doc set per component under `includes/`, architecture ADR at `docs/architecture.md`. Auto-commit hook in `.claude/settings.json`.
 
+### Changed
+
+- **iCal Feeds admin page** now has a full CRUD form (add + delete + sync-now) instead of a read-only list.
+- **Blackout ranges** on the Availability tab replaced the raw JSON textarea with a row-based date-input editor (same native form-array pattern as LOS discounts).
+- **LOS discounts** `render_los_row` signature cleaned up — `$is_blank` parameter was unused and removed.
+
 ### Fixed
 
+- **HPOS violation in `BalanceService`** — retry counter in the balance charge `catch` block used `get_post_meta`/`update_post_meta` on the order ID. Now HPOS-safe via `wc_get_order()` + meta object API.
 - **Activation 404s** on property permalinks — `Setup/Installer::maybe_flush_rewrites` now self-heals on `init` if the `properties/` rewrite rule is missing.
 - **WC "cannot add another" error** on duplicate add-to-cart — `WC_Product_IBB_Booking::is_sold_individually` returns `false`; quantity is clamped to 1 via filter and reset on merge.
 - **Deposit-mode cart price** — `Woo/CartHandler::apply_prices` now uses `deposit_due` when payment mode is `deposit`, instead of the full stay total.
