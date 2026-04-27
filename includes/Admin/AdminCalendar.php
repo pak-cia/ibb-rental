@@ -50,12 +50,14 @@ final class AdminCalendar {
 			return;
 		}
 		// FullCalendar 6 — global build bundles all standard plugins.
+		// Load in <head> so FullCalendar is defined before the inline init
+		// script that runs inside the page-body render() output.
 		wp_enqueue_script(
 			'fullcalendar',
 			'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js',
 			[],
 			'6.1.15',
-			true
+			false
 		);
 	}
 
@@ -157,7 +159,8 @@ final class AdminCalendar {
 
 		<script>
 		(function(){
-			var ajaxUrl    = <?php echo wp_json_encode( $ajax_url ); ?>;
+			// Use WP's pre-defined ajaxurl (includes port) rather than admin_url() output.
+		var ajaxUrl    = ( typeof ajaxurl !== 'undefined' ) ? ajaxurl : <?php echo wp_json_encode( $ajax_url ); ?>;
 			var nonce      = <?php echo wp_json_encode( $nonce ); ?>;
 			var properties = <?php echo wp_json_encode( $properties ); ?>;
 			var colours    = <?php echo wp_json_encode( array_values( self::COLOURS ) ); ?>;
@@ -335,8 +338,10 @@ final class AdminCalendar {
 			wp_send_json_error( 'Forbidden', 403 );
 		}
 
-		$start_str = sanitize_text_field( (string) wp_unslash( $_GET['start'] ?? '' ) );
-		$end_str   = sanitize_text_field( (string) wp_unslash( $_GET['end']   ?? '' ) );
+		// FullCalendar sends ISO 8601 strings like '2026-03-29T00:00:00+08:00'.
+		// DateRange::from_strings() expects 'Y-m-d' only — strip to first 10 chars.
+		$start_str = substr( sanitize_text_field( (string) wp_unslash( $_GET['start'] ?? '' ) ), 0, 10 );
+		$end_str   = substr( sanitize_text_field( (string) wp_unslash( $_GET['end']   ?? '' ) ), 0, 10 );
 		$prop_id   = isset( $_GET['property_id'] ) ? (int) $_GET['property_id'] : null;
 		$source    = sanitize_text_field( (string) wp_unslash( $_GET['source'] ?? '' ) );
 
