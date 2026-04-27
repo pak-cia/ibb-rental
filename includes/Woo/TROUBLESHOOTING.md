@@ -67,3 +67,15 @@ If the product was deleted directly through SQL or another plugin, save the prop
 3. HPOS is enabled and code somewhere is using `get_post_meta` on the order. Check the WC log (`source: ibb-rentals`).
 
 To inspect: open the order in wp-admin and look for `_ibb_property_id` in the hidden order-item meta panel.
+
+---
+
+## Balance auto-charge retries silently not incrementing (HPOS sites)
+
+**Symptom:** a declined off-session payment logs the error, but the retry counter on the order never advances, so the job reschedules indefinitely at the wrong count.
+
+**Root cause:** `BalanceService::charge()` was using `get_post_meta(order_id)` / `update_post_meta(order_id)` in its `catch` block to read/write `_ibb_balance_retries`. On HPOS sites the order data lives in custom tables, not postmeta, so these reads/writes are no-ops.
+
+**Fix (already applied):** the catch block now calls `wc_get_order(order_id)` and uses `$order->get_meta()` / `$order->update_meta_data()` + `$order->save()`. Deployed in `6f3c4fc`.
+
+**How to verify:** trigger a failed charge (e.g. temporarily set the gateway to return non-success). Reload the order in wp-admin and confirm `_ibb_balance_retries` meta increments.

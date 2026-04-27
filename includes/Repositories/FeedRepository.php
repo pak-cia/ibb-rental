@@ -41,6 +41,12 @@ final class FeedRepository {
 	}
 
 	/** @return list<array<string, mixed>> */
+	public function find_all(): array {
+		$sql = "SELECT * FROM {$this->table} ORDER BY property_id, id";
+		return $this->db->get_results( $sql, ARRAY_A ) ?: [];
+	}
+
+	/** @return list<array<string, mixed>> */
 	public function find_enabled(): array {
 		$sql = "SELECT * FROM {$this->table} WHERE enabled = 1 ORDER BY id";
 		return $this->db->get_results( $sql, ARRAY_A ) ?: [];
