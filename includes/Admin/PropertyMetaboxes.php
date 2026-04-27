@@ -51,6 +51,7 @@ final class PropertyMetaboxes {
 		}
 		echo '<script>' . $this->galleries_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '<script>' . $this->los_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<script>' . $this->blackout_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	public function enqueue( string $hook ): void {
@@ -265,12 +266,59 @@ final class PropertyMetaboxes {
 
 	private function render_availability( Property $p ): void {
 		echo '<div class="ibb-tab" id="ibb-tab-availability">';
-		echo '<h4>' . esc_html__( 'Blackout ranges', 'ibb-rentals' ) . '</h4>';
-		$json = wp_json_encode( $p->blackout_ranges() ) ?: '[]';
-		echo '<p class="description">' . esc_html__( 'JSON: an array of {"start":"YYYY-MM-DD","end":"YYYY-MM-DD"} ranges where bookings are refused.', 'ibb-rentals' ) . '</p>';
-		printf( '<textarea name="_ibb_blackout_ranges" rows="4" class="large-text code">%s</textarea>', esc_textarea( $json ) );
-		echo '<p class="description">' . esc_html__( 'Manual block-outs use the dedicated calendar tool (Rentals → Calendar). They live in the bookings system and respect the audit log.', 'ibb-rentals' ) . '</p>';
+		$this->render_blackout_editor( $p );
+		echo '<p class="description">' . esc_html__( 'Manual block-outs (via drag-to-block on the calendar) live in the bookings system and respect the audit log. Blackout ranges above refuse booking attempts at quote time — useful for maintenance periods or owner-held dates that recur regularly.', 'ibb-rentals' ) . '</p>';
 		echo '</div>';
+	}
+
+	private function render_blackout_editor( Property $p ): void {
+		$rows = $p->blackout_ranges();
+		// Sort ascending by start date in the editor.
+		usort( $rows, static fn( $a, $b ) => strcmp( (string) $a['start'], (string) $b['start'] ) );
+
+		echo '<h4>' . esc_html__( 'Blackout ranges', 'ibb-rentals' ) . '</h4>';
+		echo '<p class="description">' . esc_html__( 'Date ranges where new bookings are refused. Guests see these dates as unavailable in the date picker.', 'ibb-rentals' ) . '</p>';
+
+		echo '<table class="ibb-blackout" id="ibb-blackout"><thead><tr>';
+		echo '<th class="ibb-blackout__col-start">' . esc_html__( 'From (inclusive)', 'ibb-rentals' ) . '</th>';
+		echo '<th class="ibb-blackout__col-end">' . esc_html__( 'To (exclusive)', 'ibb-rentals' ) . '</th>';
+		echo '<th class="ibb-blackout__col-actions"></th>';
+		echo '</tr></thead><tbody id="ibb-blackout-rows">';
+
+		if ( ! $rows ) {
+			$this->render_blackout_row( 0, [ 'start' => '', 'end' => '' ], true );
+		} else {
+			foreach ( $rows as $i => $row ) {
+				$this->render_blackout_row( $i, $row, false );
+			}
+		}
+
+		echo '</tbody></table>';
+
+		echo '<template id="ibb-blackout-row-template">';
+		$this->render_blackout_row( '__INDEX__', [ 'start' => '', 'end' => '' ], true );
+		echo '</template>';
+
+		echo '<p><button type="button" class="button button-secondary" id="ibb-blackout-add">+ ' . esc_html__( 'Add blackout range', 'ibb-rentals' ) . '</button></p>';
+	}
+
+	/** @param int|string $index */
+	private function render_blackout_row( int|string $index, array $row, bool $is_blank ): void {
+		$start_name = '_ibb_blackout_rows[' . $index . '][start]';
+		$end_name   = '_ibb_blackout_rows[' . $index . '][end]';
+		echo '<tr class="ibb-blackout__row">';
+		printf(
+			'<td class="ibb-blackout__col-start"><input type="date" name="%s" value="%s" /></td>',
+			esc_attr( $start_name ),
+			esc_attr( (string) ( $is_blank ? '' : $row['start'] ) )
+		);
+		printf(
+			'<td class="ibb-blackout__col-end"><input type="date" name="%s" value="%s" /></td>',
+			esc_attr( $end_name ),
+			esc_attr( (string) ( $is_blank ? '' : $row['end'] ) )
+		);
+		echo '<td class="ibb-blackout__col-actions"><button type="button" class="button-link ibb-blackout__remove" aria-label="' . esc_attr__( 'Remove range', 'ibb-rentals' ) . '">×</button></td>';
+		echo '</tr>';
 	}
 
 	private function render_ical( Property $p ): void {
@@ -376,12 +424,27 @@ final class PropertyMetaboxes {
 			update_post_meta( $post_id, '_ibb_los_discounts', wp_json_encode( $out ) ?: '[]' );
 		}
 
-		// Blackout ranges still uses the JSON textarea path (separate task).
-		if ( isset( $_POST['_ibb_blackout_ranges'] ) ) {
-			$raw     = (string) wp_unslash( $_POST['_ibb_blackout_ranges'] );
-			$decoded = json_decode( $raw, true );
-			$value   = is_array( $decoded ) ? wp_json_encode( $decoded ) : '[]';
-			update_post_meta( $post_id, '_ibb_blackout_ranges', $value );
+		if ( isset( $_POST['_ibb_blackout_rows'] ) && is_array( $_POST['_ibb_blackout_rows'] ) ) {
+			$out = [];
+			foreach ( (array) $_POST['_ibb_blackout_rows'] as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$start = sanitize_text_field( (string) wp_unslash( $row['start'] ?? '' ) );
+				$end   = sanitize_text_field( (string) wp_unslash( $row['end'] ?? '' ) );
+				if ( $start === '' || $end === '' ) {
+					continue;
+				}
+				// Validate date format and logical order.
+				$s = \DateTimeImmutable::createFromFormat( 'Y-m-d', $start );
+				$e = \DateTimeImmutable::createFromFormat( 'Y-m-d', $end );
+				if ( ! $s || ! $e || $e <= $s ) {
+					continue;
+				}
+				$out[] = [ 'start' => $start, 'end' => $end ];
+			}
+			usort( $out, static fn( $a, $b ) => strcmp( $a['start'], $b['start'] ) );
+			update_post_meta( $post_id, '_ibb_blackout_ranges', wp_json_encode( $out ) ?: '[]' );
 		}
 
 		if ( isset( $_POST['_ibb_galleries'] ) ) {
@@ -457,10 +520,10 @@ final class PropertyMetaboxes {
 		echo '</tr></thead><tbody id="ibb-los-rows">';
 
 		if ( ! $rows ) {
-			$this->render_los_row( 0, [ 'min_nights' => 7, 'pct' => 0.0 ], true );
+			$this->render_los_row( 0, [ 'min_nights' => 7, 'pct' => 0.0 ] );
 		} else {
 			foreach ( $rows as $i => $row ) {
-				$this->render_los_row( $i, $row, false );
+				$this->render_los_row( $i, $row );
 			}
 		}
 
@@ -468,18 +531,14 @@ final class PropertyMetaboxes {
 
 		// Hidden template row used by the JS to clone new rows.
 		echo '<template id="ibb-los-row-template">';
-		$this->render_los_row( '__INDEX__', [ 'min_nights' => '', 'pct' => '' ], true );
+		$this->render_los_row( '__INDEX__', [ 'min_nights' => '', 'pct' => '' ] );
 		echo '</template>';
 
 		echo '<p><button type="button" class="button button-secondary" id="ibb-los-add">+ ' . esc_html__( 'Add discount tier', 'ibb-rentals' ) . '</button></p>';
 	}
 
-	/**
-	 * @param int|string $index   Numeric for real rows; "__INDEX__" for the JS template.
-	 * @param array{min_nights: int|string, pct: float|string} $row
-	 * @param bool       $is_blank Whether this is a placeholder/empty row (used for nothing-yet defaults).
-	 */
-	private function render_los_row( int|string $index, array $row, bool $is_blank ): void {
+	/** @param int|string $index  Numeric for real rows; "__INDEX__" for the JS template. */
+	private function render_los_row( int|string $index, array $row ): void {
 		$nights_name = '_ibb_los_discount_rows[' . $index . '][min_nights]';
 		$pct_name    = '_ibb_los_discount_rows[' . $index . '][pct]';
 		echo '<tr class="ibb-los__row">';
@@ -550,6 +609,15 @@ final class PropertyMetaboxes {
 .ibb-los__remove { color:#b32d2e !important; font-size:18px; line-height:1; padding:2px 6px; text-decoration:none; }
 .ibb-los__remove:hover { color:#fff !important; background:#b32d2e; border-radius:3px; }
 .ibb-los__col-pct input { margin-right:4px; }
+
+.ibb-blackout { border-collapse:collapse; margin:8px 0 4px; max-width:520px; width:100%; }
+.ibb-blackout th { text-align:left; font-size:.8em; color:#646970; font-weight:600; padding:6px 8px 4px; border-bottom:1px solid #dcdcde; }
+.ibb-blackout td { padding:6px 8px; vertical-align:middle; }
+.ibb-blackout__col-start, .ibb-blackout__col-end { width:180px; }
+.ibb-blackout__col-actions { width:32px; text-align:right; }
+.ibb-blackout__row + .ibb-blackout__row td { border-top:1px solid #f0f0f1; }
+.ibb-blackout__remove { color:#b32d2e !important; font-size:18px; line-height:1; padding:2px 6px; text-decoration:none; }
+.ibb-blackout__remove:hover { color:#fff !important; background:#b32d2e; border-radius:3px; }
 CSS;
 	}
 
@@ -777,6 +845,55 @@ JS;
       if (!row) return;
       // If this is the last row, just clear it instead of removing —
       // keeps the table from collapsing to a confusing empty state.
+      if (rowsEl.children.length <= 1) {
+        row.querySelectorAll('input').forEach(function(input){ input.value = ''; });
+        return;
+      }
+      row.remove();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+JS;
+	}
+
+	private function blackout_js(): string {
+		return <<<'JS'
+(function(){
+  function init() {
+    var root = document.getElementById('ibb-blackout');
+    if (!root) return;
+    if (root.dataset.ibbInit === '1') return;
+    root.dataset.ibbInit = '1';
+
+    var rowsEl = document.getElementById('ibb-blackout-rows');
+    var addBtn = document.getElementById('ibb-blackout-add');
+    var template = document.getElementById('ibb-blackout-row-template');
+    if (!rowsEl || !addBtn || !template) return;
+
+    var counter = rowsEl.children.length;
+
+    addBtn.addEventListener('click', function(){
+      var html = template.innerHTML.replace(/__INDEX__/g, String(counter++));
+      var holder = document.createElement('tbody');
+      holder.innerHTML = html;
+      var row = holder.querySelector('tr');
+      if (row) {
+        rowsEl.appendChild(row);
+        var firstInput = row.querySelector('input');
+        if (firstInput) firstInput.focus();
+      }
+    });
+
+    rowsEl.addEventListener('click', function(e){
+      if (!e.target.classList.contains('ibb-blackout__remove')) return;
+      var row = e.target.closest('tr');
+      if (!row) return;
       if (rowsEl.children.length <= 1) {
         row.querySelectorAll('input').forEach(function(input){ input.value = ''; });
         return;

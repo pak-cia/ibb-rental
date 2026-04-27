@@ -1,5 +1,10 @@
 # Services — Changelog
 
+## [Unreleased]
+
+### Fixed
+- **HPOS violation in `BalanceService::charge()`** — retry-counter reads/writes in the `catch` block used `get_post_meta`/`update_post_meta` on the order ID. Replaced with `wc_get_order()` + `$order->get_meta()` / `$order->update_meta_data()` + `$order->save()`.
+
 ## [0.1.0] — 2026-04-26
 
 ### Added

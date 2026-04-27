@@ -114,9 +114,13 @@ final class BalanceService {
 				'booking' => $booking_id,
 				'error'   => $e->getMessage(),
 			] );
-			$retries = (int) get_post_meta( (int) $booking['order_id'], '_ibb_balance_retries', true );
+			$retry_order = wc_get_order( (int) $booking['order_id'] );
+			$retries     = $retry_order instanceof \WC_Order ? (int) $retry_order->get_meta( '_ibb_balance_retries', true ) : 0;
 			if ( $retries < 3 && function_exists( 'as_schedule_single_action' ) ) {
-				update_post_meta( (int) $booking['order_id'], '_ibb_balance_retries', $retries + 1 );
+				if ( $retry_order instanceof \WC_Order ) {
+					$retry_order->update_meta_data( '_ibb_balance_retries', $retries + 1 );
+					$retry_order->save();
+				}
 				as_schedule_single_action(
 					time() + DAY_IN_SECONDS,
 					Hooks::AS_CHARGE_BALANCE,
