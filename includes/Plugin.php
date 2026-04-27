@@ -11,6 +11,7 @@ declare( strict_types=1 );
 
 namespace IBB\Rentals;
 
+use IBB\Rentals\Admin\AdminCalendar;
 use IBB\Rentals\Admin\Menu;
 use IBB\Rentals\Admin\PropertyMetaboxes;
 use IBB\Rentals\Emails\BookingConfirmationEmail;
@@ -105,6 +106,7 @@ final class Plugin {
 				$this->gateway_capabilities()
 			) )->register();
 			( new Menu( $this->feed_repo(), $this->gateway_capabilities() ) )->register();
+			( new AdminCalendar() )->register();
 		} else {
 			( new Assets() )->register();
 		}

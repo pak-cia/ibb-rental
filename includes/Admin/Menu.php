@@ -49,6 +49,14 @@ final class Menu {
 		);
 		add_submenu_page(
 			self::PARENT,
+			__( 'Availability Calendar', 'ibb-rentals' ),
+			__( 'Calendar', 'ibb-rentals' ),
+			'manage_woocommerce',
+			AdminCalendar::PAGE_SLUG,
+			[ new AdminCalendar(), 'render' ]
+		);
+		add_submenu_page(
+			self::PARENT,
 			__( 'iCal Feeds', 'ibb-rentals' ),
 			__( 'iCal Feeds', 'ibb-rentals' ),
 			'manage_woocommerce',

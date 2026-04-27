@@ -89,6 +89,34 @@ final class AvailabilityRepository {
 	}
 
 	/**
+	 * Cross-property window query for the admin calendar.
+	 * Returns all confirmed/tentative blocks that overlap $window,
+	 * optionally filtered to a subset of property IDs.
+	 *
+	 * @param list<int>|null $property_ids null = all properties
+	 * @return list<Block>
+	 */
+	public function find_all_in_window( DateRange $window, ?array $property_ids = null ): array {
+		$where = "status IN ('confirmed','tentative')
+				   AND start_date < %s
+				   AND end_date   > %s";
+		$args  = [ $window->checkout_string(), $window->checkin_string() ];
+
+		if ( $property_ids !== null && count( $property_ids ) > 0 ) {
+			$placeholders = implode( ',', array_fill( 0, count( $property_ids ), '%d' ) );
+			$where       .= " AND property_id IN ($placeholders)";
+			$args         = array_merge( $args, $property_ids );
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$sql = $this->db->prepare(
+			"SELECT * FROM {$this->table} WHERE $where ORDER BY property_id, start_date",
+			...$args
+		);
+		return $this->hydrate( $this->db->get_results( $sql, ARRAY_A ) );
+	}
+
+	/**
 	 * @return list<Block>
 	 */
 	public function find_exportable( int $property_id ): array {
