@@ -87,6 +87,63 @@ unzip -l dist/ibb-rentals-<version>.zip | grep -iE 'README\.md|RUNBOOK|TROUBLESH
 
 Should match nothing (the user-facing `readme.txt` does NOT match this pattern).
 
+## Cloudflare / WAF bypass for server-to-server endpoints
+
+Two plugin endpoints receive requests from external servers (not browsers), so they are challenged or blocked by Cloudflare's Bot Fight Mode and equivalent WAF features on other providers.
+
+| Endpoint | Caller | Why it gets blocked |
+|---|---|---|
+| `/wp-json/ibb-rentals/v1/ical/{id}.ics` | Airbnb, Booking.com, VRBO, Agoda — automated polling bots | Bot Fight Mode sees a non-browser user-agent and challenges the request |
+| `/?wc-api=WC_Xendit_Invoice` (or `WC_Xendit_Callback`) | Xendit payment servers — server-to-server POST after customer pays | Same — no browser fingerprint |
+
+All other plugin endpoints (`/wp-json/ibb-rentals/v1/availability`, `/quote`, `/properties`, `/bookings`, etc.) are called by the guest's browser, so they carry a real browser fingerprint and are never challenged.
+
+### Cloudflare — one rule, free plan
+
+On Cloudflare's free plan you have 5 custom rules. Only **one rule** is needed for this plugin.
+
+**Rule expression** (paste into Cloudflare → Security → WAF → Custom Rules → expression editor):
+
+```
+(http.request.uri.path contains "/wp-json/ibb-rentals/v1/ical") or (http.request.uri.query contains "wc-api")
+```
+
+**Action**: Skip
+
+**WAF components to skip**: Check **All Super Bot Fight Mode Rules** from the main list.
+
+> **Free-plan note**: Cloudflare does not expose "Bot Fight Mode" as a skippable component on the free plan — that granular control requires Pro+. "All Super Bot Fight Mode Rules" is the closest available checkbox and may cover the free-tier Bot Fight Mode internally. If OTA polling or Xendit callbacks are still challenged after go-live, fall back to **Option B** below.
+
+**Option B — disable Bot Fight Mode globally** (free-plan fallback): Security → Bots → toggle Bot Fight Mode off. This is a blunt instrument but still leaves all WAF custom rules and managed rules running. Acceptable for most small rental sites.
+
+**Place at**: First (so the skip fires before any blocking rule).
+
+This covers every iCal export URL for every property and every Xendit callback variant in a single rule.
+
+### Other WAF / firewall providers
+
+The same two path patterns apply regardless of provider:
+
+- **Sucuri / Wordfence**: whitelist the path `/wp-json/ibb-rentals/v1/ical*` and the query string parameter `wc-api` for the IP ranges published by Xendit and any OTA you use.
+- **nginx / Apache `mod_security`**: create a location-based exception for those paths before the WAF `SecRule` set loads.
+- **Server-level IP allowlist**: Xendit publishes their webhook IP range in their developer docs. OTAs rotate IPs frequently, so path-based rules are more reliable than IP allowlists for iCal.
+
+### After go-live: verify nothing is silently blocked
+
+1. Cloudflare → Security → Security Events: filter last 24h for "Bot Fight Mode" and "Managed Challenge". Any blocked requests to the two paths above indicate the rule wasn't saved correctly.
+2. In Xendit dashboard → Webhooks: check the delivery log for the first test payment. A non-200 response means the callback is still being blocked.
+3. For iCal: add the export URL of one property to a test calendar app (e.g. Google Calendar) — it will poll every few hours. Check Security Events for any blocks on that URL.
+
+### Local development note
+
+Xendit's webhook server cannot reach `.local` domains, so **orders stay "Pending payment" indefinitely** in local dev even after a successful hosted-invoice payment. This is expected — the `OrderObserver` (and therefore block/booking creation) never fires automatically on local.
+
+**Workaround for local testing**: after completing payment on the hosted invoice, go to WooCommerce → Orders, open the order, and manually set the status to "Processing" or "Completed". The `OrderObserver` fires immediately and creates the booking and block records.
+
+On production, the Xendit webhook fires automatically and the order transitions without any manual step.
+
+---
+
 ## Push to GitHub
 
 The repo is `https://github.com/pak-cia/ibb-rental` on `main`. Standard flow:

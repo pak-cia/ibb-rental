@@ -20,6 +20,21 @@ WooCommerce integration: custom product type, property↔product mirroring, cart
 - **Linked-product locking** — `ProductSync::block_direct_edits` strips `edit_post`/`delete_post` caps for any product carrying `_ibb_property_id` meta. Bulk actions, direct URL edits, and the row-action menu all respect this.
 - **Booking-product visibility = hidden** — mirrored products never appear in `/shop` loops. Discovery happens on the property archive (`/properties/`) and via `[ibb_search]`.
 
+## Not yet built — outgoing webhooks
+
+`BookingService` fires `ibb-rentals/booking/created` and `ibb-rentals/booking/cancelled` but these are not registered as WooCommerce webhook topics yet. There is no push path to external systems until `WebhookTopics.php` is added.
+
+**Planned: `Woo/WebhookTopics.php`**
+- Hook `woocommerce_webhook_topic_hooks` to register `ibb-rentals.booking.created` and `ibb-rentals.booking.cancelled` as WC webhook topics
+- Hook `woocommerce_webhook_payload` to provide the booking JSON (same shape as `BookingsController::booking_to_array()` plus `payment_mode`)
+- Boot in `Plugin::boot()` alongside the other Woo classes
+- Once live: WooCommerce → Settings → Advanced → Webhooks → Add → Topic `ibb-rentals.booking.created` → Delivery URL (e.g. n8n webhook trigger)
+
+**Intended integration pattern (n8n as bridge):**
+- `booking.created` → n8n → ClickUp task, WhatsApp notification, WiFi voucher, Odoo invoice
+- `booking.cancelled` → n8n → close task, Odoo credit note
+- Historical reads: `GET /wp-json/ibb-rentals/v1/bookings` with WP Application Password
+
 ## Connects to
 
 - [../Services](../Services/README.md) — `OrderObserver` calls `BookingService` for create/cancel/refund; `BalanceService` reads `GatewayCapabilities`
