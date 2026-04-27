@@ -322,6 +322,36 @@ final class Assets {
   .ibb-lightbox__next { right:8px; }
 }
 body.ibb-lightbox-open { overflow:hidden; }
+
+/* Inline availability calendar ([ibb_calendar]) */
+.ibb-calendar { display:inline-block; line-height:1; }
+.ibb-calendar__loading { color:#64748b; font-size:.85em; padding:6px 0; }
+/* Force the Flatpickr popup to render as a static block inside our container */
+.ibb-calendar .flatpickr-calendar { position:relative!important; top:auto!important; left:auto!important; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.10); border:1px solid #e2e8f0; }
+/* Multi-month side-by-side layout */
+.ibb-calendar .flatpickr-months { border-radius:6px 6px 0 0; }
+/* Remove the bottom padding Flatpickr adds when used as a picker */
+.ibb-calendar .flatpickr-calendar.inline { margin-bottom:0; }
+/* Unavailable days: strikethrough + muted colour */
+.ibb-calendar .flatpickr-day.flatpickr-disabled,
+.ibb-calendar .flatpickr-day.flatpickr-disabled:hover { background:#f8fafc; color:#94a3b8; border-color:transparent; text-decoration:line-through; cursor:not-allowed; }
+/* Available days: subtle pointer-default (it's display-only) */
+.ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):not(.selected) { cursor:default; }
+.ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):hover { background:#f1f5f9; border-color:#e2e8f0; }
+/* Kill the "selected" highlight immediately — onChange clears it but briefly flashes */
+.ibb-calendar .flatpickr-day.selected,
+.ibb-calendar .flatpickr-day.selected:hover { background:#2563eb; border-color:#2563eb; }
+/* Legend */
+.ibb-calendar__legend { display:flex; gap:16px; margin-top:8px; font-size:.82em; color:#475569; }
+.ibb-calendar__legend-item { display:flex; align-items:center; gap:6px; }
+.ibb-calendar__legend-item::before { content:''; display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid #e2e8f0; }
+.ibb-calendar__legend-item--available::before { background:#fff; }
+.ibb-calendar__legend-item--unavailable::before { background:#f8fafc; border-color:#cbd5e1; text-decoration:line-through; position:relative; }
+/* mobile: full width */
+@media (max-width:640px) {
+  .ibb-calendar { display:block; }
+  .ibb-calendar .flatpickr-calendar { width:100%!important; }
+}
 CSS;
 	}
 
@@ -633,6 +663,54 @@ CSS;
     var items = Array.prototype.slice.call(grid.querySelectorAll('.ibb-gallery-display__item'));
     var index = items.indexOf(link);
     openLightbox(items, index >= 0 ? index : 0);
+  });
+
+  // ---------------------------------------------------------------
+  // Inline availability calendars ([ibb_calendar] shortcode).
+  // Flatpickr in inline/display-only mode — no booking, just shows
+  // which dates are blocked. The container div holds data-property-id
+  // and data-months; we replace the loading text with the calendar.
+  // ---------------------------------------------------------------
+  var calEls = document.querySelectorAll('.ibb-calendar[data-property-id]');
+  calEls.forEach(function(container){
+    var pid    = parseInt(container.dataset.propertyId, 10);
+    var months = Math.max(1, Math.min(3, parseInt(container.dataset.months, 10) || 2));
+    if (!pid) return;
+
+    // Fetch 18 months of availability (enough for showMonths up to 3).
+    var today   = new Date();
+    var horizon = new Date(); horizon.setMonth(horizon.getMonth() + 18);
+    var from    = today.toISOString().slice(0, 10);
+    var to      = horizon.toISOString().slice(0, 10);
+
+    fetch(window.IBBRentals.restUrl + '/availability?property_id=' + pid + '&from=' + from + '&to=' + to)
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var blocked = (data && data.blocked_dates) || [];
+
+        // Clear loading indicator and place a hidden input that Flatpickr
+        // attaches to. appendTo: container keeps the calendar DOM inside
+        // our wrapper div instead of being teleported to <body>.
+        container.innerHTML = '';
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        container.appendChild(input);
+
+        flatpickr(input, {
+          inline:     true,
+          appendTo:   container,
+          showMonths: months,
+          minDate:    'today',
+          disable:    blocked,
+          // Display-only: immediately clear any accidental selection.
+          onChange: function(dates, dateStr, fp){
+            if (dates.length) { fp.clear(); }
+          }
+        });
+      })
+      .catch(function(){
+        container.innerHTML = '<p style="color:#94a3b8;font-size:.85em">' + (i18n.unavailable || 'Could not load availability.') + '</p>';
+      });
   });
 })();
 JS;

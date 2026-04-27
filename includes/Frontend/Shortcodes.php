@@ -144,9 +144,50 @@ final class Shortcodes {
 		return (string) ob_get_clean();
 	}
 
+	/**
+	 * Render a read-only inline availability calendar for a property.
+	 *
+	 * Usage:
+	 *   [ibb_calendar]                         → 2-month grid for the current property
+	 *   [ibb_calendar id="123" months="3"]
+	 *   [ibb_calendar id="123" months="1" legend="no"]
+	 *
+	 * @param array<string, string>|string $atts
+	 */
 	public function render_calendar( $atts ): string {
-		// Display-only month grid; rendered server-side. Booking form uses Flatpickr for interaction.
-		return '';
+		$atts = shortcode_atts( [
+			'id'      => 0,
+			'months'  => 2,
+			'legend'  => 'yes',
+			'class'   => '',
+		], (array) $atts );
+
+		$id       = (int) $atts['id'] ?: ( get_the_ID() ?: 0 );
+		$property = Property::from_id( $id );
+		if ( ! $property ) {
+			return '';
+		}
+
+		$months = max( 1, min( 3, (int) $atts['months'] ) );
+		$legend = strtolower( trim( (string) $atts['legend'] ) ) !== 'no';
+		$class  = trim( 'ibb-calendar ' . sanitize_html_class( (string) $atts['class'] ) );
+
+		$legend_html = '';
+		if ( $legend ) {
+			$legend_html = '<div class="ibb-calendar__legend">'
+				. '<span class="ibb-calendar__legend-item ibb-calendar__legend-item--available">' . esc_html__( 'Available', 'ibb-rentals' ) . '</span>'
+				. '<span class="ibb-calendar__legend-item ibb-calendar__legend-item--unavailable">' . esc_html__( 'Unavailable', 'ibb-rentals' ) . '</span>'
+				. '</div>';
+		}
+
+		return sprintf(
+			'<div class="%s" data-property-id="%d" data-months="%d"><div class="ibb-calendar__loading">%s</div></div>%s',
+			esc_attr( $class ),
+			$property->id,
+			$months,
+			esc_html__( 'Loading availability…', 'ibb-rentals' ),
+			$legend_html
+		);
 	}
 
 	/**

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **`[ibb_calendar]` shortcode** — read-only inline availability calendar using Flatpickr's inline mode. Fetches blocked dates from `/availability` and renders a static month grid (1–3 months, configurable via `months=` attribute). Blocked dates are greyed-out with strikethrough; available dates are plain white. `legend=no` hides the Available/Unavailable legend. Selection is immediately cleared on `onChange` so the calendar stays display-only. No new JS dependency — reuses the Flatpickr handle already loaded by the booking form.
+
 ### Fixed
 - `Assets::should_enqueue()` now also detects blocks via `has_block()`. Pages using only the IBB Gutenberg blocks (no shortcodes) no longer ship without Flatpickr, the lightbox JS, or the details-grid CSS.
 - Cart / checkout line-item meta — final, theme-immune approach: `CartHandler::render_item_meta()` emits a **single** `woocommerce_get_item_data` entry. The first field (Check-in) is the entry's `key` so the cart shows "Check-in: …" naturally without an extra "Booking:" prefix; remaining fields go in the `display` value as `<br>`-separated lines with inline `font-weight: 600` on each label (defeats themes that strip bold from `<strong>`). Works identically in classic cart, the WC Cart block, mini cart, and order confirmation. No CSS, no `!important`, no theme-fighting. (Earlier attempts in this Unreleased cycle that didn't survive testing — theme-fighting `dl.variation` CSS, then a split classic/block path with `REST_REQUEST` gating, then a `woocommerce_after_cart_item_name` handler that didn't fire on the Cart block — are now gone.)
