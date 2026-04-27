@@ -13,6 +13,7 @@ namespace IBB\Rentals;
 
 use IBB\Rentals\Admin\Menu;
 use IBB\Rentals\Admin\PropertyMetaboxes;
+use IBB\Rentals\Emails\BookingConfirmationEmail;
 use IBB\Rentals\Cron\Jobs\ChargeBalanceJob;
 use IBB\Rentals\Cron\Jobs\CleanupHoldsJob;
 use IBB\Rentals\Cron\Jobs\ImportFeedJob;
@@ -115,6 +116,8 @@ final class Plugin {
 
 		add_action( Hooks::BOOKING_CREATED, [ $this, 'schedule_balance_flow' ], 10, 4 );
 
+		add_filter( 'woocommerce_email_classes', [ $this, 'register_emails' ] );
+
 		do_action( Hooks::BOOTED, $this );
 	}
 
@@ -134,7 +137,13 @@ final class Plugin {
 		( new SendPaymentLinkJob( $this->balance_service() ) )->handle( $booking_id, $kind );
 	}
 
-	public function schedule_balance_flow( int $booking_id, \WC_Order $order, \WC_Order_Item_Product $item, string $payment_mode ): void {
+	/** @param array<string, \WC_Email> $emails */
+	public function register_emails( array $emails ): array {
+		$emails['IBB_Booking_Confirmation'] = new BookingConfirmationEmail();
+		return $emails;
+	}
+
+	public function schedule_balance_flow( int $booking_id, \WC_Order $_order, \WC_Order_Item_Product $_item, string $payment_mode ): void {
 		if ( $payment_mode !== 'deposit' ) {
 			return;
 		}
