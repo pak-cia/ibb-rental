@@ -325,6 +325,8 @@ body.ibb-lightbox-open { overflow:hidden; }
 
 /* Inline availability calendar ([ibb_calendar]) */
 .ibb-calendar { display:inline-block; line-height:1; }
+/* Flatpickr rewrites type="hidden" to type="text" — keep the anchor input invisible */
+.ibb-calendar .flatpickr-input { display:none!important; }
 .ibb-calendar__loading { color:#64748b; font-size:.85em; padding:6px 0; }
 /* Force the Flatpickr popup to render as a static block inside our container */
 .ibb-calendar .flatpickr-calendar { position:relative!important; top:auto!important; left:auto!important; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.10); border:1px solid #e2e8f0; }
