@@ -13,6 +13,7 @@ namespace IBB\Rentals\Admin;
 
 use IBB\Rentals\PostTypes\PropertyPostType;
 use IBB\Rentals\Repositories\FeedRepository;
+use IBB\Rentals\Woo\GatewayCapabilities;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,6 +27,7 @@ final class Menu {
 
 	public function __construct(
 		private FeedRepository $feeds,
+		private GatewayCapabilities $gateway_caps,
 	) {}
 
 	public function register(): void {
@@ -239,17 +241,71 @@ final class Menu {
 
 	public function render_settings(): void {
 		$settings = (array) get_option( 'ibb_rentals_settings', [] );
+		$mode     = (string) ( $settings['default_payment_mode'] ?? 'full' );
 		echo '<div class="wrap"><h1>' . esc_html__( 'Rental settings', 'ibb-rentals' ) . '</h1>';
 		echo '<form method="post">';
 		wp_nonce_field( 'ibb_rentals_save_settings', 'ibb_rentals_settings_nonce' );
+
+		// ── Booking defaults ──────────────────────────────────────────────
+		echo '<h2 class="title">' . esc_html__( 'Booking defaults', 'ibb-rentals' ) . '</h2>';
 		echo '<table class="form-table"><tbody>';
-		$this->setting_row( __( 'Default sync interval (seconds)', 'ibb-rentals' ),       'default_sync_interval',     (int) ( $settings['default_sync_interval'] ?? 1800 ), 'number', [ 'min' => 300 ] );
-		$this->setting_row( __( 'Default check-in time', 'ibb-rentals' ),                 'default_check_in_time',     (string) ( $settings['default_check_in_time'] ?? '15:00' ), 'time' );
-		$this->setting_row( __( 'Default check-out time', 'ibb-rentals' ),                'default_check_out_time',    (string) ( $settings['default_check_out_time'] ?? '11:00' ), 'time' );
-		$this->setting_row( __( 'Cart hold (minutes)', 'ibb-rentals' ),                   'cart_hold_minutes',         (int) ( $settings['cart_hold_minutes'] ?? 15 ), 'number', [ 'min' => 1 ] );
-		$this->setting_row( __( 'Default deposit %', 'ibb-rentals' ),                     'default_deposit_pct',       (int) ( $settings['default_deposit_pct'] ?? 30 ), 'number', [ 'min' => 0, 'max' => 100 ] );
-		$this->setting_row( __( 'Default balance lead time (days)', 'ibb-rentals' ),      'default_balance_lead_days', (int) ( $settings['default_balance_lead_days'] ?? 14 ), 'number', [ 'min' => 0 ] );
-		$this->setting_row( __( 'Log retention (days)', 'ibb-rentals' ),                  'log_retention_days',        (int) ( $settings['log_retention_days'] ?? 30 ), 'number', [ 'min' => 1 ] );
+		$this->setting_row( __( 'Default check-in time', 'ibb-rentals' ),  'default_check_in_time',  (string) ( $settings['default_check_in_time'] ?? '15:00' ), 'time' );
+		$this->setting_row( __( 'Default check-out time', 'ibb-rentals' ), 'default_check_out_time', (string) ( $settings['default_check_out_time'] ?? '11:00' ), 'time' );
+		echo '<tr><th>' . esc_html__( 'Default payment mode', 'ibb-rentals' ) . '</th><td>';
+		printf(
+			'<select name="default_payment_mode">
+				<option value="full" %s>%s</option>
+				<option value="deposit" %s>%s</option>
+			</select>
+			<p class="description">%s</p>',
+			selected( $mode, 'full', false ),
+			esc_html__( 'Full payment at booking', 'ibb-rentals' ),
+			selected( $mode, 'deposit', false ),
+			esc_html__( 'Deposit at booking, balance before check-in', 'ibb-rentals' ),
+			esc_html__( 'Applied to new properties; individual properties can override this.', 'ibb-rentals' )
+		);
+		echo '</td></tr>';
+		$this->setting_row( __( 'Default deposit %', 'ibb-rentals' ),               'default_deposit_pct',       (int) ( $settings['default_deposit_pct'] ?? 30 ), 'number', [ 'min' => 1, 'max' => 99 ] );
+		$this->setting_row( __( 'Default balance lead time (days)', 'ibb-rentals' ), 'default_balance_lead_days', (int) ( $settings['default_balance_lead_days'] ?? 14 ), 'number', [ 'min' => 0 ] );
+		$this->setting_row( __( 'Cart hold (minutes)', 'ibb-rentals' ),              'cart_hold_minutes',         (int) ( $settings['cart_hold_minutes'] ?? 15 ), 'number', [ 'min' => 1 ] );
+		echo '</tbody></table>';
+
+		// ── iCal sync ─────────────────────────────────────────────────────
+		echo '<h2 class="title">' . esc_html__( 'iCal sync', 'ibb-rentals' ) . '</h2>';
+		echo '<table class="form-table"><tbody>';
+		$this->setting_row( __( 'Default sync interval (seconds)', 'ibb-rentals' ), 'default_sync_interval', (int) ( $settings['default_sync_interval'] ?? 1800 ), 'number', [ 'min' => 300 ] );
+		echo '</tbody></table>';
+
+		// ── Gateway capability matrix (read-only info) ────────────────────
+		$gateways = $this->gateway_caps->active_gateway_summary();
+		if ( ! empty( $gateways ) ) {
+			echo '<h2 class="title">' . esc_html__( 'Payment gateway capabilities', 'ibb-rentals' ) . '</h2>';
+			echo '<p class="description">' . esc_html__( 'Shows which balance-collection path each active gateway will use for deposit bookings.', 'ibb-rentals' ) . '</p>';
+			echo '<table class="widefat striped" style="max-width:600px;margin-bottom:20px"><thead><tr>';
+			echo '<th>' . esc_html__( 'Gateway', 'ibb-rentals' ) . '</th>';
+			echo '<th>' . esc_html__( 'Balance path', 'ibb-rentals' ) . '</th>';
+			echo '</tr></thead><tbody>';
+			foreach ( $gateways as $gw ) {
+				$is_auto = $gw['path'] === GatewayCapabilities::PATH_AUTO_CHARGE;
+				echo '<tr>';
+				printf( '<td>%s <code style="font-size:.85em;color:#666">%s</code></td>', esc_html( $gw['title'] ), esc_html( $gw['id'] ) );
+				printf(
+					'<td><span style="color:%s;font-weight:600">%s</span> — <span style="color:#666;font-size:.9em">%s</span></td>',
+					$is_auto ? '#0a0' : '#888',
+					$is_auto ? esc_html__( 'Auto-charge', 'ibb-rentals' ) : esc_html__( 'Payment link', 'ibb-rentals' ),
+					$is_auto
+						? esc_html__( 'balance charged automatically via saved token', 'ibb-rentals' )
+						: esc_html__( 'guest emailed a pay-now link before check-in', 'ibb-rentals' )
+				);
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+		}
+
+		// ── System ────────────────────────────────────────────────────────
+		echo '<h2 class="title">' . esc_html__( 'System', 'ibb-rentals' ) . '</h2>';
+		echo '<table class="form-table"><tbody>';
+		$this->setting_row( __( 'Log retention (days)', 'ibb-rentals' ), 'log_retention_days', (int) ( $settings['log_retention_days'] ?? 30 ), 'number', [ 'min' => 1 ] );
 		echo '<tr><th>' . esc_html__( 'Remove all data on uninstall', 'ibb-rentals' ) . '</th><td>';
 		printf(
 			'<label><input type="checkbox" name="uninstall_purge_data" value="1" %s /> %s</label>',
@@ -258,6 +314,7 @@ final class Menu {
 		);
 		echo '</td></tr>';
 		echo '</tbody></table>';
+
 		submit_button( __( 'Save settings', 'ibb-rentals' ) );
 		echo '</form></div>';
 	}
@@ -273,14 +330,16 @@ final class Menu {
 			return;
 		}
 
-		$existing = (array) get_option( 'ibb_rentals_settings', [] );
-		$updated  = array_merge( $existing, [
-			'default_sync_interval'     => max( 300, (int) ( $_POST['default_sync_interval'] ?? 1800 ) ),
+		$existing     = (array) get_option( 'ibb_rentals_settings', [] );
+		$raw_mode     = sanitize_text_field( (string) wp_unslash( $_POST['default_payment_mode'] ?? 'full' ) );
+		$updated      = array_merge( $existing, [
+			'default_payment_mode'      => $raw_mode === 'deposit' ? 'deposit' : 'full',
 			'default_check_in_time'     => sanitize_text_field( (string) wp_unslash( $_POST['default_check_in_time'] ?? '15:00' ) ),
 			'default_check_out_time'    => sanitize_text_field( (string) wp_unslash( $_POST['default_check_out_time'] ?? '11:00' ) ),
 			'cart_hold_minutes'         => max( 1, (int) ( $_POST['cart_hold_minutes'] ?? 15 ) ),
-			'default_deposit_pct'       => max( 0, min( 100, (int) ( $_POST['default_deposit_pct'] ?? 30 ) ) ),
+			'default_deposit_pct'       => max( 1, min( 99, (int) ( $_POST['default_deposit_pct'] ?? 30 ) ) ),
 			'default_balance_lead_days' => max( 0, (int) ( $_POST['default_balance_lead_days'] ?? 14 ) ),
+			'default_sync_interval'     => max( 300, (int) ( $_POST['default_sync_interval'] ?? 1800 ) ),
 			'log_retention_days'        => max( 1, (int) ( $_POST['log_retention_days'] ?? 30 ) ),
 			'uninstall_purge_data'      => ! empty( $_POST['uninstall_purge_data'] ),
 		] );

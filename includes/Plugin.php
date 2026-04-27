@@ -104,7 +104,7 @@ final class Plugin {
 				$this->ical_exporter(),
 				$this->gateway_capabilities()
 			) )->register();
-			( new Menu( $this->feed_repo() ) )->register();
+			( new Menu( $this->feed_repo(), $this->gateway_capabilities() ) )->register();
 		} else {
 			( new Assets() )->register();
 		}
