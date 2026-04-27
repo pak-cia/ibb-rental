@@ -67,6 +67,22 @@ final class Blocks {
 			'render_callback' => [ $this, 'render_gallery_block' ],
 		] );
 
+		register_block_type( 'ibb/calendar', [
+			'api_version'     => 3,
+			'title'           => __( 'IBB · Availability calendar', 'ibb-rentals' ),
+			'category'        => 'ibb-rentals',
+			'icon'            => 'calendar',
+			'description'     => __( 'Read-only inline calendar showing available and blocked dates for a property.', 'ibb-rentals' ),
+			'keywords'        => [ 'calendar', 'availability', 'dates', 'rental' ],
+			'supports'        => [ 'html' => false ],
+			'attributes'      => [
+				'propertyId' => [ 'type' => 'integer', 'default' => 0 ],
+				'months'     => [ 'type' => 'integer', 'default' => 2 ],
+				'legend'     => [ 'type' => 'boolean', 'default' => true ],
+			],
+			'render_callback' => [ $this, 'render_calendar_block' ],
+		] );
+
 		register_block_type( 'ibb/property-details', [
 			'api_version'     => 3,
 			'title'           => __( 'IBB · Property details', 'ibb-rentals' ),
@@ -116,6 +132,16 @@ final class Blocks {
 			'id' => (int) ( $attrs['propertyId'] ?? 0 ),
 		] );
 		return $this->wrap_with_align( $out, $attrs );
+	}
+
+	/** @param array<string, mixed> $attrs */
+	public function render_calendar_block( array $attrs ): string {
+		$shortcodes = new Shortcodes();
+		return $shortcodes->render_calendar( [
+			'id'     => (int) ( $attrs['propertyId'] ?? 0 ),
+			'months' => (int) ( $attrs['months'] ?? 2 ),
+			'legend' => ( $attrs['legend'] ?? true ) ? 'yes' : 'no',
+		] );
 	}
 
 	/** @param array<string, mixed> $attrs */
@@ -364,6 +390,42 @@ final class Blocks {
 		save: function() { return null; }
 	} );
 
+	// ─── ibb/calendar ───────────────────────────────────────────────────
+	registerBlockType( 'ibb/calendar', {
+		edit: function( props ) {
+			var atts = props.attributes;
+			return el( Fragment, null,
+				el( InspectorControls, null,
+					el( PanelBody, { title: __( 'Property', 'ibb-rentals' ), initialOpen: true },
+						el( SelectControl, {
+							label: __( 'Property', 'ibb-rentals' ),
+							value: atts.propertyId,
+							options: propertyOptions(),
+							onChange: function( v ) { props.setAttributes( { propertyId: parseInt( v, 10 ) || 0 } ); }
+						} )
+					),
+					el( PanelBody, { title: __( 'Display', 'ibb-rentals' ), initialOpen: true },
+						el( wp.components.RangeControl, {
+							label: __( 'Months to show', 'ibb-rentals' ),
+							value: atts.months,
+							min: 1, max: 3,
+							onChange: function( v ) { props.setAttributes( { months: v } ); }
+						} ),
+						el( wp.components.ToggleControl, {
+							label: __( 'Show legend', 'ibb-rentals' ),
+							checked: atts.legend,
+							onChange: function( v ) { props.setAttributes( { legend: v } ); }
+						} )
+					)
+				),
+				el( 'div', { className: 'ibb-block-preview ibb-block-preview--calendar' },
+					previewOrPlaceholder( 'ibb/calendar', atts )
+				)
+			);
+		},
+		save: function() { return null; }
+	} );
+
 	// ─── ibb/property-details ────────────────────────────────────────────
 	registerBlockType( 'ibb/property-details', {
 		edit: function( props ) {
@@ -432,6 +494,7 @@ JS;
 		return <<<CSS
 .ibb-block-preview { padding: 4px; }
 .ibb-block-preview--booking .ibb-booking { max-width: 380px; }
+.ibb-block-preview--calendar .ibb-calendar { pointer-events: none; }
 .ibb-block-preview--gallery .ibb-gallery-display { pointer-events: none; }
 .ibb-block-preview--details .ibb-details { pointer-events: none; }
 .editor-styles-wrapper .ibb-details--grid .ibb-details__item { background: #fff; }

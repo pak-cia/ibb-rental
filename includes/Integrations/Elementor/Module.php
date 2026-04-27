@@ -313,6 +313,7 @@ JS;
 			'PropertyDetailsWidget',
 			'PropertyGalleryWidget',
 			'PropertyCarouselWidget',
+			'PropertyAvailabilityWidget',
 		];
 		foreach ( $widget_files as $name ) {
 			require_once __DIR__ . '/Widgets/' . $name . '.php';
