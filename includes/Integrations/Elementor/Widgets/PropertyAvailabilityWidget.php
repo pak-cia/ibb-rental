@@ -127,6 +127,7 @@ class PropertyAvailabilityWidget extends \Elementor\Widget_Base {
 		$this->add_control( 'header_color', [
 			'label'     => __( 'Month/year text colour', 'ibb-rentals' ),
 			'type'      => \Elementor\Controls_Manager::COLOR,
+			'default'   => '#ffffff',
 			'selectors' => [
 				'{{WRAPPER}} .ibb-calendar .flatpickr-month'          => 'color: {{VALUE}};',
 				'{{WRAPPER}} .ibb-calendar .flatpickr-current-month'  => 'color: {{VALUE}};',

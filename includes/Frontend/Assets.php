@@ -323,32 +323,43 @@ final class Assets {
 }
 body.ibb-lightbox-open { overflow:hidden; }
 
-/* Inline availability calendar ([ibb_calendar]) */
+/* Inline availability calendar ([ibb_calendar])
+   Palette colours use Elementor Global Color CSS variables so the calendar
+   inherits the active kit on any page Elementor loads — with neutral
+   fallbacks for non-Elementor contexts (shortcode on plain WP page, etc.).
+   Elementor widget controls use {{WRAPPER}} selectors which beat these by
+   specificity, so per-widget overrides still work normally. */
 .ibb-calendar { display:inline-block; line-height:1; }
 /* Flatpickr rewrites type="hidden" to type="text" — keep the anchor input invisible */
 .ibb-calendar .flatpickr-input { display:none!important; }
-.ibb-calendar__loading { color:#64748b; font-size:.85em; padding:6px 0; }
+.ibb-calendar__loading { color:var(--e-global-color-text,#64748b); font-size:.85em; padding:6px 0; }
 /* Force the Flatpickr popup to render as a static block inside our container */
-.ibb-calendar .flatpickr-calendar { position:relative!important; top:auto!important; left:auto!important; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.10); border:1px solid #e2e8f0; }
-/* Multi-month side-by-side layout */
-.ibb-calendar .flatpickr-months { border-radius:6px 6px 0 0; }
+.ibb-calendar .flatpickr-calendar { position:relative!important; top:auto!important; left:auto!important; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.10); border:1px solid rgba(0,0,0,.08); }
+/* Month header — kit primary background, white text/arrows */
+.ibb-calendar .flatpickr-months { background:var(--e-global-color-primary,#1e293b); border-radius:6px 6px 0 0; }
+.ibb-calendar .flatpickr-month,
+.ibb-calendar .flatpickr-current-month,
+.ibb-calendar .cur-month,
+.ibb-calendar .cur-year { color:#fff; }
+.ibb-calendar .flatpickr-prev-month svg,
+.ibb-calendar .flatpickr-next-month svg { fill:#fff; }
 /* Remove the bottom padding Flatpickr adds when used as a picker */
 .ibb-calendar .flatpickr-calendar.inline { margin-bottom:0; }
+/* Available day text follows kit text colour */
+.ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):not(.selected) { color:var(--e-global-color-text,#1e293b); cursor:default; }
+.ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):hover { background:rgba(0,0,0,.04); border-color:transparent; }
 /* Unavailable days: strikethrough + muted colour */
 .ibb-calendar .flatpickr-day.flatpickr-disabled,
-.ibb-calendar .flatpickr-day.flatpickr-disabled:hover { background:#f8fafc; color:#94a3b8; border-color:transparent; text-decoration:line-through; cursor:not-allowed; }
-/* Available days: subtle pointer-default (it's display-only) */
-.ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):not(.selected) { cursor:default; }
-.ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):hover { background:#f1f5f9; border-color:#e2e8f0; }
+.ibb-calendar .flatpickr-day.flatpickr-disabled:hover { background:rgba(0,0,0,.04); color:rgba(0,0,0,.30); border-color:transparent; text-decoration:line-through; cursor:not-allowed; }
 /* Kill the "selected" highlight immediately — onChange clears it but briefly flashes */
 .ibb-calendar .flatpickr-day.selected,
-.ibb-calendar .flatpickr-day.selected:hover { background:#2563eb; border-color:#2563eb; }
+.ibb-calendar .flatpickr-day.selected:hover { background:var(--e-global-color-accent,#2563eb); border-color:var(--e-global-color-accent,#2563eb); }
 /* Legend */
-.ibb-calendar__legend { display:flex; gap:16px; margin-top:8px; font-size:.82em; color:#475569; }
+.ibb-calendar__legend { display:flex; gap:16px; margin-top:8px; font-size:.82em; color:var(--e-global-color-text,#475569); }
 .ibb-calendar__legend-item { display:flex; align-items:center; gap:6px; }
-.ibb-calendar__legend-item::before { content:''; display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid #e2e8f0; }
+.ibb-calendar__legend-item::before { content:''; display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.12); }
 .ibb-calendar__legend-item--available::before { background:#fff; }
-.ibb-calendar__legend-item--unavailable::before { background:#f8fafc; border-color:#cbd5e1; text-decoration:line-through; position:relative; }
+.ibb-calendar__legend-item--unavailable::before { background:rgba(0,0,0,.04); }
 /* mobile: full width */
 @media (max-width:640px) {
   .ibb-calendar { display:block; }
