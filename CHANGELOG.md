@@ -8,6 +8,10 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] — 2026-04-28
+
 ### Added
 
 - **Three Gutenberg blocks for page-builder use** — `ibb/booking-form`, `ibb/gallery`, `ibb/property-details`. Server-rendered, share render path with the matching shortcodes, custom *IBB Rentals* block category, edit-time preview via `ServerSideRender`. Inspector controls cover property selection, reactive gallery-slug pickers, columns / image size / lightbox toggle, per-field checkboxes for property details, layout switcher (grid / compact / list).
@@ -23,6 +27,7 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ### Fixed
 
+- **Admin calendar AJAX 400** — FullCalendar sends ISO 8601 datetime strings (`2026-03-29T00:00:00+08:00`) but `DateRange::from_strings()` requires `Y-m-d`. Strip to first 10 chars before validation.
 - **HPOS violation in `BalanceService`** — retry counter in the balance charge `catch` block used `get_post_meta`/`update_post_meta` on the order ID. Now HPOS-safe via `wc_get_order()` + meta object API.
 - **Activation 404s** on property permalinks — `Setup/Installer::maybe_flush_rewrites` now self-heals on `init` if the `properties/` rewrite rule is missing.
 - **WC "cannot add another" error** on duplicate add-to-cart — `WC_Product_IBB_Booking::is_sold_individually` returns `false`; quantity is clamped to 1 via filter and reset on merge.
