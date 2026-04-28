@@ -295,8 +295,9 @@ final class Shortcodes {
 
 		// Build the available-fields catalog.
 		$available = [
-			'guests'         => [ 'label' => __( 'Guests', 'ibb-rentals' ),    'value' => $property->max_guests() ?: null ],
-			'bedrooms'       => [ 'label' => __( 'Bedrooms', 'ibb-rentals' ),  'value' => $property->bedrooms() ?: null ],
+			'guests'         => [ 'label' => __( 'Guests', 'ibb-rentals' ),     'value' => $property->extra_guest_threshold() ?: null ],
+			'max_guests'     => [ 'label' => __( 'Max guests', 'ibb-rentals' ), 'value' => $property->max_guests() ?: null ],
+			'bedrooms'       => [ 'label' => __( 'Bedrooms', 'ibb-rentals' ),   'value' => $property->bedrooms() ?: null ],
 			'bathrooms'      => [ 'label' => __( 'Bathrooms', 'ibb-rentals' ), 'value' => $property->bathrooms() ?: null ],
 			'beds'           => [ 'label' => __( 'Beds', 'ibb-rentals' ),      'value' => $property->beds() ?: null ],
 			'check_in_time'  => [ 'label' => __( 'Check-in', 'ibb-rentals' ),  'value' => $property->check_in_time() ?: null ],

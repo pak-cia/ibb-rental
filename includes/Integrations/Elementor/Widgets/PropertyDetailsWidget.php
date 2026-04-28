@@ -38,6 +38,7 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 	private function field_options(): array {
 		return [
 			'guests'         => __( 'Guests', 'ibb-rentals' ),
+			'max_guests'     => __( 'Max guests', 'ibb-rentals' ),
 			'bedrooms'       => __( 'Bedrooms', 'ibb-rentals' ),
 			'bathrooms'      => __( 'Bathrooms', 'ibb-rentals' ),
 			'beds'           => __( 'Beds', 'ibb-rentals' ),
@@ -91,6 +92,7 @@ class PropertyDetailsWidget extends \Elementor\Widget_Base {
 		// set so they render even when no Font Awesome / SVG kit is loaded.
 		$default_icons = [
 			'guests'         => 'eicon-person',
+			'max_guests'     => 'eicon-person',
 			'bedrooms'       => 'eicon-time-line',
 			'bathrooms'      => 'eicon-tools',
 			'beds'           => 'eicon-time-line',

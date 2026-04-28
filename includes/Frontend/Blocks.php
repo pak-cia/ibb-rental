@@ -283,6 +283,7 @@ final class Blocks {
 			],
 			'detailFields' => [
 				[ 'value' => 'guests',         'label' => __( 'Guests', 'ibb-rentals' ) ],
+				[ 'value' => 'max_guests',     'label' => __( 'Max guests', 'ibb-rentals' ) ],
 				[ 'value' => 'bedrooms',       'label' => __( 'Bedrooms', 'ibb-rentals' ) ],
 				[ 'value' => 'bathrooms',      'label' => __( 'Bathrooms', 'ibb-rentals' ) ],
 				[ 'value' => 'beds',           'label' => __( 'Beds', 'ibb-rentals' ) ],
