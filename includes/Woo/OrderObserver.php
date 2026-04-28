@@ -29,6 +29,25 @@ final class OrderObserver {
 		add_action( 'woocommerce_order_status_cancelled', [ $this, 'on_cancelled' ], 10, 2 );
 		add_action( 'woocommerce_order_status_failed',    [ $this, 'on_cancelled' ], 10, 2 );
 		add_action( 'woocommerce_order_refunded',         [ $this, 'on_refunded' ], 10, 2 );
+
+		// Suppress WC's generic customer order emails for IBB bookings.
+		// Our BookingConfirmationEmail (triggered on ibb-rentals/booking/created)
+		// is the authoritative guest notification — the WC ones are confusing and redundant.
+		add_filter( 'woocommerce_email_enabled_customer_processing_order', [ $this, 'suppress_for_ibb_order' ], 10, 2 );
+		add_filter( 'woocommerce_email_enabled_customer_completed_order',  [ $this, 'suppress_for_ibb_order' ], 10, 2 );
+	}
+
+	/** @param mixed $enabled */
+	public function suppress_for_ibb_order( $enabled, \WC_Order $order ): bool {
+		if ( ! $enabled ) {
+			return false;
+		}
+		foreach ( $order->get_items() as $item ) {
+			if ( $item instanceof \WC_Order_Item_Product && $item->get_meta( '_ibb_property_id', true ) ) {
+				return false;
+			}
+		}
+		return (bool) $enabled;
 	}
 
 	public function on_paid( int $order_id, \WC_Order $order ): void {
