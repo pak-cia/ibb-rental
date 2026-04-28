@@ -63,6 +63,10 @@ final class Property {
 		return (string) $this->meta( '_ibb_short_description', '' );
 	}
 
+	public function description(): string {
+		return (string) $this->meta( '_ibb_description', '' );
+	}
+
 	public function check_in_time(): string  { return (string) $this->meta( '_ibb_check_in_time', '15:00' ); }
 	public function check_out_time(): string { return (string) $this->meta( '_ibb_check_out_time', '11:00' ); }
 

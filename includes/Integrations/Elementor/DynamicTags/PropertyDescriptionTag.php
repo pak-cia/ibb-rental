@@ -20,6 +20,6 @@ class PropertyDescriptionTag extends AbstractPropertyFieldTag {
 	public function get_title(): string { return __( 'Property Description', 'ibb-rentals' ); }
 
 	public function field_value( Property $property ): string {
-		return apply_filters( 'the_content', get_post_field( 'post_content', $property->id ) );
+		return wpautop( esc_html( $property->description() ) );
 	}
 }

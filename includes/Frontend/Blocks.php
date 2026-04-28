@@ -193,12 +193,16 @@ final class Blocks {
 		if ( $property_id <= 0 ) {
 			return '';
 		}
-		$content = (string) get_post_field( 'post_content', $property_id );
+		$property = Property::from_id( $property_id );
+		if ( ! $property ) {
+			return '';
+		}
+		$content = $property->description();
 		if ( $content === '' ) {
 			return '';
 		}
-		$html = '<div class="ibb-property-description entry-content">'
-			. apply_filters( 'the_content', $content )
+		$html = '<div class="ibb-property-description">'
+			. wpautop( esc_html( $content ) )
 			. '</div>';
 		return $this->wrap_with_align( $html, $attrs );
 	}
