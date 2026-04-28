@@ -18,6 +18,29 @@ wp-admin user interface for the plugin: top-level "Rentals" menu, the tabbed pro
   - Pick form-arrays when possible — graceful degrade is free; pick hidden-state when the row contents are more than scalars.
 - **Slug uniqueness on save** — when persisting `_ibb_galleries`, the save handler de-dupes slugs (`bedroom-1`, `bedroom-1-2`, …) so the JS-side dedup isn't load-bearing.
 
+## Not yet built — seasonal rates editor
+
+The **Rates tab** in the property metabox currently shows existing `ibb_rates` rows read-only and tells the user to manage them via the REST API. The full row-based CRUD editor was never built.
+
+**What needs building** (follow the LOS-discounts / blackout-ranges pattern — native form-arrays, no hidden JSON):
+
+Each row in the `ibb_rates` table has these user-facing fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `date_from` | `DATE` | Inclusive start of the rate period |
+| `date_to` | `DATE` | Inclusive end |
+| `nightly_rate` | `DECIMAL(12,2)` | Required |
+| `label` | `VARCHAR(100)` | e.g. "High season", "Christmas" |
+| `priority` | `SMALLINT` | Default 10; higher wins on overlap |
+| `weekend_uplift` | `DECIMAL(12,2)` | Optional override of the property-level uplift |
+| `uplift_type` | `pct` \| `abs` | Default `pct` |
+| `min_stay` | `SMALLINT` | Optional per-season minimum nights |
+
+**Row add/delete UI** should match the blackout-ranges editor (date inputs + text/number fields, JS add/remove row buttons, no blank trailing row on load).
+
+**Save handler** in `PropertyMetaboxes::save()` should: iterate `$_POST['_ibb_rates']`, validate each row (date_from < date_to, nightly_rate > 0), call `RateRepository::delete_for_property()` then re-insert all rows. Deleting and re-inserting is simpler than diffing, since the table has no foreign-key dependents.
+
 ## Connects to
 
 - [../Domain](../Domain/README.md) — the metabox reads `Property` accessors to render existing values

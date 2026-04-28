@@ -20,6 +20,17 @@ Public-facing rendering: shortcodes, asset enqueueing (Flatpickr + lightbox), si
 - **Stepper for guests** — number input flanked by `−` / `+` buttons. The stepper clamps to `[1, max_guests]` from the property meta.
 - **CSS-variables theme tinting** — main accent variable is `--ibb-accent`; class prefix is `.ibb-` BEM-style throughout.
 
+## Not yet built — property description block
+
+The `ibb_property` CPT already has `editor` in its `supports` array, so every property already has a full WYSIWYG (block editor) writing surface via `post_content`. No new field or metabox is needed.
+
+**What needs building:**
+
+- **Gutenberg block `ibb/property-description`** — server-rendered, reads `apply_filters('the_content', get_post_field('post_content', $property_id))` for the resolved property. Same property-resolution pattern as the other blocks (property picker control, falls back to current post). Register in `Blocks.php`.
+- **Elementor dynamic tag `PropertyDescriptionTag`** — TEXT type (returns HTML string), reads the same field. Add under `Integrations/Elementor/DynamicTags/`. Extend `AbstractPropertyFieldTag`.
+
+No new shortcode needed — the block and tag render directly. The content already runs through `apply_filters('the_content', ...)` in `Shortcodes::render_property()`, so there is precedent; the standalone block just does the same in isolation.
+
 ## Connects to
 
 - [../Domain](../Domain/README.md) — `Property::from_id` for shortcode rendering; `DateRange` indirectly via the booking-form JS hitting REST endpoints

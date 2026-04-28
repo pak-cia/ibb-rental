@@ -1,5 +1,78 @@
 # Integrations / Elementor — Troubleshooting
 
+## PropertyAvailabilityWidget — three known bugs (fix pending)
+
+### 1. "Show legend" toggle has no effect — legend always displays
+
+**Symptom:** toggling the "Show legend" switcher off in the widget panel has no effect; the legend renders regardless.
+
+**Root cause:** Elementor's `SWITCHER` control returns `'yes'` when on and `''` (empty string) when off. `PropertyAvailabilityWidget::render()` passes `$settings['legend']` directly to `Shortcodes::render_calendar()`, which checks `!== 'no'`. An empty string is not `'no'`, so `$legend` evaluates to `true` and the legend always renders.
+
+**Fix needed:** in `PropertyAvailabilityWidget::render()`, translate the switcher value before passing it:
+```php
+'legend' => ( $settings['legend'] ?? 'yes' ) === 'yes' ? 'yes' : 'no',
+```
+
+### 2. Calendar width locked — does not fill parent container
+
+**Symptom:** the calendar renders at a fixed pixel width (Flatpickr's own hard-coded size) rather than stretching to fill the Elementor column or container it sits in.
+
+**Root cause:** Flatpickr's inline calendar element has `width` and `display` hard-coded by its own stylesheet. No overriding CSS is applied by the plugin to let `.ibb-calendar` or `.flatpickr-calendar` take `100%` of the parent.
+
+**Fix needed:** add to the plugin's frontend stylesheet:
+```css
+.ibb-calendar { width: 100%; }
+.ibb-calendar .flatpickr-calendar { width: 100% !important; }
+.ibb-calendar .flatpickr-days,
+.ibb-calendar .dayContainer { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+.ibb-calendar .flatpickr-day { flex: 1; max-width: none; }
+```
+
+### 3. Multi-month view does not collapse on narrow containers
+
+**Symptom:** with "Months to show" set to 2 (or 3), months sit side-by-side regardless of available width, causing overflow or a squashed layout on mobile or narrow columns.
+
+**Root cause:** Flatpickr renders all months as siblings in a fixed-width row. There is no CSS breakpoint or JS logic to reduce `showMonths` when the container is too narrow.
+
+**Fix needed:** `ResizeObserver` on `.ibb-calendar` — when the container width drops below the threshold for the current month count (~560 px for 2 months, ~840 px for 3), destroy and re-init Flatpickr with `showMonths` reduced accordingly. Restore the original count when the container widens again. The threshold should be based on Flatpickr's per-month minimum width (~280 px) × the configured month count.
+
+---
+
+## BookingFormWidget — stepper and Book button borders not controllable
+
+**Symptom:** the `−` / `+` stepper divider borders and the Book Now button border have colours that cannot be changed from the Elementor widget panel.
+
+**Root cause — stepper inner borders:** `input_border_color` targets `.ibb-booking__stepper` (the outer wrapper) and `.ibb-booking__field > input`, but the internal dividers are separate rules with hardcoded `#cbd5e1`:
+```css
+.ibb-booking__step--down { border-right: 1px solid #cbd5e1; }
+.ibb-booking__step--up   { border-left:  1px solid #cbd5e1; }
+```
+These are not included in the control's `selectors` map.
+
+**Root cause — Book button border:** the submit button CSS sets `border: 0`, but no `Group_Control_Border` is registered in `section_style_button`, so any theme or browser override cannot be corrected from the panel.
+
+**Fix needed:**
+
+1. In `BookingFormWidget::register_style_controls()`, extend the `input_border_color` control's `selectors` to include the inner dividers:
+```php
+'selectors' => [
+    '{{WRAPPER}} .ibb-booking__field > input'  => 'border-color: {{VALUE}};',
+    '{{WRAPPER}} .ibb-booking__stepper'         => 'border-color: {{VALUE}};',
+    '{{WRAPPER}} .ibb-booking__step--down'      => 'border-right-color: {{VALUE}};',
+    '{{WRAPPER}} .ibb-booking__step--up'        => 'border-left-color: {{VALUE}};',
+],
+```
+
+2. Add a `Group_Control_Border` to `section_style_button` (inside the Normal tab, after `button_bg`):
+```php
+$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+    'name'     => 'button_border',
+    'selector' => '{{WRAPPER}} .ibb-booking__submit',
+] );
+```
+
+---
+
 ## DON'T hook `elementor/loaded` for tag/widget/control registration
 
 **The most important note in this file.** Elementor fires `elementor/loaded` from its main plugin file **during** `wp-settings.php`'s plugin-load loop — that is, **before** WP's `plugins_loaded` action runs.
