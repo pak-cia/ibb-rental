@@ -8,6 +8,10 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] — 2026-04-28
+
 ### Added
 - **`ibb/property-description` Gutenberg block** — renders the property's `post_content` through `the_content` filters; Property picker in the inspector; `ServerSideRender` edit preview.
 - **`PropertyDescriptionTag` Elementor dynamic tag** — IBB › Property Description; bindable to Text Editor and any `text`-category control.
@@ -19,6 +23,7 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 - **Availability calendar width** — calendar now fills its container (`display:block; width:100%`) with fluid Flatpickr internal overrides.
 - **Availability calendar month collapse** — `ResizeObserver` + Flatpickr re-init reduces month count to fit container width instead of relying on CSS stacking.
 - **`BookingFormWidget` stepper/button border controls** — stepper inner-divider borders and submit-button border are now fully controllable from the Elementor panel.
+- **`PropertyCarouselWidget` arrow border** — added `Group_Control_Border` for nav arrow buttons; border type/width/colour now controllable from the Elementor panel.
 
 ---
 

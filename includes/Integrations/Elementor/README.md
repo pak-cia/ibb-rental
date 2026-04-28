@@ -29,6 +29,10 @@ Self-contained Elementor module: dynamic tags for every property field, four cus
 - [../../PostTypes](../../PostTypes/README.md) — `property_options()` queries the `ibb_property` CPT.
 - [../../Plugin.php](../../Plugin.php) — boot calls `(new Module())->register()` unconditionally; the module's own `class_exists` / `elementor/loaded` gating handles the "not installed" case.
 
+## Planned / deferred
+
+- **`PropertyCarouselWidget` — video slide support**: currently only image attachments render; video MIME types are silently skipped by `wp_get_attachment_image()`. Adding video requires detecting the MIME type per attachment and rendering a `<video>` tag (or poster + play-button overlay) instead. Mixed image/video slides also need Swiper config adjustments (no fade effect on video slides, autoplay pause on video play). Scope as a standalone feature when ready.
+
 ## Adding to this module
 
 - **New text-field property tag**: extend `AbstractPropertyFieldTag` — the leaf class only needs `get_name()`, `get_title()`, and `field_value(Property $p)`. Add the class name to `Module::register_tags()`'s `$tags` array. ~10 lines total.
