@@ -341,7 +341,7 @@ body.ibb-lightbox-open { overflow:hidden; }
 .ibb-calendar .flatpickr-rContainer { width:100%!important; }
 .ibb-calendar .flatpickr-days { width:100%!important; }
 .ibb-calendar .dayContainer { width:100%!important; max-width:100%!important; min-width:0!important; }
-.ibb-calendar .flatpickr-day { flex:1; max-width:none; }
+.ibb-calendar .flatpickr-day { flex: 0 0 14.28571%; max-width: 14.28571%; }
 /* Month header — primary background, white text/arrows */
 .ibb-calendar .flatpickr-months { background:var(--e-global-color-primary,var(--wp--preset--color--primary,#1e293b)); border-radius:6px 6px 0 0; }
 .ibb-calendar .flatpickr-month,
@@ -355,9 +355,12 @@ body.ibb-lightbox-open { overflow:hidden; }
 /* Available day text follows theme/kit text colour */
 .ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):not(.selected) { color:var(--e-global-color-text,var(--wp--preset--color--contrast,#1e293b)); cursor:default; }
 .ibb-calendar .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):hover { background:rgba(0,0,0,.04); border-color:transparent; }
-/* Unavailable days: strikethrough + muted colour */
+/* Disabled days (past + booked) — muted, no pointer */
 .ibb-calendar .flatpickr-day.flatpickr-disabled,
-.ibb-calendar .flatpickr-day.flatpickr-disabled:hover { background:rgba(0,0,0,.04); color:rgba(0,0,0,.30); border-color:transparent; text-decoration:line-through; cursor:not-allowed; }
+.ibb-calendar .flatpickr-day.flatpickr-disabled:hover { background:rgba(0,0,0,.04); color:rgba(0,0,0,.30); border-color:transparent; text-decoration:none; cursor:not-allowed; }
+/* Booked/blocked dates — strikethrough distinguishes "booked" from "just in the past" */
+.ibb-calendar .flatpickr-day.ibb-booked,
+.ibb-calendar .flatpickr-day.ibb-booked:hover { text-decoration:line-through; }
 /* Kill the "selected" highlight immediately — onChange clears it but briefly flashes */
 .ibb-calendar .flatpickr-day.selected,
 .ibb-calendar .flatpickr-day.selected:hover { background:var(--e-global-color-accent,var(--wp--preset--color--primary,#2563eb)); border-color:var(--e-global-color-accent,var(--wp--preset--color--primary,#2563eb)); }
@@ -722,6 +725,12 @@ CSS;
             showMonths: months,
             minDate:    'today',
             disable:    blocked,
+            onDayCreate: function(dObj, dStr, fp, dayElem) {
+              if (!dayElem.classList.contains('flatpickr-disabled') || !dayElem.dateObj) return;
+              var d  = dayElem.dateObj;
+              var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+              if (blocked.indexOf(ds) !== -1) dayElem.classList.add('ibb-booked');
+            },
             onChange:   function(dates, dateStr, fp){ if (dates.length) { fp.clear(); } }
           });
           activeMonths = months;
