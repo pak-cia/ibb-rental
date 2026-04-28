@@ -33,17 +33,36 @@ final class AvailabilityService {
 
 	/**
 	 * Returns every blocked calendar date inside the window, formatted as Y-m-d.
-	 * Used by the front-end date picker to grey out unavailable nights.
+	 * Includes both DB blocks (direct bookings + iCal imports) and the property's
+	 * blackout ranges so the date-picker greys them all out.
 	 *
 	 * @return list<string>
 	 */
 	public function get_blocked_dates( int $property_id, DateRange $window ): array {
-		$blocks = $this->blocks->find_in_window( $property_id, $window );
-		$dates  = [];
+		$dates = [];
 
-		foreach ( $blocks as $block ) {
+		foreach ( $this->blocks->find_in_window( $property_id, $window ) as $block ) {
 			foreach ( $block->range->each_night() as $night ) {
 				$dates[ $night->format( 'Y-m-d' ) ] = true;
+			}
+		}
+
+		$property = Property::from_id( $property_id );
+		if ( $property ) {
+			foreach ( $property->blackout_ranges() as $blackout ) {
+				try {
+					$br = DateRange::from_strings( $blackout['start'], $blackout['end'] );
+				} catch ( \Throwable ) {
+					continue;
+				}
+				if ( ! $br->overlaps( $window ) ) {
+					continue;
+				}
+				foreach ( $br->each_night() as $night ) {
+					if ( $window->contains( $night ) ) {
+						$dates[ $night->format( 'Y-m-d' ) ] = true;
+					}
+				}
 			}
 		}
 
