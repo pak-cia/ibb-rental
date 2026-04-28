@@ -190,11 +190,11 @@ final class Assets {
 .ibb-booking__stepper input { flex:1; min-width:0; border:0; text-align:center; font-size:1em; font-weight:600; padding:8px 4px; -moz-appearance:textfield; background:#fff; }
 .ibb-booking__stepper input::-webkit-outer-spin-button,
 .ibb-booking__stepper input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-.ibb-booking__step { width:38px; border:0; background:#f1f5f9; color:#0f172a; font-size:1.2em; font-weight:600; cursor:pointer; transition:background .15s; }
-.ibb-booking__step:hover:not([disabled]) { background:#e2e8f0; }
-.ibb-booking__step[disabled] { opacity:.4; cursor:not-allowed; }
-.ibb-booking__step--down { border-right:1px solid #cbd5e1; }
-.ibb-booking__step--up { border-left:1px solid #cbd5e1; }
+.ibb-booking .ibb-booking__step { width:38px; border:0; outline:none; background:#f1f5f9; color:#0f172a; font-size:1.2em; font-weight:600; cursor:pointer; transition:background .15s; }
+.ibb-booking .ibb-booking__step:hover:not([disabled]) { background:#e2e8f0; }
+.ibb-booking .ibb-booking__step[disabled] { opacity:.4; cursor:not-allowed; }
+.ibb-booking .ibb-booking__step--down { border-right:1px solid #cbd5e1; }
+.ibb-booking .ibb-booking__step--up { border-left:1px solid #cbd5e1; }
 .ibb-booking__quote { background:#f8fafc; border-radius:6px; padding:14px; margin:12px 0; font-size:.92em; min-height:1px; }
 .ibb-booking__quote:empty { padding:0; margin:0; }
 .ibb-booking__quote-section { padding:6px 0; }

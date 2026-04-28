@@ -206,6 +206,11 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 			'selectors' => [ '{{WRAPPER}} .ibb-booking__step' => 'color: {{VALUE}};' ],
 		] );
 
+		$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+			'name'     => 'stepper_btn_border',
+			'selector' => '{{WRAPPER}} .ibb-booking .ibb-booking__step',
+		] );
+
 		$this->end_controls_section();
 
 		// ---------- Quote panel ----------
