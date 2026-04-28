@@ -6,6 +6,7 @@
 - **`PropertyDescriptionTag`** dynamic tag — IBB › Property Description. Renders the property's `post_content` via `the_content` filters. Bindable to Elementor Text Editor and any control that accepts the `text` dynamic-tag category.
 
 ### Fixed
+- **`PropertyCarouselWidget` arrow border not controllable** — added `Group_Control_Border` for the arrow buttons in the Arrows style section. The existing standalone `Border radius` (DIMENSIONS) control is kept alongside it since `Group_Control_Border` does not include radius.
 - **`PropertyAvailabilityWidget` legend always visible** — Elementor Switcher returns `''` when off, not `'no'`. The render call now normalises the switcher value before passing `legend=no` to `Shortcodes::render_calendar()`. Previously `!== 'no'` always evaluated true when the control was off.
 - **`BookingFormWidget` stepper + button border** — `input_border_color` selectors extended to cover `.ibb-booking__stepper`, `.ibb-booking__step--down`, and `.ibb-booking__step--up` inner dividers. Added `Group_Control_Border` for the submit button so the border type, width, and colour are all controllable from the Elementor style panel.
 

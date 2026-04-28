@@ -317,6 +317,12 @@ class PropertyCarouselWidget extends \Elementor\Widget_Base {
 			],
 		] );
 
+		$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+			'name'     => 'arrows_border',
+			'selector' => '{{WRAPPER}} .ibb-property-carousel .swiper-button-prev,
+			               {{WRAPPER}} .ibb-property-carousel .swiper-button-next',
+		] );
+
 		$this->add_responsive_control( 'arrows_size', [
 			'label'      => __( 'Button size', 'ibb-rentals' ),
 			'type'       => \Elementor\Controls_Manager::SLIDER,
