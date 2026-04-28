@@ -226,7 +226,7 @@ class PropertyAvailabilityWidget extends \Elementor\Widget_Base {
 		echo $shortcodes->render_calendar( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			'id'     => $property->id,
 			'months' => (int) ( $settings['months'] ?? 2 ),
-			'legend' => (string) ( $settings['legend'] ?? 'yes' ),
+			'legend' => ( $settings['legend'] ?? 'yes' ) === 'yes' ? 'yes' : 'no',
 		] );
 	}
 

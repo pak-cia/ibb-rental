@@ -330,12 +330,18 @@ body.ibb-lightbox-open { overflow:hidden; }
    3. Hardcoded fallback — plain WP installs with neither
    Elementor widget controls apply {{WRAPPER}}-scoped CSS (higher specificity)
    and win over every layer here when the user customises a widget. */
-.ibb-calendar { display:inline-block; line-height:1; }
+.ibb-calendar { display:block; width:100%; line-height:1; }
 /* Flatpickr rewrites type="hidden" to type="text" — keep the anchor input invisible */
 .ibb-calendar .flatpickr-input { display:none!important; }
 .ibb-calendar__loading { color:var(--e-global-color-text,var(--wp--preset--color--contrast,#64748b)); font-size:.85em; padding:6px 0; }
 /* Force the Flatpickr popup to render as a static block inside our container */
-.ibb-calendar .flatpickr-calendar { position:relative!important; top:auto!important; left:auto!important; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.10); border:1px solid rgba(0,0,0,.08); }
+.ibb-calendar .flatpickr-calendar { position:relative!important; top:auto!important; left:auto!important; width:100%!important; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.10); border:1px solid rgba(0,0,0,.08); }
+/* Fluid inner layout — override Flatpickr's fixed-pixel widths */
+.ibb-calendar .flatpickr-innerContainer,
+.ibb-calendar .flatpickr-rContainer { width:100%!important; }
+.ibb-calendar .flatpickr-days { width:100%!important; }
+.ibb-calendar .dayContainer { width:100%!important; max-width:100%!important; min-width:0!important; }
+.ibb-calendar .flatpickr-day { flex:1; max-width:none; }
 /* Month header — primary background, white text/arrows */
 .ibb-calendar .flatpickr-months { background:var(--e-global-color-primary,var(--wp--preset--color--primary,#1e293b)); border-radius:6px 6px 0 0; }
 .ibb-calendar .flatpickr-month,
@@ -361,11 +367,6 @@ body.ibb-lightbox-open { overflow:hidden; }
 .ibb-calendar__legend-item::before { content:''; display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.12); }
 .ibb-calendar__legend-item--available::before { background:#fff; }
 .ibb-calendar__legend-item--unavailable::before { background:rgba(0,0,0,.04); }
-/* mobile: full width */
-@media (max-width:640px) {
-  .ibb-calendar { display:block; }
-  .ibb-calendar .flatpickr-calendar { width:100%!important; }
-}
 CSS;
 	}
 
@@ -687,8 +688,8 @@ CSS;
   // ---------------------------------------------------------------
   var calEls = document.querySelectorAll('.ibb-calendar[data-property-id]');
   calEls.forEach(function(container){
-    var pid    = parseInt(container.dataset.propertyId, 10);
-    var months = Math.max(1, Math.min(3, parseInt(container.dataset.months, 10) || 2));
+    var pid          = parseInt(container.dataset.propertyId, 10);
+    var configMonths = Math.max(1, Math.min(3, parseInt(container.dataset.months, 10) || 2));
     if (!pid) return;
 
     // Fetch 18 months of availability (enough for showMonths up to 3).
@@ -700,27 +701,42 @@ CSS;
     fetch(window.IBBRentals.restUrl + '/availability?property_id=' + pid + '&from=' + from + '&to=' + to)
       .then(function(r){ return r.json(); })
       .then(function(data){
-        var blocked = (data && data.blocked_dates) || [];
+        var blocked      = (data && data.blocked_dates) || [];
+        var fpInstance   = null;
+        var activeMonths = 0;
 
-        // Clear loading indicator and place a hidden input that Flatpickr
-        // attaches to. appendTo: container keeps the calendar DOM inside
-        // our wrapper div instead of being teleported to <body>.
-        container.innerHTML = '';
-        var input = document.createElement('input');
-        input.type = 'hidden';
-        container.appendChild(input);
+        // Minimum ~280 px per month column to remain readable.
+        function monthsForWidth(w) {
+          return Math.max(1, Math.min(configMonths, Math.floor(w / 280) || 1));
+        }
 
-        flatpickr(input, {
-          inline:     true,
-          appendTo:   container,
-          showMonths: months,
-          minDate:    'today',
-          disable:    blocked,
-          // Display-only: immediately clear any accidental selection.
-          onChange: function(dates, dateStr, fp){
-            if (dates.length) { fp.clear(); }
-          }
-        });
+        function initFp(months) {
+          if (fpInstance) { fpInstance.destroy(); }
+          container.innerHTML = '';
+          var input = document.createElement('input');
+          input.type = 'hidden';
+          container.appendChild(input);
+          fpInstance = flatpickr(input, {
+            inline:     true,
+            appendTo:   container,
+            showMonths: months,
+            minDate:    'today',
+            disable:    blocked,
+            onChange:   function(dates, dateStr, fp){ if (dates.length) { fp.clear(); } }
+          });
+          activeMonths = months;
+        }
+
+        initFp(monthsForWidth(container.offsetWidth));
+
+        // Reduce/restore month count as the container resizes.
+        if (configMonths > 1 && typeof ResizeObserver !== 'undefined') {
+          new ResizeObserver(function(entries){
+            var w      = entries[0].contentRect.width;
+            var needed = monthsForWidth(w);
+            if (needed !== activeMonths) { initFp(needed); }
+          }).observe(container);
+        }
       })
       .catch(function(){
         container.innerHTML = '<p style="color:#94a3b8;font-size:.85em">' + (i18n.unavailable || 'Could not load availability.') + '</p>';

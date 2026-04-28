@@ -177,8 +177,10 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 			'label'     => __( 'Input border color', 'ibb-rentals' ),
 			'type'      => \Elementor\Controls_Manager::COLOR,
 			'selectors' => [
-				'{{WRAPPER}} .ibb-booking__field > input,
-				 {{WRAPPER}} .ibb-booking__stepper' => 'border-color: {{VALUE}};',
+				'{{WRAPPER}} .ibb-booking__field > input'  => 'border-color: {{VALUE}};',
+				'{{WRAPPER}} .ibb-booking__stepper'        => 'border-color: {{VALUE}};',
+				'{{WRAPPER}} .ibb-booking__step--down'     => 'border-right-color: {{VALUE}};',
+				'{{WRAPPER}} .ibb-booking__step--up'       => 'border-left-color: {{VALUE}};',
 			],
 		] );
 
@@ -282,6 +284,11 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 		$this->end_controls_tab();
 
 		$this->end_controls_tabs();
+
+		$this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
+			'name'     => 'button_border',
+			'selector' => '{{WRAPPER}} .ibb-booking__submit',
+		] );
 
 		$this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
 			'name'     => 'button_typography',

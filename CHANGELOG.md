@@ -8,6 +8,18 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ## [Unreleased]
 
+### Added
+- **`ibb/property-description` Gutenberg block** — renders the property's `post_content` through `the_content` filters; Property picker in the inspector; `ServerSideRender` edit preview.
+- **`PropertyDescriptionTag` Elementor dynamic tag** — IBB › Property Description; bindable to Text Editor and any `text`-category control.
+- **Seasonal rates CRUD editor** — Rates tab in the property edit screen now has a full add/edit/delete table for `wp_ibb_rates` rows (From, To, Rate/night, Label, Priority, Weekend uplift, Min stay). Delete-and-reinsert save pattern; form-array inputs consistent with the blackout-ranges editor.
+- **`WebhookTopics`** — three WC webhook topics (`ibb_rentals.booking.created`, `.booking.cancelled`, `.balance.charged`) for n8n / Odoo / Make integration via WC's native webhooks screen.
+
+### Fixed
+- **`PropertyAvailabilityWidget` legend toggle** — Elementor Switcher returns `''` not `'no'` when off; legend now always respected.
+- **Availability calendar width** — calendar now fills its container (`display:block; width:100%`) with fluid Flatpickr internal overrides.
+- **Availability calendar month collapse** — `ResizeObserver` + Flatpickr re-init reduces month count to fit container width instead of relying on CSS stacking.
+- **`BookingFormWidget` stepper/button border controls** — stepper inner-divider borders and submit-button border are now fully controllable from the Elementor panel.
+
 ---
 
 ## [0.2.0] — 2026-04-28

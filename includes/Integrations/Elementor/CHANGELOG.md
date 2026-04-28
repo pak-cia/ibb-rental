@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- **`PropertyDescriptionTag`** dynamic tag — IBB › Property Description. Renders the property's `post_content` via `the_content` filters. Bindable to Elementor Text Editor and any control that accepts the `text` dynamic-tag category.
+
+### Fixed
+- **`PropertyAvailabilityWidget` legend always visible** — Elementor Switcher returns `''` when off, not `'no'`. The render call now normalises the switcher value before passing `legend=no` to `Shortcodes::render_calendar()`. Previously `!== 'no'` always evaluated true when the control was off.
+- **`BookingFormWidget` stepper + button border** — `input_border_color` selectors extended to cover `.ibb-booking__stepper`, `.ibb-booking__step--down`, and `.ibb-booking__step--up` inner dividers. Added `Group_Control_Border` for the submit button so the border type, width, and colour are all controllable from the Elementor style panel.
+
+### Added
 - **`PropertyAvailabilityWidget`** — read-only inline Flatpickr availability calendar as an Elementor widget. Mirrors the `ibb/calendar` Gutenberg block and `[ibb_calendar]` shortcode; all three share the same `Shortcodes::render_calendar()` render path. Style tab controls: Calendar box (border, radius, shadow, background), Month header (background with Global Primary, text/arrow colour), Day cells (available colour with Global Text, unavailable colour + background, typography with Global Text), Legend section (colour, typography, top-spacing — conditional on legend enabled). Registers `ibb-rentals-frontend` + `flatpickr` style deps and `ibb-rentals-booking` script dep.
 
 ### Added

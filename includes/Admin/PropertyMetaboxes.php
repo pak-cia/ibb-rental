@@ -52,6 +52,7 @@ final class PropertyMetaboxes {
 		echo '<script>' . $this->galleries_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '<script>' . $this->los_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '<script>' . $this->blackout_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<script>' . $this->seasonal_rates_js() . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	public function enqueue( string $hook ): void {
@@ -205,23 +206,70 @@ final class PropertyMetaboxes {
 
 		$this->render_los_editor( $p );
 
-		echo '<h4>' . esc_html__( 'Seasonal rates', 'ibb-rentals' ) . '</h4>';
-		echo '<p class="description">' . esc_html__( 'Manage seasonal rate rows directly via the REST API or a future admin UI. Existing rows are shown read-only here.', 'ibb-rentals' ) . '</p>';
-		if ( $rate_rows ) {
-			echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'From', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'To', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Rate', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Priority', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Label', 'ibb-rentals' ) . '</th></tr></thead><tbody>';
-			foreach ( $rate_rows as $r ) {
-				printf(
-					'<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>',
-					esc_html( (string) $r['date_from'] ),
-					esc_html( (string) $r['date_to'] ),
-					esc_html( (string) $r['nightly_rate'] ),
-					(int) $r['priority'],
-					esc_html( (string) $r['label'] )
-				);
-			}
-			echo '</tbody></table>';
-		}
+		$this->render_seasonal_rates_editor( $rate_rows );
 		echo '</div>';
+	}
+
+	/** @param list<array<string, mixed>> $rate_rows */
+	private function render_seasonal_rates_editor( array $rate_rows ): void {
+		echo '<h4>' . esc_html__( 'Seasonal rates', 'ibb-rentals' ) . '</h4>';
+		echo '<p class="description">' . esc_html__( 'Override the base nightly rate for specific date ranges. On overlap, higher priority wins.', 'ibb-rentals' ) . '</p>';
+
+		echo '<div class="ibb-srates-wrap"><table class="ibb-srates" id="ibb-srates"><thead><tr>';
+		echo '<th>' . esc_html__( 'From', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'To', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'Rate/night', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'Label', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'Priority', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'Wknd uplift', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'Min stay', 'ibb-rentals' ) . '</th>';
+		echo '<th></th>';
+		echo '</tr></thead><tbody id="ibb-srates-rows">';
+
+		if ( ! $rate_rows ) {
+			$this->render_seasonal_rate_row( 0, [], true );
+		} else {
+			foreach ( $rate_rows as $i => $row ) {
+				$this->render_seasonal_rate_row( $i, $row, false );
+			}
+		}
+
+		echo '</tbody></table></div>';
+
+		echo '<template id="ibb-srates-row-template">';
+		$this->render_seasonal_rate_row( '__INDEX__', [], true );
+		echo '</template>';
+
+		echo '<p><button type="button" class="button button-secondary" id="ibb-srates-add">+ ' . esc_html__( 'Add seasonal rate', 'ibb-rentals' ) . '</button></p>';
+	}
+
+	/** @param int|string $index @param array<string, mixed> $row */
+	private function render_seasonal_rate_row( int|string $index, array $row, bool $is_blank ): void {
+		$n        = '_ibb_seasonal_rate_rows[' . $index . ']';
+		$from     = $is_blank ? '' : esc_attr( (string) $row['date_from'] );
+		$to       = $is_blank ? '' : esc_attr( (string) $row['date_to'] );
+		$rate     = $is_blank ? '' : esc_attr( (string) $row['nightly_rate'] );
+		$label    = $is_blank ? '' : esc_attr( (string) $row['label'] );
+		$priority = $is_blank ? '10' : esc_attr( (string) $row['priority'] );
+		$uplift   = $is_blank ? '' : esc_attr( (string) ( $row['weekend_uplift'] ?? '' ) );
+		$utype    = $is_blank ? 'pct' : (string) ( $row['uplift_type'] ?? 'pct' );
+		$minstay  = $is_blank ? '' : esc_attr( (string) ( $row['min_stay'] ?? '' ) );
+
+		echo '<tr class="ibb-srates__row">';
+		printf( '<td><input type="date" name="%s[date_from]" value="%s" required /></td>', esc_attr( $n ), $from );
+		printf( '<td><input type="date" name="%s[date_to]" value="%s" required /></td>', esc_attr( $n ), $to );
+		printf( '<td><input type="number" name="%s[nightly_rate]" value="%s" min="0" step="0.01" style="width:80px" required /></td>', esc_attr( $n ), $rate );
+		printf( '<td><input type="text" name="%s[label]" value="%s" placeholder="%s" style="width:120px" /></td>', esc_attr( $n ), $label, esc_attr__( 'e.g. High season', 'ibb-rentals' ) );
+		printf( '<td><input type="number" name="%s[priority]" value="%s" min="0" max="999" style="width:55px" /></td>', esc_attr( $n ), $priority );
+		echo '<td>';
+		printf( '<input type="number" name="%s[weekend_uplift]" value="%s" min="0" step="0.01" style="width:65px" placeholder="—" />', esc_attr( $n ), $uplift );
+		echo ' <select name="' . esc_attr( $n ) . '[uplift_type]" style="width:52px">';
+		printf( '<option value="pct" %s>%%</option>', selected( $utype, 'pct', false ) );
+		printf( '<option value="abs" %s>abs</option>', selected( $utype, 'abs', false ) );
+		echo '</select></td>';
+		printf( '<td><input type="number" name="%s[min_stay]" value="%s" min="1" style="width:55px" placeholder="—" /></td>', esc_attr( $n ), $minstay );
+		echo '<td><button type="button" class="button-link ibb-srates__remove" aria-label="' . esc_attr__( 'Remove', 'ibb-rentals' ) . '">×</button></td>';
+		echo '</tr>';
 	}
 
 	private function render_rules( Property $p ): void {
@@ -447,6 +495,40 @@ final class PropertyMetaboxes {
 			update_post_meta( $post_id, '_ibb_blackout_ranges', wp_json_encode( $out ) ?: '[]' );
 		}
 
+		// Seasonal rates: delete-and-reinsert on every save.
+		if ( isset( $_POST['_ibb_seasonal_rate_rows'] ) && is_array( $_POST['_ibb_seasonal_rate_rows'] ) ) {
+			$this->rates->delete_for_property( $post_id );
+			foreach ( (array) wp_unslash( $_POST['_ibb_seasonal_rate_rows'] ) as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$from = sanitize_text_field( (string) ( $row['date_from'] ?? '' ) );
+				$to   = sanitize_text_field( (string) ( $row['date_to']   ?? '' ) );
+				$rate = (float) ( $row['nightly_rate'] ?? 0 );
+				if ( $from === '' || $to === '' || $rate <= 0 ) {
+					continue;
+				}
+				$df = \DateTimeImmutable::createFromFormat( 'Y-m-d', $from );
+				$dt = \DateTimeImmutable::createFromFormat( 'Y-m-d', $to );
+				if ( ! $df || ! $dt || $dt <= $df ) {
+					continue;
+				}
+				$uplift_raw = trim( (string) ( $row['weekend_uplift'] ?? '' ) );
+				$minstay_raw = trim( (string) ( $row['min_stay'] ?? '' ) );
+				$this->rates->insert( [
+					'property_id'    => $post_id,
+					'date_from'      => $from,
+					'date_to'        => $to,
+					'nightly_rate'   => round( $rate, 2 ),
+					'label'          => sanitize_text_field( (string) ( $row['label'] ?? '' ) ),
+					'priority'       => max( 0, (int) ( $row['priority'] ?? 10 ) ),
+					'weekend_uplift' => $uplift_raw !== '' ? round( (float) $uplift_raw, 2 ) : null,
+					'uplift_type'    => in_array( (string) ( $row['uplift_type'] ?? 'pct' ), [ 'pct', 'abs' ], true ) ? $row['uplift_type'] : 'pct',
+					'min_stay'       => $minstay_raw !== '' ? max( 1, (int) $minstay_raw ) : null,
+				] );
+			}
+		}
+
 		if ( isset( $_POST['_ibb_galleries'] ) ) {
 			$raw     = (string) wp_unslash( $_POST['_ibb_galleries'] );
 			$decoded = json_decode( $raw, true );
@@ -618,6 +700,13 @@ final class PropertyMetaboxes {
 .ibb-blackout__row + .ibb-blackout__row td { border-top:1px solid #f0f0f1; }
 .ibb-blackout__remove { color:#b32d2e !important; font-size:18px; line-height:1; padding:2px 6px; text-decoration:none; }
 .ibb-blackout__remove:hover { color:#fff !important; background:#b32d2e; border-radius:3px; }
+.ibb-srates-wrap { overflow-x:auto; margin:8px 0 4px; }
+.ibb-srates { border-collapse:collapse; width:100%; min-width:640px; }
+.ibb-srates th { text-align:left; font-size:.8em; color:#646970; font-weight:600; padding:6px 8px 4px; border-bottom:1px solid #dcdcde; white-space:nowrap; }
+.ibb-srates td { padding:5px 6px; vertical-align:middle; }
+.ibb-srates__row + .ibb-srates__row td { border-top:1px solid #f0f0f1; }
+.ibb-srates__remove { color:#b32d2e !important; font-size:18px; line-height:1; padding:2px 6px; text-decoration:none; }
+.ibb-srates__remove:hover { color:#fff !important; background:#b32d2e; border-radius:3px; }
 CSS;
 	}
 
@@ -847,6 +936,54 @@ JS;
       // keeps the table from collapsing to a confusing empty state.
       if (rowsEl.children.length <= 1) {
         row.querySelectorAll('input').forEach(function(input){ input.value = ''; });
+        return;
+      }
+      row.remove();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+JS;
+	}
+
+	private function seasonal_rates_js(): string {
+		return <<<'JS'
+(function(){
+  function init() {
+    var root = document.getElementById('ibb-srates');
+    if (!root || root.dataset.ibbInit === '1') return;
+    root.dataset.ibbInit = '1';
+
+    var rowsEl   = document.getElementById('ibb-srates-rows');
+    var addBtn   = document.getElementById('ibb-srates-add');
+    var template = document.getElementById('ibb-srates-row-template');
+    if (!rowsEl || !addBtn || !template) return;
+
+    var counter = rowsEl.children.length;
+
+    addBtn.addEventListener('click', function(){
+      var html   = template.innerHTML.replace(/__INDEX__/g, String(counter++));
+      var holder = document.createElement('tbody');
+      holder.innerHTML = html;
+      var row = holder.querySelector('tr');
+      if (row) {
+        rowsEl.appendChild(row);
+        var firstInput = row.querySelector('input');
+        if (firstInput) firstInput.focus();
+      }
+    });
+
+    rowsEl.addEventListener('click', function(e){
+      if (!e.target.classList.contains('ibb-srates__remove')) return;
+      var row = e.target.closest('tr');
+      if (!row) return;
+      if (rowsEl.children.length <= 1) {
+        row.querySelectorAll('input').forEach(function(i){ i.value = ''; });
         return;
       }
       row.remove();

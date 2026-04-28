@@ -338,6 +338,7 @@ JS;
 		// editors see in the dynamic-tag picker under "IBB Rentals".
 		$tags = [
 			'PropertyTitleTag',
+			'PropertyDescriptionTag',
 			'PropertyAddressTag',
 			'PropertyMaxGuestsTag',
 			'PropertyBedroomsTag',

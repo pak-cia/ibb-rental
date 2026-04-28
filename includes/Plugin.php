@@ -49,6 +49,7 @@ use IBB\Rentals\Woo\CartHandler;
 use IBB\Rentals\Woo\GatewayCapabilities;
 use IBB\Rentals\Woo\OrderObserver;
 use IBB\Rentals\Woo\ProductSync;
+use IBB\Rentals\Woo\WebhookTopics;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -91,6 +92,7 @@ final class Plugin {
 		( new ProductSync() )->register();
 		( new CartHandler( $this->availability_repo() ) )->register();
 		( new OrderObserver( $this->booking_service() ) )->register();
+		( new WebhookTopics( $this->booking_repo() ) )->register();
 
 		( new FeedScheduler( $this->feed_repo() ) )->register();
 		( new RouteRegistrar( $this ) )->register();

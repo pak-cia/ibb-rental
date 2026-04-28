@@ -76,4 +76,8 @@ final class RateRepository {
 	public function delete( int $id ): void {
 		$this->db->delete( $this->table, [ 'id' => $id ] );
 	}
+
+	public function delete_for_property( int $property_id ): void {
+		$this->db->delete( $this->table, [ 'property_id' => $property_id ] );
+	}
 }

@@ -2,16 +2,13 @@
 /**
  * Gutenberg block wrappers around the IBB shortcodes.
  *
- * Three blocks: `ibb/booking-form`, `ibb/gallery`, `ibb/property-details`.
- * All three are server-rendered via PHP `render_callback`; the edit-time
- * preview uses WP's `ServerSideRender` component to call back to PHP so the
- * editor matches the front-end exactly. Shortcode and block share the same
- * render path — single source of truth.
+ * Blocks: `ibb/booking-form`, `ibb/gallery`, `ibb/property-details`,
+ * `ibb/calendar`, `ibb/property-description`.
+ * All are server-rendered via PHP `render_callback`; the edit-time preview
+ * uses WP's `ServerSideRender` component so the editor matches the front-end.
  *
  * No build step required: the editor JS is registered as an inline script
- * against a no-source handle. Block options are reactive (property selection
- * updates the gallery-slug dropdown via cached per-property data emitted
- * by PHP at editor load).
+ * against a no-source handle.
  */
 
 declare( strict_types=1 );
@@ -104,6 +101,21 @@ final class Blocks {
 			'render_callback' => [ $this, 'render_property_details_block' ],
 		] );
 
+		register_block_type( 'ibb/property-description', [
+			'api_version'     => 3,
+			'title'           => __( 'IBB · Property description', 'ibb-rentals' ),
+			'category'        => 'ibb-rentals',
+			'icon'            => 'text-page',
+			'description'     => __( 'The property\'s main writeup — renders post_content through the_content filters.', 'ibb-rentals' ),
+			'keywords'        => [ 'description', 'content', 'about', 'rental' ],
+			'supports'        => [ 'html' => false, 'align' => [ 'wide', 'full' ] ],
+			'attributes'      => [
+				'propertyId' => [ 'type' => 'integer', 'default' => 0 ],
+				'align'      => [ 'type' => 'string' ],
+			],
+			'render_callback' => [ $this, 'render_property_description_block' ],
+		] );
+
 		add_filter( 'block_categories_all', [ $this, 'register_category' ], 10, 1 );
 	}
 
@@ -170,6 +182,25 @@ final class Blocks {
 			'layout' => (string) ( $attrs['layout'] ?? 'grid' ),
 		] );
 		return $this->wrap_with_align( $out, $attrs );
+	}
+
+	/** @param array<string, mixed> $attrs */
+	public function render_property_description_block( array $attrs ): string {
+		$property_id = (int) ( $attrs['propertyId'] ?? 0 );
+		if ( $property_id <= 0 ) {
+			$property_id = (int) get_the_ID();
+		}
+		if ( $property_id <= 0 ) {
+			return '';
+		}
+		$content = (string) get_post_field( 'post_content', $property_id );
+		if ( $content === '' ) {
+			return '';
+		}
+		$html = '<div class="ibb-property-description entry-content">'
+			. apply_filters( 'the_content', $content )
+			. '</div>';
+		return $this->wrap_with_align( $html, $attrs );
 	}
 
 	/** @param array<string, mixed> $attrs */
@@ -486,6 +517,29 @@ final class Blocks {
 		save: function() { return null; }
 	} );
 
+	// ─── ibb/property-description ───────────────────────────────────────
+	registerBlockType( 'ibb/property-description', {
+		edit: function( props ) {
+			var atts = props.attributes;
+			return el( Fragment, null,
+				el( InspectorControls, null,
+					el( PanelBody, { title: __( 'Property', 'ibb-rentals' ), initialOpen: true },
+						el( SelectControl, {
+							label: __( 'Property', 'ibb-rentals' ),
+							value: atts.propertyId,
+							options: propertyOptions(),
+							onChange: function( v ) { props.setAttributes( { propertyId: parseInt( v, 10 ) || 0 } ); }
+						} )
+					)
+				),
+				el( 'div', { className: 'ibb-block-preview ibb-block-preview--description' },
+					previewOrPlaceholder( 'ibb/property-description', atts )
+				)
+			);
+		},
+		save: function() { return null; }
+	} );
+
 } )( window.wp );
 JS;
 	}
@@ -498,6 +552,7 @@ JS;
 .ibb-block-preview--gallery .ibb-gallery-display { pointer-events: none; }
 .ibb-block-preview--details .ibb-details { pointer-events: none; }
 .editor-styles-wrapper .ibb-details--grid .ibb-details__item { background: #fff; }
+.ibb-block-preview--description .ibb-property-description { pointer-events: none; }
 CSS;
 	}
 }

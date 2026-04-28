@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **`WebhookTopics`** — registers three WooCommerce webhook topics (`ibb_rentals.booking.created`, `ibb_rentals.booking.cancelled`, `ibb_rentals.balance.charged`) so admins can configure WC webhooks that fire on IBB booking events (WooCommerce → Settings → Advanced → Webhooks). Payload is the full booking row from `BookingRepository::find_by_id()`. Works with n8n, Odoo, Make, Zapier, or any HTTP-capable automation tool.
+
 ### Fixed
 - `ProductSync` no longer mirrors the property's `post_content` to the WC product's `description`. The mirrored product is a backing object only; the long-form prose belongs on the property page via `[ibb_property]`, not duplicated into the cart.
 

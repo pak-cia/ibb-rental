@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- **`ibb/property-description` block** — server-rendered Gutenberg block that outputs the property's `post_content` through `the_content` filters. Single Property picker control in the inspector; edit-time preview via `ServerSideRender`. Wrapper `div.ibb-property-description.entry-content` inherits theme typography for free.
+
+### Fixed
+- **Calendar container width** — `.ibb-calendar` switched from `display:inline-block` to `display:block; width:100%`. Added fluid CSS overrides for Flatpickr's inline-mode internal elements (`.flatpickr-calendar`, `.flatpickr-days`, `.dayContainer`, `.flatpickr-day`) so the calendar fills its container regardless of the parent element's width.
+- **Calendar responsive month count** — calendars configured for multiple months now reduce their month count to fit the available width via `ResizeObserver` + Flatpickr re-init (≈1 month per 280 px). Previously only CSS flex-wrapping applied, which stacked months rather than reducing them.
+
+### Added
 - **`[ibb_calendar]` shortcode** — read-only inline availability calendar using Flatpickr's inline mode. Fetches blocked dates from `/availability` and renders a static month grid (1–3 months, configurable via `months=` attribute). Blocked dates are greyed-out with strikethrough; available dates are plain white. `legend=no` hides the Available/Unavailable legend. Selection is immediately cleared on `onChange` so the calendar stays display-only. No new JS dependency — reuses the Flatpickr handle already loaded by the booking form.
 
 ### Fixed
