@@ -37,10 +37,18 @@ final class OrderObserver {
 		add_filter( 'woocommerce_email_enabled_customer_completed_order',  [ $this, 'suppress_for_ibb_order' ], 10, 2 );
 	}
 
-	/** @param mixed $enabled */
-	public function suppress_for_ibb_order( $enabled, \WC_Order $order ): bool {
+	/**
+	 * @param mixed          $enabled
+	 * @param \WC_Order|null $order   WC's settings/preview path calls `is_enabled()` without an
+	 *                                order context (null). Treat as a non-IBB order — leave the
+	 *                                original $enabled alone so the WC Settings → Emails screen renders.
+	 */
+	public function suppress_for_ibb_order( $enabled, $order = null ): bool {
 		if ( ! $enabled ) {
 			return false;
+		}
+		if ( ! $order instanceof \WC_Order ) {
+			return (bool) $enabled;
 		}
 		foreach ( $order->get_items() as $item ) {
 			if ( $item instanceof \WC_Order_Item_Product && $item->get_meta( '_ibb_property_id', true ) ) {

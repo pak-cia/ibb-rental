@@ -70,6 +70,18 @@ To inspect: open the order in wp-admin and look for `_ibb_property_id` in the hi
 
 ---
 
+## WC → Settings → Emails screen throws a critical error
+
+**Symptom:** opening **WooCommerce → Settings → Emails** in wp-admin shows the standard "There has been a critical error" page; error log reports `TypeError: OrderObserver::suppress_for_ibb_order(): Argument #2 ($order) must be of type WC_Order, null given`.
+
+**Root cause:** WC's settings screen iterates every registered email and calls `WC_Email::is_enabled()` to render the toggle column. `is_enabled()` runs the `woocommerce_email_enabled_<email_id>` filter chain with `null` as the order argument (because there's no order context on the settings page). Our `suppress_for_ibb_order()` was typed `\WC_Order $order` (non-nullable), so PHP fataled.
+
+**Fix:** drop the strict type hint on the filter callback; accept `$order = null` and short-circuit returning `$enabled` unchanged when null. The function only inspects order line items; with no order it cannot possibly contain an `_ibb_property_id` line item, so the WC default behaviour is correct. Fixed in 0.8.1 at `OrderObserver.php:41`.
+
+**General lesson:** any filter callback that's hooked into a WC core filter where context arguments may be null (settings preview / cron / CLI / legacy callsites) should accept nullable types and gracefully fall through.
+
+---
+
 ## Booking confirmation email not received after successful payment
 
 **Symptom:** guest completes checkout and receives a WooCommerce "Customer completed order" email but the IBB booking confirmation email never arrives.

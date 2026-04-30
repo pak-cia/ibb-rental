@@ -10,6 +10,13 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.1] — 2026-04-30
+
+### Fixed
+- **Critical error opening WooCommerce → Settings → Emails.** `OrderObserver::suppress_for_ibb_order()` was strictly typed `\WC_Order $order` (non-nullable). WC's settings screen iterates every registered email and calls `WC_Email::is_enabled()`, which runs the `woocommerce_email_enabled_<id>` filter chain with `$order = null` (no order context). PHP fataled with `TypeError: Argument #2 ($order) must be of type WC_Order, null given`. Callback now accepts a nullable `$order` and short-circuits returning the original `$enabled` when null — the function only inspects order line items, so with no order it cannot possibly contain `_ibb_property_id` and the WC default behaviour is correct. Bug existed in 0.4.0+ but only surfaced when someone opened the settings page; no impact on actual order-status email suppression.
+
+---
+
 ## [0.8.0] — 2026-04-30
 
 ### Added

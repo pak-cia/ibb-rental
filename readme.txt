@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.8.0
+Stable tag: 0.8.1
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.8.1 =
+* Fix: critical error opening WooCommerce → Settings → Emails. `OrderObserver::suppress_for_ibb_order()` filter callback was strictly typed `WC_Order $order` but WC's settings page invokes `is_enabled()` with `$order = null`. Now accepts nullable order and falls through to the original $enabled when no order context is present.
 
 = 0.8.0 =
 * The "Additional content" field on each IBB email setting is now a full rich-text editor (TinyMCE with Add Media, formatting, lists, links). No code edits needed for typical email customizations — for visual control over the entire email layout, install Kadence WooCommerce Email Designer (or similar) which automatically picks up our emails.

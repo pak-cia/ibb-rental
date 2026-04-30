@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.1] — 2026-04-30
+
+### Fixed
+- **`OrderObserver::suppress_for_ibb_order()` fataled when WC's email-settings screen invoked `is_enabled()` with `$order = null`.** Strict `\WC_Order $order` type hint replaced with nullable + early-return-`$enabled` when null. See `TROUBLESHOOTING.md` "WC → Settings → Emails screen throws a critical error".
+
+---
+
 ## [0.3.5] — 2026-04-28
 
 ### Fixed
