@@ -30,6 +30,32 @@ Plugin-wide procedures and how-tos. Component-specific procedures live in each c
    - A `vrp_bookings` row with `status='balance_pending'`, `balance_due_date` set.
    - An Action Scheduler job: `ibb_rentals_charge_balance` (token-capable gateway) or `ibb_rentals_send_payment_link` (everything else).
 
+## Configure ClickUp guest-name sync
+
+The plugin can pull guest names from a ClickUp Bookings list and display them on the admin calendar.
+
+**One-time setup:**
+1. Get your ClickUp personal API token: ClickUp avatar → Settings → Apps → "Generate" under Personal API Token.
+2. Go to **Rentals → Settings → ClickUp integration** and paste the API token.
+3. Click **Connect / refresh**. The Workspace dropdown populates from the API.
+4. Pick the workspace → the Space dropdown populates → pick the space → Folder dropdown populates → pick the folder → Bookings list dropdown populates → pick the list. The plugin records the workspace ID and list ID for sync calls.
+5. Adjust the tag→source map if your ClickUp tags use different names (defaults: `abnb→airbnb, agoda→agoda, booking→booking, vrbo→vrbo, expedia→expedia`).
+6. Fill in the **Unit code → property** table: for each IBB property, enter the unit identifier(s) you use as the prefix in ClickUp task titles (`v1 - Bob Jones` → `v1`). Multiple codes per property are allowed, comma-separated. Codes are case-insensitive.
+7. Save, then click **Sync now**.
+
+**Per-task data the sync reads:** task title is split on " - " — the prefix is looked up in the unit-code map (resolves to a property ID) and the suffix becomes the guest name. `start_date` and `due_date` (ms timestamps) become check-in / check-out. `tags[].name` is matched against the tag→source map. No ClickUp custom fields are required.
+
+**Match strategy:** `UPDATE wp_ibb_blocks SET guest_name = ? WHERE start_date = ? AND end_date = ? AND source = ? [AND property_id = ?]` — the `property_id` clause is added only when the task title's unit-code prefix is mapped. Unmapped tasks fall back to the 3-tuple match (and so can paint the same guest_name onto blocks at multiple properties if dates + OTA collide; map every property to avoid that).
+
+**Tag → source map defaults:**
+```json
+{"abnb":"airbnb","airbnb":"airbnb","agoda":"agoda","booking":"booking","vrbo":"vrbo","expedia":"expedia"}
+```
+
+**How matching works:** For each ClickUp task the job extracts check-in date, check-out date, and OTA source (from tag). It then runs `UPDATE wp_ibb_blocks SET guest_name = ? WHERE start_date = ? AND end_date = ? AND source = ?`. Once updated, the timeline bars and detail modals show the guest name instead of just "Airbnb"/"Agoda"/etc.
+
+**Scheduled action:** `ibb_rentals_sync_clickup` (recurring, default 1 h). Visible under WooCommerce → Status → Scheduled Actions, group `ibb-rentals`.
+
 ## Inspect / cancel scheduled actions
 
 WooCommerce → Status → Scheduled Actions. Filter by group `ibb-rentals`. You'll see:
@@ -142,6 +168,14 @@ Xendit's webhook server cannot reach `.local` domains, so **orders stay "Pending
 
 On production, the Xendit webhook fires automatically and the order transitions without any manual step.
 
+### Xendit test-mode webhook (staging)
+
+On staging with Xendit in **TEST MODE**, the same symptom appears: the hosted invoice payment succeeds (customer is redirected back to the order-received page, the `Xendit_invoice` order meta is saved), but the order stays "Pending payment" because Xendit's test environment may not POST the webhook callback to the staging URL (Cloudflare or DNS may block it, or the test-mode webhook isn't configured in the Xendit dashboard).
+
+**Workaround on staging**: same as local — manually set the order to "Processing" in wp-admin. The `OrderObserver` fires, booking and block records are created normally.
+
+To confirm whether the webhook fired at all: Xendit Dashboard → Webhooks → Delivery Log. A non-200 response or a missing entry means the callback never reached the site. Check the Cloudflare WAF rule (see "Cloudflare / WAF bypass" above) is in place before go-live.
+
 ---
 
 ## Push to GitHub
@@ -163,10 +197,15 @@ Doc edits auto-commit locally via the `.claude/settings.json` hook. They still n
 3. Visit property permalink → booking widget renders, dates pick up Flatpickr.
 4. Pick a 2-night range → quote panel renders breakdown.
 5. Click Book now → cart line shows correct price (deposit-only in deposit mode).
-6. Check `wp_options.ibb_rentals_settings` matches what you set in Rentals → Settings.
-7. iCal export URL returns valid `BEGIN:VCALENDAR…END:VCALENDAR` body.
-8. Delete plugin (with "purge data" off) → posts and tables remain.
-9. Delete plugin (with "purge data" on) → tables dropped, options gone.
+6. Complete checkout → land on order-received page.
+7. Advance order to "Processing" (or wait for gateway webhook in production) → Rentals → Bookings shows new confirmed row with correct property/dates/guests/total.
+8. Cancel the order → booking status flips to Cancelled; `GET /wp-json/ibb-rentals/v1/availability?property_id=…` no longer returns those dates as blocked.
+9. Check `wp_options.ibb_rentals_settings` matches what you set in Rentals → Settings.
+10. iCal export URL returns valid `BEGIN:VCALENDAR…END:VCALENDAR` body.
+11. Delete plugin (with "purge data" off) → posts and tables remain.
+12. Delete plugin (with "purge data" on) → tables dropped, options gone.
+
+Steps 6–8 confirmed on staging.theuluhills.com with Xendit gateway (2026-04-30). See "Xendit test-mode webhook" note below.
 
 ---
 

@@ -69,7 +69,11 @@ if ( $order ) {
 }
 
 echo "\n";
-esc_html_e( 'We look forward to welcoming you. If you have any questions before your arrival please reply to this email.', 'ibb-rentals' );
+$additional = method_exists( $email, 'get_additional_content' ) ? trim( (string) $email->get_additional_content() ) : '';
+if ( $additional === '' ) {
+	$additional = __( 'We look forward to welcoming you. If you have any questions before your arrival please reply to this email.', 'ibb-rentals' );
+}
+echo esc_html( wp_strip_all_tags( $additional ) );
 echo "\n\n";
 
 echo wp_kses_post( apply_filters( 'woocommerce_email_footer_text', get_option( 'woocommerce_email_footer_text' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped

@@ -70,6 +70,22 @@ To inspect: open the order in wp-admin and look for `_ibb_property_id` in the hi
 
 ---
 
+## Booking confirmation email not received after successful payment
+
+**Symptom:** guest completes checkout and receives a WooCommerce "Customer completed order" email but the IBB booking confirmation email never arrives.
+
+**Root cause:** `BookingConfirmationEmail` registers its `add_action(BOOKING_CREATED, ...)` inside its constructor. The constructor only runs when `WC_Emails::get_emails()` is called (WC's lazy email loader, triggered by the `woocommerce_email_classes` filter). If `get_emails()` hasn't been called yet when `ibb-rentals/booking/created` fires (during `woocommerce_order_status_processing`), the hook is not registered for that request and the email never sends.
+
+**Fix (in `Plugin::boot()`):** add an early forced call to `WC()->mailer()->get_emails()` on `woocommerce_init` (priority 1). This ensures all email classes are instantiated and their hooks registered before any payment webhook or order-status transition fires.
+
+**Symptom 2 (concurrent):** guest receives *two* emails — the IBB confirmation AND a generic WC "Good things are heading your way!" / "Order complete" email.
+
+**Root cause 2:** WC fires `customer_processing_order` and `customer_completed_order` for every order, including IBB bookings. These are the standard WC emails — they know nothing about our booking context.
+
+**Fix 2:** `OrderObserver::suppress_for_ibb_order()` gates on `woocommerce_email_enabled_customer_processing_order` and `woocommerce_email_enabled_customer_completed_order` filters, returning `false` when any order line item has `_ibb_property_id` meta set.
+
+---
+
 ## Balance auto-charge retries silently not incrementing (HPOS sites)
 
 **Symptom:** a declined off-session payment logs the error, but the retry counter on the order never advances, so the job reschedules indefinitely at the wrong count.

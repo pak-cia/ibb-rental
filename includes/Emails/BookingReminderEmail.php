@@ -22,6 +22,9 @@ if ( ! class_exists( '\\WC_Email' ) ) {
 
 class BookingReminderEmail extends \WC_Email {
 
+	use WpEditorFieldTrait;
+
+
 	public function __construct() {
 		$this->id             = 'ibb_booking_reminder';
 		$this->customer_email = true;
@@ -39,6 +42,67 @@ class BookingReminderEmail extends \WC_Email {
 		] );
 
 		parent::__construct();
+	}
+
+	public function init_form_fields(): void {
+		$this->form_fields = [
+			'enabled' => [
+				'title'   => __( 'Enable/Disable', 'ibb-rentals' ),
+				'type'    => 'checkbox',
+				'label'   => __( 'Send a pre-arrival reminder to the guest 3 days before check-in.', 'ibb-rentals' ),
+				'default' => 'yes',
+			],
+			'subject' => [
+				'title'       => __( 'Subject', 'ibb-rentals' ),
+				'type'        => 'text',
+				'desc_tip'    => true,
+				'description' => __( 'Available placeholders: {site_title}, {site_address}, {site_url}, {property_title}, {checkin}', 'ibb-rentals' ),
+				'placeholder' => $this->get_default_subject(),
+				'default'     => '',
+			],
+			'heading' => [
+				'title'       => __( 'Email heading', 'ibb-rentals' ),
+				'type'        => 'text',
+				'desc_tip'    => true,
+				'description' => __( 'The big heading at the top of the email.', 'ibb-rentals' ),
+				'placeholder' => $this->get_default_heading(),
+				'default'     => '',
+			],
+			'additional_content' => [
+				'title'       => __( 'Additional content', 'ibb-rentals' ),
+				'type'        => 'wp_editor',
+				'description' => __( 'Rich-text content appended after the booking details. Same placeholders as Subject.', 'ibb-rentals' ),
+				'default'     => __( 'Looking forward to your stay! Reach out if you need anything before your arrival.', 'ibb-rentals' ),
+			],
+			'reply_to_email' => [
+				'title'       => __( 'Reply-To address', 'ibb-rentals' ),
+				'type'        => 'text',
+				'desc_tip'    => true,
+				'description' => __( 'Email address that guest replies should go to. Leave blank to use the WooCommerce "From" address.', 'ibb-rentals' ),
+				'placeholder' => 'hello@example.com',
+				'default'     => '',
+			],
+			'email_type' => [
+				'title'       => __( 'Email type', 'ibb-rentals' ),
+				'type'        => 'select',
+				'description' => __( 'Choose which format of email to send.', 'ibb-rentals' ),
+				'default'     => 'html',
+				'class'       => 'email_type wc-enhanced-select',
+				'options'     => $this->get_email_type_options(),
+				'desc_tip'    => true,
+			],
+		];
+	}
+
+	public function get_headers(): string {
+		$header   = 'Content-Type: ' . $this->get_content_type() . "\r\n";
+		$reply_to = trim( (string) $this->get_option( 'reply_to_email' ) );
+		if ( $reply_to !== '' && is_email( $reply_to ) ) {
+			$from_name = $this->get_from_name() ?: $this->get_blogname();
+			$header   .= 'Reply-to: ' . $from_name . ' <' . $reply_to . ">\r\n";
+		}
+		/** @var string $header */
+		return apply_filters( 'woocommerce_email_headers', $header, $this->id, $this->object, $this );
 	}
 
 	public function trigger( int $booking_id ): void {
@@ -77,10 +141,11 @@ class BookingReminderEmail extends \WC_Email {
 	}
 
 	public function get_content_html(): string {
+		// Theme override path: your-theme/ibb-rentals/emails/booking-reminder.php
 		return wc_get_template_html(
 			$this->template_html,
 			$this->get_template_vars( false ),
-			'',
+			'ibb-rentals/',
 			$this->template_base
 		);
 	}
@@ -89,7 +154,7 @@ class BookingReminderEmail extends \WC_Email {
 		return wc_get_template_html(
 			$this->template_plain,
 			$this->get_template_vars( true ),
-			'',
+			'ibb-rentals/',
 			$this->template_base
 		);
 	}

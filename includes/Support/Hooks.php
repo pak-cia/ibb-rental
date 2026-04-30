@@ -35,4 +35,5 @@ final class Hooks {
 	public const AS_SEND_PAYMENT_LINK= 'ibb_rentals_send_payment_link';
 	public const AS_SEND_REMINDER    = 'ibb_rentals_send_reminder';
 	public const AS_CLEANUP_HOLDS    = 'ibb_rentals_cleanup_holds';
+	public const AS_SYNC_CLICKUP     = 'ibb_rentals_sync_clickup';
 }

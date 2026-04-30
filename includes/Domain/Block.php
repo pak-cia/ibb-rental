@@ -26,6 +26,7 @@ final class Block {
 	public const SOURCE_BOOKING = 'booking';
 	public const SOURCE_AGODA   = 'agoda';
 	public const SOURCE_VRBO    = 'vrbo';
+	public const SOURCE_EXPEDIA = 'expedia';
 	public const SOURCE_OTHER   = 'other';
 
 	public const STATUS_CONFIRMED = 'confirmed';
@@ -41,24 +42,42 @@ final class Block {
 		public readonly string $status,
 		public readonly ?int $order_id,
 		public readonly string $summary,
+		public readonly string $guest_name = '',
+		public readonly string $clickup_task_id = '',
+		public readonly string $source_override = '',
 		public readonly ?DateTimeImmutable $created_at = null,
 		public readonly ?DateTimeImmutable $updated_at = null,
 	) {}
+
+	/**
+	 * Returns the source to display in the calendar / treat as canonical for the
+	 * booking's actual OTA. The ClickUp sync writes `source_override` based on the
+	 * task's tag, since iCal imports can misattribute a booking — e.g. when a direct
+	 * or Agoda booking is manually blocked on Airbnb to prevent double-booking,
+	 * the Airbnb iCal feed re-imports it as `source='airbnb'`. The override (when
+	 * present) reflects the booking's real origin per ClickUp.
+	 */
+	public function effective_source(): string {
+		return $this->source_override !== '' ? $this->source_override : $this->source;
+	}
 
 	/** @param array<string, mixed> $row */
 	public static function from_row( array $row ): self {
 		$tz = new DateTimeZone( 'UTC' );
 		return new self(
-			id:           isset( $row['id'] ) ? (int) $row['id'] : null,
-			property_id:  (int) $row['property_id'],
-			range:        DateRange::from_strings( (string) $row['start_date'], (string) $row['end_date'] ),
-			source:       (string) $row['source'],
-			external_uid: (string) ( $row['external_uid'] ?? '' ),
-			status:       (string) ( $row['status'] ?? self::STATUS_CONFIRMED ),
-			order_id:     isset( $row['order_id'] ) && $row['order_id'] ? (int) $row['order_id'] : null,
-			summary:      (string) ( $row['summary'] ?? '' ),
-			created_at:   isset( $row['created_at'] ) ? new DateTimeImmutable( (string) $row['created_at'], $tz ) : null,
-			updated_at:   isset( $row['updated_at'] ) ? new DateTimeImmutable( (string) $row['updated_at'], $tz ) : null,
+			id:              isset( $row['id'] ) ? (int) $row['id'] : null,
+			property_id:     (int) $row['property_id'],
+			range:           DateRange::from_strings( (string) $row['start_date'], (string) $row['end_date'] ),
+			source:          (string) $row['source'],
+			external_uid:    (string) ( $row['external_uid'] ?? '' ),
+			status:          (string) ( $row['status'] ?? self::STATUS_CONFIRMED ),
+			order_id:        isset( $row['order_id'] ) && $row['order_id'] ? (int) $row['order_id'] : null,
+			summary:         (string) ( $row['summary'] ?? '' ),
+			guest_name:      (string) ( $row['guest_name'] ?? '' ),
+			clickup_task_id: (string) ( $row['clickup_task_id'] ?? '' ),
+			source_override: (string) ( $row['source_override'] ?? '' ),
+			created_at:      isset( $row['created_at'] ) ? new DateTimeImmutable( (string) $row['created_at'], $tz ) : null,
+			updated_at:      isset( $row['updated_at'] ) ? new DateTimeImmutable( (string) $row['updated_at'], $tz ) : null,
 		);
 	}
 

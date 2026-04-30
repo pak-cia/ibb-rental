@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.8.0
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,37 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.8.0 =
+* The "Additional content" field on each IBB email setting is now a full rich-text editor (TinyMCE with Add Media, formatting, lists, links). No code edits needed for typical email customizations — for visual control over the entire email layout, install Kadence WooCommerce Email Designer (or similar) which automatically picks up our emails.
+
+= 0.7.0 =
+* Editable email settings (Settings → Emails → IBB Booking Confirmation / IBB Pre-arrival Reminder): Subject, Heading, Additional content textarea, Reply-To address, Email type (HTML/plain/multipart). No code edits required for typical customizations.
+* Reply-To address now configurable per email — set `hello@yourdomain.com` so guest replies bypass the WC store admin inbox.
+* Theme-overridable email templates: drop a copy of `templates/emails/booking-confirmation.php` (or `booking-reminder.php`) into `your-theme/ibb-rentals/emails/` to customize markup wholesale.
+
+= 0.6.0 =
+* ClickUp source override: when a manual-blackout block on Airbnb is actually a direct or non-Airbnb OTA booking per ClickUp, the calendar now displays the correct OTA color and label (purple for direct, orange for Agoda, etc.) instead of red Airbnb. Implemented as a separate `source_override` column owned by ClickUp; iCal imports never touch it.
+
+= 0.5.0 =
+* ClickUp settings: cascading workspace → space → folder → list dropdowns (replaces guessing list IDs).
+* Per-property unit-code mapper (e.g. `v1, 1` → Villa 1) for property-scoped guest-name matching.
+* "View ClickUp task →" deep-link in the calendar detail modal for matched bookings.
+* Sync-status pill on Settings page (last run time + counts, or red error message).
+* Booking-ID match strategy via task description + `external_uid` (with date-tuple fallback for OTAs that scramble UIDs like Airbnb).
+* Match no longer requires source equality when the property is identified — handles the workflow where direct/Agoda bookings are manually blackouted on Airbnb.
+* Fix: ClickUp date conversion now uses site timezone (was UTC) so dates match iCal-imported blocks.
+* Fix: timeline view no longer clips trailing day cells on narrow viewports.
+
+= 0.4.0 =
+* Admin calendar timeline view (Month / Week / Timeline) with one row per property and colored bars per booking.
+* Calendar bars now show guest names instead of OTA labels; detail modal links to the WooCommerce order.
+* Added Expedia as a supported source.
+* ClickUp integration: sync guest names from a Bookings list into the calendar with a recurring background job. Settings page has cascading workspace → space → folder → list pickers and a per-property unit-code mapper.
+* DB migration v2: adds `guest_name` column to `wp_ibb_blocks`.
+
+= 0.3.5 =
+* Booking confirmation email and OTA-block / blackout / past-date display fixes.
 
 = 0.1.0 =
 * Initial scaffold: plugin skeleton, custom post type, custom database schema, activation lifecycle.

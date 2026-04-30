@@ -42,7 +42,11 @@ if ( ! empty( $booking['balance_due'] ) && (float) $booking['balance_due'] > 0 )
 }
 
 echo "\n";
-esc_html_e( "We look forward to welcoming you. If you have any questions before arrival, please don't hesitate to reach out.", 'ibb-rentals' );
+$additional = method_exists( $email, 'get_additional_content' ) ? trim( (string) $email->get_additional_content() ) : '';
+if ( $additional === '' ) {
+	$additional = __( 'Looking forward to your stay! Reach out if you need anything before your arrival.', 'ibb-rentals' );
+}
+echo esc_html( wp_strip_all_tags( $additional ) );
 echo "\n\n";
 
 echo wp_kses_post( apply_filters( 'woocommerce_email_footer_text', get_option( 'woocommerce_email_footer_text' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+---
+
+## [0.3.5] — 2026-04-28
+
+### Fixed
+- **Availability calendar 7-per-row layout** — `.ibb-calendar .flatpickr-day` restored to `flex: 0 0 14.28571%; max-width: 14.28571%`. Removing the max-width caused all days to collapse onto one/two rows in flex containers.
+- **Past dates showing strikethrough** — `text-decoration:line-through` removed from `flatpickr-disabled`; only `.ibb-booked` (future blocked dates, marked via `onDayCreate`) gets strikethrough.
+- **Blackout dates not shown in calendar** — `AvailabilityService::get_blocked_dates()` now expands `_ibb_blackout_ranges` into the blocked-dates array (was only checked at quote time). `Assets.php` `onDayCreate` callback therefore now greys/strikes blackout dates correctly alongside DB blocks.
+
 ### Added
 - **`ibb/property-description` block** — server-rendered Gutenberg block that outputs the property's `post_content` through `the_content` filters. Single Property picker control in the inspector; edit-time preview via `ServerSideRender`. Wrapper `div.ibb-property-description.entry-content` inherits theme typography for free.
 

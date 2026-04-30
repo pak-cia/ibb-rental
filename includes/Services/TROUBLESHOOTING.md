@@ -1,5 +1,13 @@
 # Services — Troubleshooting
 
+## ClickUp sync runs but updates 0 blocks ("ClickUp sync: updated guest_name on 0 block(s) from N task(s)")
+
+**Likely cause:** date timezone mismatch between ClickUp's ms timestamps and the iCal-imported block dates. ClickUp stores task dates at the user-entered moment in the workspace's local timezone, e.g. for a UTC+8 workspace the API returns Apr 30's timestamp as `Apr 29 20:00 UTC`. iCal blocks store dates as plain `Y-m-d` per the property's local time. If `ms_to_date` uses `gmdate()` (UTC) the converted date can roll back a day and never match.
+
+**Fix:** convert with the site's timezone, not UTC: `(new DateTimeImmutable('@'.$secs))->setTimezone(wp_timezone())->format('Y-m-d')`. Make sure the WordPress site timezone (Settings → General) matches the property's local timezone.
+
+**Symptom verification:** check WC → Status → Logs → `ibb-rentals` source. The sync log line tells you task count vs match count. To check whether the dates would line up, compare a ClickUp task's `start_date_ms / 1000` formatted in the site timezone against the matching `wp_ibb_blocks.start_date`.
+
 ## Quote returns `payment_mode: full` despite property being set to deposit mode
 
 **Likely cause:** `PricingService::split_payment` auto-falls-back to `full` when the balance due date is in the past or less than 2 days away. This is intentional — you can't schedule a balance charge for a date that's already gone.

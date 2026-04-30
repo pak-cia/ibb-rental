@@ -108,6 +108,38 @@ $item_data[] = [
 
 ---
 
+## Availability calendar shows more than 7 days per row / dates don't align to day-of-week headers
+
+**Symptom:** the inline availability calendar (Flatpickr) shows all dates for a month crammed onto one or two rows, or day numbers don't sit under the correct weekday header.
+
+**Root cause:** `Assets.php` was setting `.ibb-calendar .flatpickr-day { flex:1; max-width:none; }`. Removing the Flatpickr-native `max-width: 14.28571%` means the flex container no longer enforces 7 items per row; all ~30 days collapse onto a single row before `flex-wrap` triggers.
+
+**Fix:** restore `flex: 0 0 14.28571%; max-width: 14.28571%` on `.ibb-calendar .flatpickr-day`. The `flex-basis` keeps each cell exactly 1/7 wide while `max-width` is the hard cap Flatpickr itself relies on.
+
+**If this regresses:** check whether any responsive override or "make calendar fill container" change also nukes `max-width`. `flex: 0 0 14.28571%` alone isn't enough — `max-width` must match.
+
+---
+
+## Past dates show strikethrough in the availability calendar
+
+**Symptom:** days before today appear with a line through them, as if they are booked/blocked rather than simply in the past.
+
+**Root cause:** `flatpickr-disabled` is applied by Flatpickr to *both* past dates (via `minDate: 'today'`) and blocked future dates. The original CSS applied `text-decoration:line-through` to the whole class, so past dates got it too.
+
+**Fix:** `flatpickr-disabled` styling no longer includes `text-decoration`. Only the custom `.ibb-booked` class gets strikethrough. An `onDayCreate` callback compares each disabled cell's date against the `blocked[]` array; if it's a future blocked date, it adds `ibb-booked`. Past dates are disabled but not marked `ibb-booked`.
+
+---
+
+## Blackout dates not greyed/struck-through in availability calendar (still selectable visually)
+
+**Symptom:** property has blackout ranges configured in the Booking Rules tab (stored as `_ibb_blackout_ranges` postmeta) but those dates appear as normal/bookable in the front-end Flatpickr calendar.
+
+**Root cause:** `AvailabilityService::get_blocked_dates()` only queried `wp_ibb_blocks` (direct bookings + iCal imports). Blackout ranges from property meta were only checked inside `validate_booking_rules()` at quote-request time — they never reached the date-picker's blocked-dates array.
+
+**Fix:** `get_blocked_dates()` now loads the property via `Property::from_id()` and expands each `_ibb_blackout_ranges` entry (using `DateRange::from_strings` / `each_night`) into the returned array, filtered to the requested window. Validated at quote time AND shown in the picker.
+
+---
+
 ## Browser downloads `.ics` instead of displaying it
 
 Not a bug. `Content-Type: text/calendar` is correctly handled by browsers as a calendar feed. OTAs fetch via HTTP and consume the body; they don't care about browser display.

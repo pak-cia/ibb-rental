@@ -21,6 +21,8 @@ use IBB\Rentals\Cron\Jobs\CleanupHoldsJob;
 use IBB\Rentals\Cron\Jobs\ImportFeedJob;
 use IBB\Rentals\Cron\Jobs\ReminderEmailJob;
 use IBB\Rentals\Cron\Jobs\SendPaymentLinkJob;
+use IBB\Rentals\Cron\Jobs\SyncClickUpJob;
+use IBB\Rentals\Services\ClickUpService;
 use IBB\Rentals\Frontend\Assets;
 use IBB\Rentals\Frontend\Blocks;
 use IBB\Rentals\Frontend\Shortcodes;
@@ -115,16 +117,36 @@ final class Plugin {
 			( new Assets() )->register();
 		}
 
-		add_action( Hooks::AS_CLEANUP_HOLDS, [ $this, 'run_cleanup_holds' ] );
+		add_action( Hooks::AS_CLEANUP_HOLDS,  [ $this, 'run_cleanup_holds' ] );
 		add_action( Hooks::AS_CHARGE_BALANCE, [ $this, 'run_charge_balance' ] );
 		add_action( Hooks::AS_SEND_PAYMENT_LINK, [ $this, 'run_send_payment_link' ], 10, 2 );
 		add_action( Hooks::AS_IMPORT_FEED,    [ $this, 'run_import_feed' ] );
 		add_action( Hooks::AS_SEND_REMINDER,  [ $this, 'run_send_reminder' ] );
+		add_action( Hooks::AS_SYNC_CLICKUP,   [ $this, 'run_sync_clickup' ] );
+
+		// Auto-schedule ClickUp sync if configured and no recurring action exists yet.
+		if ( function_exists( 'as_next_scheduled_action' ) ) {
+			$settings = (array) get_option( 'ibb_rentals_settings', [] );
+			if ( ! empty( $settings['clickup_api_token'] ) && ! empty( $settings['clickup_list_id'] ) ) {
+				$interval = max( 300, (int) ( $settings['clickup_sync_interval'] ?? 3600 ) );
+				if ( ! as_next_scheduled_action( Hooks::AS_SYNC_CLICKUP, [], Hooks::AS_GROUP ) ) {
+					as_schedule_recurring_action( time() + 60, $interval, Hooks::AS_SYNC_CLICKUP, [], Hooks::AS_GROUP );
+				}
+			}
+		}
 
 		add_action( Hooks::BOOKING_CREATED, [ $this, 'schedule_balance_flow' ], 10, 4 );
 		add_action( Hooks::BOOKING_CREATED, [ $this, 'schedule_reminder' ],     30, 4 );
 
 		add_filter( 'woocommerce_email_classes', [ $this, 'register_emails' ] );
+
+		// Eagerly initialise WC email classes so BookingConfirmationEmail's
+		// BOOKING_CREATED hook is registered before any order-status transition fires.
+		// woocommerce_email_classes is lazy (fires inside WC_Emails::get_emails()),
+		// so without this the hook misses on the same request as the booking.
+		add_action( 'woocommerce_init', static function (): void {
+			WC()->mailer()->get_emails();
+		}, 1 );
 
 		do_action( Hooks::BOOTED, $this );
 	}
@@ -147,6 +169,10 @@ final class Plugin {
 
 	public function run_send_reminder( int $booking_id ): void {
 		( new ReminderEmailJob() )->handle( $booking_id );
+	}
+
+	public function run_sync_clickup(): void {
+		( new SyncClickUpJob( $this->clickup_service() ) )->handle();
 	}
 
 	public function schedule_reminder( int $booking_id, \WC_Order $_order, \WC_Order_Item_Product $_item, string $_payment_mode ): void {
@@ -239,6 +265,51 @@ final class Plugin {
 
 	public function ical_exporter(): Exporter {
 		return $this->services['ical_exporter'] ??= new Exporter( $this->availability_repo() );
+	}
+
+	public function clickup_service( string $api_token_override = '' ): ClickUpService {
+		$s       = (array) get_option( 'ibb_rentals_settings', [] );
+		$tag_map = [];
+		if ( ! empty( $s['clickup_tag_map'] ) ) {
+			$decoded = json_decode( (string) $s['clickup_tag_map'], true );
+			if ( is_array( $decoded ) ) {
+				$tag_map = $decoded;
+			}
+		}
+		if ( empty( $tag_map ) ) {
+			$tag_map = [
+				'abnb'    => 'airbnb',
+				'airbnb'  => 'airbnb',
+				'agoda'   => 'agoda',
+				'booking' => 'booking',
+				'vrbo'    => 'vrbo',
+				'expedia' => 'expedia',
+				'direct'  => 'direct',
+				'manual'  => 'manual',
+			];
+		}
+		// Unit-code → property-ID map. Stored as JSON so existing array_merge save flow stays simple.
+		$unit_map = [];
+		if ( ! empty( $s['clickup_unit_property_map'] ) ) {
+			$decoded = json_decode( (string) $s['clickup_unit_property_map'], true );
+			if ( is_array( $decoded ) ) {
+				foreach ( $decoded as $code => $pid ) {
+					$unit_map[ strtolower( (string) $code ) ] = (int) $pid;
+				}
+			}
+		}
+
+		// Not cached: settings may change between AS invocations.
+		// $api_token_override lets the cascading-dropdown AJAX endpoints look up the hierarchy
+		// using a token the user has typed in but not yet saved.
+		return new ClickUpService(
+			api_token:         $api_token_override !== '' ? $api_token_override : (string) ( $s['clickup_api_token'] ?? '' ),
+			list_id:           (string) ( $s['clickup_list_id']      ?? '' ),
+			workspace_id:      (string) ( $s['clickup_workspace_id'] ?? '' ),
+			tag_source_map:    $tag_map,
+			unit_property_map: $unit_map,
+			logger:            $this->logger(),
+		);
 	}
 
 	public function ical_importer(): Importer {

@@ -178,6 +178,17 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
 	</tbody>
 </table>
 
-<p><?php esc_html_e( 'We look forward to welcoming you. If you have any questions before your arrival please reply to this email.', 'ibb-rentals' ); ?></p>
+<?php
+/**
+ * Render the admin-editable "Additional content" block (Settings → Emails →
+ * IBB Booking Confirmation → Additional content). Falls back to a sensible
+ * default when blank. wpautop() preserves paragraph breaks for plain-text edits.
+ */
+$additional = method_exists( $email, 'get_additional_content' ) ? trim( (string) $email->get_additional_content() ) : '';
+if ( $additional === '' ) {
+	$additional = __( 'We look forward to welcoming you. If you have any questions before your arrival please reply to this email.', 'ibb-rentals' );
+}
+echo wp_kses_post( wpautop( wptexturize( $additional ) ) );
+?>
 
 <?php do_action( 'woocommerce_email_footer', $email ); ?>

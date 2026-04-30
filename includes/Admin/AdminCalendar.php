@@ -2,14 +2,15 @@
 /**
  * Admin availability calendar page.
  *
- * Renders a FullCalendar 6 month-view showing all blocks/bookings across every
- * property. Supports creating manual blocks by selecting a date range and
- * deleting any block by clicking the event. Assets (FullCalendar CDN) are
- * enqueued only on this page.
+ * Renders a FullCalendar 6 month/week view PLUS a custom multi-property
+ * timeline view (one row per property, one column per day) showing all
+ * blocks/bookings. View is switched via toolbar buttons (Month / Week /
+ * Timeline). The timeline uses the same wp_ajax_ibb_rentals_calendar_events
+ * endpoint as FullCalendar — no additional AJAX handlers needed.
  *
  * Data flow:
- *   - Page load   → inline JSON of properties (id→title) for the selector.
- *   - FC events   → wp_ajax_ibb_rentals_calendar_events (GET, nonce-protected).
+ *   - Page load    → inline JSON of properties (id→title) for the selector.
+ *   - FC events    → wp_ajax_ibb_rentals_calendar_events (GET, nonce-protected).
  *   - Create block → wp_ajax_ibb_rentals_create_block (POST, nonce-protected).
  *   - Delete block → wp_ajax_ibb_rentals_delete_block (POST, nonce-protected).
  */
@@ -31,12 +32,19 @@ final class AdminCalendar {
 
 	private const NONCE_ACTION = 'ibb_admin_calendar';
 
-	/** Colour palette cycled by property index. */
-	private const COLOURS = [
-		'#3b82f6', '#10b981', '#f59e0b', '#ef4444',
-		'#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-		'#f97316', '#6366f1',
+	/** Colours keyed by block source — matched to the user's OTA sales spreadsheet. */
+	private const SOURCE_COLOURS = [
+		'direct'  => '#7c3aed', // purple       — Direct
+		'airbnb'  => '#dc2626', // red          — Airbnb
+		'booking' => '#003580', // blue         — Booking.com
+		'agoda'   => '#ea580c', // orange       — Agoda
+		'vrbo'    => '#0066cc', // VRBO brand blue
+		'expedia' => '#d4a81a', // golden cream — Expedia
+		'manual'  => '#6b7280', // grey         — Manual block
+		'hold'    => '#9ca3af', // light grey   — Cart hold
 	];
+
+	private const SOURCE_COLOUR_DEFAULT = '#475569'; // slate — unknown source
 
 	public function register(): void {
 		add_action( 'admin_enqueue_scripts',                     [ $this, 'enqueue' ] );
@@ -93,10 +101,32 @@ final class AdminCalendar {
 					<option value="booking">Booking.com</option>
 					<option value="agoda">Agoda</option>
 					<option value="vrbo">VRBO</option>
+					<option value="expedia">Expedia</option>
 				</select>
+
+				<div style="margin-left:auto;display:flex;gap:4px;">
+					<button id="ibb-view-month" class="button button-primary"><?php esc_html_e( 'Month', 'ibb-rentals' ); ?></button>
+					<button id="ibb-view-week" class="button"><?php esc_html_e( 'Week', 'ibb-rentals' ); ?></button>
+					<button id="ibb-view-timeline" class="button"><?php esc_html_e( 'Timeline', 'ibb-rentals' ); ?></button>
+				</div>
 			</div>
 
+			<?php /* FullCalendar month / week views */ ?>
 			<div id="ibb-admin-calendar" style="background:#fff;padding:16px;border:1px solid #ddd;border-radius:4px;"></div>
+
+			<?php /* Multi-property timeline view */ ?>
+			<div id="ibb-timeline" style="display:none;background:#fff;padding:16px;border:1px solid #ddd;border-radius:4px;">
+				<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+					<button id="ibb-tl-prev" class="button">&#8249; <?php esc_html_e( 'Prev', 'ibb-rentals' ); ?></button>
+					<button id="ibb-tl-today" class="button"><?php esc_html_e( 'Today', 'ibb-rentals' ); ?></button>
+					<button id="ibb-tl-next" class="button"><?php esc_html_e( 'Next', 'ibb-rentals' ); ?> &#8250;</button>
+					<strong id="ibb-tl-title" style="font-size:1.1em;margin-left:4px;min-width:140px;display:inline-block;"></strong>
+					<button id="ibb-tl-add-block" class="button" style="margin-left:auto;">+ <?php esc_html_e( 'Block dates', 'ibb-rentals' ); ?></button>
+				</div>
+				<div id="ibb-tl-wrap" style="overflow-x:auto;">
+					<div id="ibb-tl-inner"></div>
+				</div>
+			</div>
 
 			<?php /* Create-block modal */ ?>
 			<div id="ibb-cal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center;">
@@ -140,12 +170,18 @@ final class AdminCalendar {
 				</div>
 			</div>
 
-			<?php /* Event-detail popover (reuse same modal) */ ?>
+			<?php /* Event-detail modal */ ?>
 			<div id="ibb-cal-detail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center;">
 				<div style="background:#fff;border-radius:6px;padding:24px;min-width:300px;box-shadow:0 4px 24px rgba(0,0,0,.2);">
 					<h2 style="margin-top:0;" id="ibb-detail-title"></h2>
 					<p id="ibb-detail-body" style="white-space:pre-line;color:#333;"></p>
-					<p style="margin-bottom:0;display:flex;gap:8px;">
+					<p style="margin-bottom:0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+						<a id="ibb-detail-booking-link" href="#" target="_blank" class="button" style="display:none;">
+							<?php esc_html_e( 'View booking →', 'ibb-rentals' ); ?>
+						</a>
+						<a id="ibb-detail-clickup-link" href="#" target="_blank" class="button" style="display:none;">
+							<?php esc_html_e( 'View ClickUp task →', 'ibb-rentals' ); ?>
+						</a>
 						<button id="ibb-detail-delete" class="button button-link-delete">
 							<?php esc_html_e( 'Delete block', 'ibb-rentals' ); ?>
 						</button>
@@ -159,14 +195,13 @@ final class AdminCalendar {
 
 		<script>
 		(function(){
-			// Use WP's pre-defined ajaxurl (includes port) rather than admin_url() output.
-		var ajaxUrl    = ( typeof ajaxurl !== 'undefined' ) ? ajaxurl : <?php echo wp_json_encode( $ajax_url ); ?>;
+			var ajaxUrl    = ( typeof ajaxurl !== 'undefined' ) ? ajaxurl : <?php echo wp_json_encode( $ajax_url ); ?>;
 			var nonce      = <?php echo wp_json_encode( $nonce ); ?>;
-			var properties = <?php echo wp_json_encode( $properties ); ?>;
-			var colours    = <?php echo wp_json_encode( array_values( self::COLOURS ) ); ?>;
-			var propIds    = Object.keys( properties );
-			var colourMap  = {};
-			propIds.forEach(function(id, i){ colourMap[id] = colours[ i % colours.length ]; });
+			var properties   = <?php echo wp_json_encode( $properties ); ?>;
+			var sourceColours = <?php echo wp_json_encode( self::SOURCE_COLOURS ); ?>;
+			var sourceColourDefault = <?php echo wp_json_encode( self::SOURCE_COLOUR_DEFAULT ); ?>;
+
+			var currentView  = 'month'; // 'month' | 'week' | 'timeline'
 
 			var calEl        = document.getElementById('ibb-admin-calendar');
 			var filterProp   = document.getElementById('ibb-cal-property-filter');
@@ -177,7 +212,7 @@ final class AdminCalendar {
 				headerToolbar: {
 					left:   'prev,next today',
 					center: 'title',
-					right:  'dayGridMonth,dayGridWeek'
+					right:  '', // view switching handled by our custom toolbar buttons
 				},
 				initialView: 'dayGridMonth',
 				height: 'auto',
@@ -209,9 +244,15 @@ final class AdminCalendar {
 			} );
 			calendar.render();
 
-			// Re-fetch when filters change.
-			filterProp.addEventListener( 'change', function(){ calendar.refetchEvents(); } );
-			filterSource.addEventListener( 'change', function(){ calendar.refetchEvents(); } );
+			// ── Filter listeners (shared between FC and timeline) ─────────
+			filterProp.addEventListener( 'change', function(){
+				if ( currentView === 'timeline' ) fetchAndRenderTimeline();
+				else calendar.refetchEvents();
+			} );
+			filterSource.addEventListener( 'change', function(){
+				if ( currentView === 'timeline' ) fetchAndRenderTimeline();
+				else calendar.refetchEvents();
+			} );
 
 			// ── Create block modal ────────────────────────────────────────
 			var modal        = document.getElementById('ibb-cal-modal');
@@ -228,7 +269,6 @@ final class AdminCalendar {
 				modalEnd.value   = end;
 				modalNote.value  = '';
 				modalError.style.display = 'none';
-				// Pre-select active filter property if one is set.
 				if ( filterProp.value ) modalProp.value = filterProp.value;
 				modal.style.display = 'flex';
 				modalProp.focus();
@@ -264,7 +304,8 @@ final class AdminCalendar {
 						modalSave.disabled = false;
 						if ( res.success ) {
 							modal.style.display = 'none';
-							calendar.refetchEvents();
+							if ( currentView === 'timeline' ) fetchAndRenderTimeline();
+							else calendar.refetchEvents();
 						} else {
 							modalError.textContent = res.data || <?php echo wp_json_encode( __( 'Error creating block.', 'ibb-rentals' ) ); ?>;
 							modalError.style.display = 'block';
@@ -278,28 +319,51 @@ final class AdminCalendar {
 			} );
 
 			// ── Event detail modal ────────────────────────────────────────
-			var detail       = document.getElementById('ibb-cal-detail');
-			var detailTitle  = document.getElementById('ibb-detail-title');
-			var detailBody   = document.getElementById('ibb-detail-body');
-			var detailDelete = document.getElementById('ibb-detail-delete');
-			var detailClose  = document.getElementById('ibb-detail-close');
-			var activeEvent  = null;
+			var detail            = document.getElementById('ibb-cal-detail');
+			var detailTitle       = document.getElementById('ibb-detail-title');
+			var detailBody        = document.getElementById('ibb-detail-body');
+			var detailDelete      = document.getElementById('ibb-detail-delete');
+			var detailClose       = document.getElementById('ibb-detail-close');
+			var detailBookingLink = document.getElementById('ibb-detail-booking-link');
+			var detailClickupLink = document.getElementById('ibb-detail-clickup-link');
+			var activeEvent       = null;
 
+			// Accepts either a real FullCalendar event or a plain object
+			// {title, startStr, endStr, extendedProps} from the timeline click handler.
 			function openDetailModal( event ) {
 				activeEvent = event;
 				var p    = event.extendedProps;
 				var src  = p.source || '';
 				var isDeletable = ( src === 'manual' || src === 'hold' );
-				detailTitle.textContent  = event.title;
+				detailTitle.textContent = event.title;
+
 				var lines = [
-					<?php echo wp_json_encode( __( 'Check-in:', 'ibb-rentals' ) ); ?> + ' ' + ( event.startStr || '' ),
+					<?php echo wp_json_encode( __( 'Check-in:', 'ibb-rentals' ) ); ?>  + ' ' + ( event.startStr || '' ),
 					<?php echo wp_json_encode( __( 'Check-out:', 'ibb-rentals' ) ); ?> + ' ' + ( event.endStr   || '' ),
-					<?php echo wp_json_encode( __( 'Source:', 'ibb-rentals' ) ); ?>   + ' ' + src,
+					<?php echo wp_json_encode( __( 'Source:', 'ibb-rentals' ) ); ?>    + ' ' + src,
 				];
-				if ( p.order_id ) lines.push( <?php echo wp_json_encode( __( 'Order:', 'ibb-rentals' ) ); ?> + ' #' + p.order_id );
-				if ( p.summary  ) lines.push( p.summary );
-				detailBody.textContent   = lines.join('\n');
+				if ( p.guest_name  ) lines.push( <?php echo wp_json_encode( __( 'Guest:', 'ibb-rentals' ) ); ?>  + ' ' + p.guest_name );
+				if ( p.guest_email ) lines.push( <?php echo wp_json_encode( __( 'Email:', 'ibb-rentals' ) ); ?>  + ' ' + p.guest_email );
+				if ( p.order_id    ) lines.push( <?php echo wp_json_encode( __( 'Order:', 'ibb-rentals' ) ); ?>  + ' #' + p.order_id );
+				if ( p.summary     ) lines.push( p.summary );
+				detailBody.textContent = lines.join('\n');
+
 				detailDelete.style.display = isDeletable ? '' : 'none';
+
+				if ( p.booking_url ) {
+					detailBookingLink.href         = p.booking_url;
+					detailBookingLink.style.display = '';
+				} else {
+					detailBookingLink.style.display = 'none';
+				}
+
+				if ( p.clickup_url ) {
+					detailClickupLink.href         = p.clickup_url;
+					detailClickupLink.style.display = '';
+				} else {
+					detailClickupLink.style.display = 'none';
+				}
+
 				detail.style.display = 'flex';
 			}
 
@@ -319,12 +383,262 @@ final class AdminCalendar {
 					.then(function(res){
 						if ( res.success ) {
 							detail.style.display = 'none';
-							calendar.refetchEvents();
+							if ( currentView === 'timeline' ) fetchAndRenderTimeline();
+							else calendar.refetchEvents();
 						} else {
 							alert( res.data || <?php echo wp_json_encode( __( 'Error deleting block.', 'ibb-rentals' ) ); ?> );
 						}
 					} );
 			} );
+
+			// ── View switcher buttons ─────────────────────────────────────
+			var btnMonth    = document.getElementById('ibb-view-month');
+			var btnWeek     = document.getElementById('ibb-view-week');
+			var btnTimeline = document.getElementById('ibb-view-timeline');
+			var timelineEl  = document.getElementById('ibb-timeline');
+
+			function switchView( view ) {
+				currentView = view;
+				btnMonth.classList.toggle(    'button-primary', view === 'month' );
+				btnWeek.classList.toggle(     'button-primary', view === 'week' );
+				btnTimeline.classList.toggle( 'button-primary', view === 'timeline' );
+
+				if ( view === 'timeline' ) {
+					calEl.style.display      = 'none';
+					timelineEl.style.display = 'block';
+					fetchAndRenderTimeline();
+				} else {
+					calEl.style.display      = '';
+					timelineEl.style.display = 'none';
+					calendar.changeView( view === 'week' ? 'dayGridWeek' : 'dayGridMonth' );
+				}
+			}
+
+			btnMonth.addEventListener(    'click', function(){ switchView('month');    } );
+			btnWeek.addEventListener(     'click', function(){ switchView('week');     } );
+			btnTimeline.addEventListener( 'click', function(){ switchView('timeline'); } );
+
+			// ── Timeline: state + helpers ─────────────────────────────────
+			var tlToday  = new Date();
+			var tlYear   = tlToday.getFullYear();
+			var tlMonth  = tlToday.getMonth() + 1; // 1-based
+			var tlEvents = [];
+
+			var tlTitle = document.getElementById('ibb-tl-title');
+			var tlInner = document.getElementById('ibb-tl-inner');
+
+			var MONTH_NAMES = [
+				'January','February','March','April','May','June',
+				'July','August','September','October','November','December',
+			];
+			var DAY_W   = 32;  // px per day column
+			var ROW_H   = 36;  // px per property row
+			var LABEL_W = 165; // px for property name column
+
+			function tlFormatDate( d ) {
+				var y   = d.getFullYear();
+				var m   = String( d.getMonth() + 1 ).padStart( 2, '0' );
+				var day = String( d.getDate() ).padStart( 2, '0' );
+				return y + '-' + m + '-' + day;
+			}
+
+			function tlEsc( s ) {
+				return String( s )
+					.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' )
+					.replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
+			}
+
+			function tlUcfirst( s ) {
+				return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+			}
+
+			// ── Timeline: fetch + render ──────────────────────────────────
+			function fetchAndRenderTimeline() {
+				var monthStart = new Date( tlYear, tlMonth - 1, 1 );
+				var monthEnd   = new Date( tlYear, tlMonth,     1 );
+				var params = new URLSearchParams({
+					action: 'ibb_rentals_calendar_events',
+					nonce:  nonce,
+					start:  tlFormatDate( monthStart ),
+					end:    tlFormatDate( monthEnd ),
+				});
+				if ( filterProp.value )   params.set( 'property_id', filterProp.value );
+				if ( filterSource.value ) params.set( 'source',      filterSource.value );
+				tlInner.innerHTML = '<p style="padding:8px;color:#888;"><?php echo esc_js( __( 'Loading…', 'ibb-rentals' ) ); ?></p>';
+				fetch( ajaxUrl + '?' + params.toString() )
+					.then(function(r){ return r.json(); })
+					.then(function(data){
+						tlEvents = data;
+						renderTimeline();
+					})
+					.catch(function(){
+						tlInner.innerHTML = '<p style="padding:8px;color:#c00;"><?php echo esc_js( __( 'Error loading events.', 'ibb-rentals' ) ); ?></p>';
+					});
+			}
+
+			function renderTimeline() {
+				var daysInMonth = new Date( tlYear, tlMonth, 0 ).getDate();
+				var monthStart  = new Date( tlYear, tlMonth - 1, 1 );
+				var todayStr    = tlFormatDate( tlToday );
+
+				tlTitle.textContent = MONTH_NAMES[ tlMonth - 1 ] + ' ' + tlYear;
+
+				// Property list — respect the property filter if set.
+				var propList = [];
+				if ( filterProp.value ) {
+					var fid = parseInt( filterProp.value );
+					propList.push([ fid, properties[ fid ] || ( 'Property #' + fid ) ]);
+				} else {
+					Object.keys( properties ).forEach(function(id){
+						propList.push([ parseInt(id), properties[id] ]);
+					});
+				}
+
+				var totalWidth = LABEL_W + daysInMonth * DAY_W;
+				var html = '<div style="display:inline-block;min-width:' + totalWidth + 'px;width:100%;">';
+
+				// ── Day header ────────────────────────────────────────────
+				html += '<div style="display:flex;border-bottom:2px solid #ccc;background:#f0f0f0;">';
+				html += '<div style="min-width:' + LABEL_W + 'px;width:' + LABEL_W + 'px;'
+					+  'padding:5px 8px;font-weight:600;border-right:1px solid #ccc;font-size:12px;'
+					+  'position:sticky;left:0;background:#f0f0f0;z-index:3;">'
+					+  '<?php echo esc_js( __( 'Property', 'ibb-rentals' ) ); ?></div>';
+
+				for ( var d = 1; d <= daysInMonth; d++ ) {
+					var dt     = new Date( tlYear, tlMonth - 1, d );
+					var dtStr  = tlFormatDate( dt );
+					var isToday   = ( dtStr === todayStr );
+					var isWeekend = ( dt.getDay() === 0 || dt.getDay() === 6 );
+					var hBg    = isToday ? '#3b82f6' : ( isWeekend ? '#e0e0e0' : '#f0f0f0' );
+					var hColor = isToday ? '#fff'    : '#444';
+					html += '<div style="width:' + DAY_W + 'px;min-width:' + DAY_W + 'px;'
+						+  'text-align:center;padding:4px 0;font-size:10px;font-weight:600;'
+						+  'border-right:1px solid #ddd;background:' + hBg + ';color:' + hColor + ';line-height:1.2;">'
+						+  '<span>' + dt.toLocaleDateString( 'en', { weekday: 'narrow' } ) + '</span><br>'
+						+  '<span>' + d + '</span>'
+						+  '</div>';
+				}
+				html += '</div>';
+
+				// ── Property rows ─────────────────────────────────────────
+				if ( propList.length === 0 ) {
+					html += '<p style="padding:16px;color:#666;"><?php echo esc_js( __( 'No properties found.', 'ibb-rentals' ) ); ?></p>';
+				}
+
+				propList.forEach(function( entry ) {
+					var propId   = entry[0];
+					var propName = entry[1];
+					var propEvs  = tlEvents.filter(function(ev){
+						return ev.extendedProps && ev.extendedProps.property_id == propId;
+					});
+
+					html += '<div style="display:flex;border-bottom:1px solid #eee;height:' + ROW_H + 'px;position:relative;">';
+
+					// Sticky property label
+					html += '<div style="min-width:' + LABEL_W + 'px;width:' + LABEL_W + 'px;'
+						+  'padding:0 8px;display:flex;align-items:center;font-size:12px;'
+						+  'border-right:1px solid #ddd;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;'
+						+  'position:sticky;left:0;background:#fff;z-index:1;">'
+						+  tlEsc( propName ) + '</div>';
+
+					// Day cells + absolute block bars.
+					// Explicit width = sum of cells (no flex:1) so a narrow viewport doesn't
+					// squeeze cellContainer below the cell-sum and clip the trailing days/bars.
+					// Horizontal scrolling kicks in on the outer #ibb-tl-wrap when needed.
+					var cellsWidth = daysInMonth * DAY_W;
+					html += '<div style="position:relative;width:' + cellsWidth + 'px;flex-shrink:0;display:flex;overflow:hidden;">';
+
+					for ( var dd = 1; dd <= daysInMonth; dd++ ) {
+						var ddt      = new Date( tlYear, tlMonth - 1, dd );
+						var ddStr    = tlFormatDate( ddt );
+						var isTd     = ( ddStr === todayStr );
+						var isWknd   = ( ddt.getDay() === 0 || ddt.getDay() === 6 );
+						var cellBg   = isTd ? 'rgba(59,130,246,0.09)' : ( isWknd ? 'rgba(0,0,0,0.03)' : 'transparent' );
+						html += '<div style="width:' + DAY_W + 'px;min-width:' + DAY_W + 'px;'
+							+  'height:100%;border-right:1px solid #f0f0f0;flex-shrink:0;background:' + cellBg + ';"></div>';
+					}
+
+					// Block bars (absolutely positioned over the cells)
+					propEvs.forEach(function( ev ) {
+						if ( !ev.start || !ev.end ) return;
+
+						// Midnight local-time objects for date arithmetic
+						var evStart  = new Date( ev.start + 'T00:00:00' );
+						var evEnd    = new Date( ev.end   + 'T00:00:00' );
+						var mEnd     = new Date( tlYear, tlMonth, 1 );
+
+						var visStart = evStart < monthStart ? monthStart : evStart;
+						var visEnd   = evEnd   > mEnd       ? mEnd       : evEnd;
+						if ( visStart >= visEnd ) return;
+
+						// Days from month start (Math.round handles DST ±1h edge)
+						var startOff = Math.round( ( visStart - monthStart ) / 86400000 );
+						var durDays  = Math.round( ( visEnd   - visStart   ) / 86400000 );
+						var barLeft  = startOff * DAY_W + 1;
+						var barW     = durDays  * DAY_W - 2;
+						if ( barW < 2 ) return;
+
+						var src       = ev.extendedProps ? ( ev.extendedProps.source    || '' ) : '';
+						var guestName = ev.extendedProps ? ( ev.extendedProps.guest_name || '' ) : '';
+						var label     = guestName || tlUcfirst( src );
+
+						var barColour = ev.color || ( sourceColours[ src ] || sourceColourDefault );
+						html += '<div data-block-id="' + ( ev.extendedProps ? ev.extendedProps.block_id : '' ) + '" '
+							+  'title="' + tlEsc( ev.title ) + '" '
+							+  'style="position:absolute;left:' + barLeft + 'px;top:4px;'
+							+  'width:' + barW + 'px;height:' + ( ROW_H - 8 ) + 'px;'
+							+  'background:' + barColour + ';border-radius:3px;cursor:pointer;'
+							+  'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
+							+  'padding:0 5px;font-size:11px;color:#fff;'
+							+  'line-height:' + ( ROW_H - 8 ) + 'px;z-index:2;opacity:0.92;">'
+							+  tlEsc( label ) + '</div>';
+					});
+
+					html += '</div>'; // cells container
+					html += '</div>'; // row
+				});
+
+				html += '</div>'; // grid wrapper
+				tlInner.innerHTML = html;
+
+				// Attach click → detail modal for each block bar
+				tlInner.querySelectorAll('[data-block-id]').forEach(function( el ) {
+					el.addEventListener('click', function() {
+						var blockId = parseInt( el.getAttribute('data-block-id') );
+						var ev = tlEvents.find(function(e){
+							return e.extendedProps && e.extendedProps.block_id === blockId;
+						});
+						if ( ev ) {
+							openDetailModal({
+								title:         ev.title,
+								startStr:      ev.start,
+								endStr:        ev.end,
+								extendedProps: ev.extendedProps,
+							});
+						}
+					});
+				});
+			}
+
+			// ── Timeline navigation ───────────────────────────────────────
+			document.getElementById('ibb-tl-prev').addEventListener('click', function(){
+				tlMonth--;
+				if ( tlMonth < 1 ) { tlMonth = 12; tlYear--; }
+				fetchAndRenderTimeline();
+			});
+			document.getElementById('ibb-tl-next').addEventListener('click', function(){
+				tlMonth++;
+				if ( tlMonth > 12 ) { tlMonth = 1; tlYear++; }
+				fetchAndRenderTimeline();
+			});
+			document.getElementById('ibb-tl-today').addEventListener('click', function(){
+				tlYear  = tlToday.getFullYear();
+				tlMonth = tlToday.getMonth() + 1;
+				fetchAndRenderTimeline();
+			});
+			document.getElementById('ibb-tl-add-block').addEventListener('click', function(){
+				openCreateModal('', '');
+			});
 
 		})();
 		</script>
@@ -355,32 +669,78 @@ final class AdminCalendar {
 		$blocks   = Plugin::instance()->availability_repo()->find_all_in_window( $range, $prop_ids );
 
 		if ( $source !== '' ) {
-			$blocks = array_values( array_filter( $blocks, fn( Block $b ) => $b->source === $source ) );
+			$blocks = array_values( array_filter( $blocks, fn( Block $b ) => $b->effective_source() === $source ) );
 		}
 
 		$properties = $this->get_properties_map();
-		$colours    = self::COLOURS;
-		$prop_keys  = array_keys( $properties );
+
+		// Batch-load booking rows for all direct blocks so we can surface guest names
+		// and link back to the WC order without N+1 queries.
+		$direct_block_ids = array_values( array_filter(
+			array_map( fn( Block $b ) => $b->source === Block::SOURCE_DIRECT ? $b->id : null, $blocks )
+		) );
+
+		$bookings_by_block = [];
+		if ( ! empty( $direct_block_ids ) ) {
+			global $wpdb;
+			$placeholders = implode( ',', array_fill( 0, count( $direct_block_ids ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT block_id, guest_name, guest_email, order_id FROM {$wpdb->prefix}ibb_bookings WHERE block_id IN ($placeholders)",
+					...$direct_block_ids
+				),
+				ARRAY_A
+			);
+			foreach ( $rows as $row ) {
+				$bookings_by_block[ (int) $row['block_id'] ] = $row;
+			}
+		}
 
 		$events = [];
 		foreach ( $blocks as $block ) {
-			$prop_index = (int) array_search( $block->property_id, $prop_keys, true );
-			$colour     = $colours[ $prop_index % count( $colours ) ];
-			$prop_name  = $properties[ $block->property_id ] ?? 'Property #' . $block->property_id;
-			$source_label = ucfirst( $block->source );
+			// effective_source: ClickUp's source_override wins over the iCal-import source
+			// for color/label, since iCal can mis-attribute manual-blackout direct/Agoda
+			// bookings as `airbnb`.
+			$effective    = $block->effective_source();
+			$colour       = self::SOURCE_COLOURS[ $effective ] ?? self::SOURCE_COLOUR_DEFAULT;
+			$prop_name    = $properties[ $block->property_id ] ?? 'Property #' . $block->property_id;
+			$source_label = ucfirst( $effective );
+
+			$booking    = $bookings_by_block[ $block->id ] ?? null;
+			// Direct bookings: name from wp_ibb_bookings. OTA blocks: name written by ClickUp sync.
+			$guest_name = $booking ? ( $booking['guest_name'] ?? '' ) : $block->guest_name;
+
+			// WC order edit URL — wc_get_order()->get_edit_order_url() is HPOS-safe.
+			$booking_url = '';
+			if ( $block->order_id ) {
+				$order = wc_get_order( $block->order_id );
+				if ( $order ) {
+					$booking_url = $order->get_edit_order_url();
+				}
+			}
+
+			$clickup_url = $block->clickup_task_id !== ''
+				? 'https://app.clickup.com/t/' . rawurlencode( $block->clickup_task_id )
+				: '';
 
 			$events[] = [
 				'id'    => 'block_' . $block->id,
-				'title' => $prop_name . ' — ' . $source_label,
+				'title' => $prop_name . ' — ' . ( $guest_name ?: $source_label ),
 				'start' => $block->range->checkin_string(),
 				'end'   => $block->range->checkout_string(),
 				'color' => $colour,
 				'extendedProps' => [
 					'block_id'    => $block->id,
 					'property_id' => $block->property_id,
-					'source'      => $block->source,
+					'source'      => $effective,
+					'raw_source'  => $block->source,
 					'order_id'    => $block->order_id,
 					'summary'     => $block->summary,
+					'guest_name'  => $guest_name,
+					'guest_email' => $booking['guest_email'] ?? '',
+					'booking_url' => $booking_url,
+					'clickup_url' => $clickup_url,
 				],
 			];
 		}

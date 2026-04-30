@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+---
+
+## [0.3.5] — 2026-04-28
+
+### Fixed
+- **Booking confirmation email not delivered** — `BookingConfirmationEmail` was never instantiated before `ibb-rentals/booking/created` fired. `Plugin::boot()` now calls `WC()->mailer()->get_emails()` on `woocommerce_init` (priority 1) to force early email-class registration.
+- **Generic WC order emails sent alongside IBB confirmation** — `OrderObserver` now hooks `woocommerce_email_enabled_customer_processing_order` and `woocommerce_email_enabled_customer_completed_order`, returning `false` for any order that contains an `_ibb_property_id` line item.
+
 ### Added
 - **`WebhookTopics`** — registers three WooCommerce webhook topics (`ibb_rentals.booking.created`, `ibb_rentals.booking.cancelled`, `ibb_rentals.balance.charged`) so admins can configure WC webhooks that fire on IBB booking events (WooCommerce → Settings → Advanced → Webhooks). Payload is the full booking row from `BookingRepository::find_by_id()`. Works with n8n, Odoo, Make, Zapier, or any HTTP-capable automation tool.
 

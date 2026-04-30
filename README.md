@@ -8,15 +8,29 @@ Tourism vacation-rental property management for WordPress + WooCommerce. Direct 
 
 ## Status
 
-**v0.1.0 — shipped.** The full v1 booking flow is implemented end-to-end: property CPT, custom DB schema, pricing engine, WooCommerce cart/order integration, gateway-agnostic deposit + balance flow, iCal sync (in/out), REST API, admin metabox tabs, frontend booking widget, photo galleries with built-in lightbox, Elementor dynamic-tag integration.
+**v0.8.0 — current.** v1 booking flow + admin calendar timeline + ClickUp integration + customizable email settings, all running on the staging site. See [CHANGELOG.md](CHANGELOG.md) for the per-version detail since 0.3.5.
 
-**Pending verification (no payment gateway configured yet on the dev site):**
-- Final order placement → `wp_ibb_bookings` row creation
-- Balance scheduling (auto-charge on token-capable gateways, payment-link email otherwise)
-- Order cancellation releasing the calendar block
-- Real OTA iCal import (parser is in place; needs a real Airbnb/Booking.com URL to point at)
+**New since 0.3.5 (today's session):**
+- **0.4.0** — Admin calendar timeline view (multi-property Gantt grid); Expedia added as supported source; calendar bars show guest names; ClickUp integration (sync guest names from a Bookings list into the calendar via a recurring background job). Migration v2: `wp_ibb_blocks.guest_name`.
+- **0.5.0** — Cascading workspace → space → folder → list dropdowns on the ClickUp Settings page; per-property unit-code → property mapper; "View ClickUp task →" deep-link in the calendar detail modal; sync-status pill on Settings; Booking-ID match strategy (with date-tuple fallback). Migration v3: `clickup_task_id`. Fixes: timezone-correct date conversion, timeline view no longer clips on narrow viewports.
+- **0.6.0** — ClickUp source override: when ClickUp says a manual-blackout block on Airbnb is actually a direct or non-Airbnb OTA booking, the calendar paints it the right color (purple for direct, orange for Agoda, etc.) instead of red Airbnb. Migration v4: `source_override`.
+- **0.7.0** — Editable email settings via WC's standard admin UI (subject, heading, additional content, reply-to, email type) for both `BookingConfirmationEmail` and `BookingReminderEmail`. Per-email Reply-To override. Namespaced theme override path `your-theme/ibb-rentals/emails/...`.
+- **0.8.0** — Rich-text editor (TinyMCE with media library) for the Additional content field on each IBB email setting. New `WpEditorFieldTrait`.
 
-**Deferred from v1.0 (see [Roadmap](#roadmap) below):** PHPUnit suite, refundable security-deposit holds, multi-language, reviews, in-site messaging, admin FullCalendar across properties.
+**Confirmed working (staging site, Xendit gateway):**
+- iCal import from Airbnb ✓
+- End-to-end booking flow: quote → cart → Xendit checkout → order received ✓
+- `OrderObserver` creates `wp_ibb_bookings` row on `wc-processing` status ✓
+- Order cancellation flips booking → Cancelled and releases dates in availability API ✓
+- ClickUp guest-name sync → calendar bars show actual guest names matched on (date, source) and unit-code → property mapping ✓
+- Customer email arrives with IBB template + admin-configured Reply-To ✓
+
+**Pending verification:**
+- Balance scheduling (Xendit = payment-link path; no token-capable gateway in use — requires a real deposit-mode booking on a live order)
+
+**Note (Xendit test mode):** In Xendit TEST MODE on staging, the webhook may not fire back to the site — order stays "Pending payment" after the hosted invoice is paid. Manually advancing to "Processing" in wp-admin triggers `OrderObserver` and creates the booking row correctly. On production with a real Xendit account the webhook fires automatically. See RUNBOOK — "Xendit test-mode webhook" for details.
+
+**Deferred from v1.0 (see [Roadmap](#roadmap) below):** PHPUnit suite, multi-language, reviews, messaging, inquiry/quote flow, admin FullCalendar across properties.
 
 ---
 
@@ -116,19 +130,21 @@ The architectural decisions driving v1.0 — see [docs/architecture.md](docs/arc
 End-to-end direct booking flow. See [CHANGELOG.md](CHANGELOG.md) for the full feature list.
 
 ### v1.1 — deferred (priority order)
-- **PHPUnit + integration test suite** — covering range overlap, pricing combinatorics, iCal round-trip, cancel/release lifecycle, HPOS read/write.
-- **Refundable security-deposit holds** — Stripe manual-capture and equivalents for other token-capable gateways.
-- **Admin FullCalendar view** — multi-property timeline-style calendar (currently per-property only).
-- **Multi-language** — WPML / Polylang glue.
-- **Guest review collection** — email-driven, written back as post meta.
-- **Owner / manager roles** — multi-author properties for agencies managing fleets.
-- **In-site guest ↔ host messaging** — secure thread per booking.
-- **Promo / coupon enhancements** beyond what native WC supports.
+1. **Admin timeline view** ✓ — multi-property timeline added to the Availability Calendar page (Month / Week / Timeline toolbar). Each property is a horizontal row; blocks render as colored bars spanning their date range.
+2. **iCal hub-and-spoke** — make the plugin the central iCal source of truth. Today the exporter only re-exports `direct` + `manual` blocks to avoid OTA-to-OTA loops; instead, export ALL blocks with per-OTA filtered feed URLs (`exclude=airbnb`, `exclude=booking`, etc.) so each OTA's calendar shows a unified view of every other OTA's bookings + ClickUp guest data. Outgoing `SUMMARY` becomes `{guest_name} ({Source})` (from ClickUp sync) instead of hardcoded "Reserved", with a Settings toggle to fall back to the privacy-safe form. Migration step: user removes OTA-to-OTA cross-subscriptions, subscribes each OTA only to its filtered plugin feed.
+3. **PHPUnit + integration test suite** — covering range overlap, pricing combinatorics, iCal round-trip, cancel/release lifecycle, HPOS read/write.
+4. **Guest review aggregation** — pull reviews from multiple OTA sources (Airbnb, Booking.com, etc.), normalise to a standard internal format, output as a single Gutenberg block / Elementor widget.
+5. **Owner / manager roles** — multi-author properties for agencies managing fleets.
+6. **Inquiry / quote-request flow** — potential bookers can submit a date enquiry or countered quote; host can accept, counter-offer, or decline. Separate from the instant-book flow.
+7. **Multi-language** — WPML / Polylang glue.
 
 ### v1.2+ — future
 - **Channel-manager-style API integrations** — push availability natively to OTAs (not just iCal).
 - **Dynamic pricing** — occupancy-based, days-to-arrival, integrations with PriceLabs / Beyond / Wheelhouse.
 - **Smart-lock integrations** (August, Yale, etc.).
+- **Refundable security-deposit holds** — Stripe manual-capture (low priority; current workflow uses a separate QR-code collection process).
+- **In-site guest ↔ host messaging** — secure thread per booking.
+- **Promo / coupon enhancements** beyond what native WC supports.
 
 Full ADR with trade-offs and rationale: [docs/architecture.md](docs/architecture.md).
 
@@ -140,7 +156,8 @@ Full ADR with trade-offs and rationale: [docs/architecture.md](docs/architecture
 |---|---|
 | **iCal sync interval race** — 30-min window where an OTA booking isn't yet visible to us | Document; recommend 5-min intervals for high-volume properties; perfect sync is impossible without channel-manager APIs (v1.2+) |
 | **Off-session balance failure** (token-capable gateways) — declined card / SCA | 3 retries at 24h spacing, then fall back to payment-link email |
-| **Xendit-specific** — most flows (VA, e-wallet, QRIS) are one-shot, so deposit-mode balance always uses the payment-link path | Documented as expected behaviour, not a bug |
+| **Xendit-specific** — most flows (VA, e-wallet, QRIS) are one-shot; deposit-mode balance always uses the payment-link path on this gateway | Expected behaviour, not a bug; documented in Woo/TROUBLESHOOTING |
+| **Security deposit** — no in-plugin refundable-hold mechanism yet | Handled externally via QR-code collection; in-plugin holds deferred to v1.2+ |
 | **Currency** — WC supports one currency; multi-currency is out of scope | Documented; multi-currency deferred indefinitely |
 | **Theme compatibility** | Plugin template fallback + theme override path; CSS scoped under `.ibb-` BEM-style |
 | **HPOS edges** — any code path bypassing `wc_get_order()` silently breaks on HPOS sites | Lint check before merging; conventions in [CLAUDE.md](CLAUDE.md) |
