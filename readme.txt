@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.10.0
+Stable tag: 0.10.1
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.10.1 =
+* Fix: quote panel showed no tax breakdown despite WooCommerce tax classes being configured. The pricing engine called `WC_Tax::find_rates()` which silently returns empty when invoked from a context with no customer billing country set (the `/quote` REST endpoint runs before checkout). Now uses `WC_Tax::get_base_tax_rates()` which always resolves against the shop base location — same approach WC's product price-suffix uses on the shop page. Cart was already correct, this only affected the booking-form preview.
 
 = 0.10.0 =
 * Per-fee tax classes. Booking Rules tab now exposes three independent tax-class dropdowns: accommodation, cleaning fee, and extra-guest fee. Lets you charge e.g. PB1 hotel tax on the stay while keeping cleaning untaxed (or at standard VAT). Security deposit is informational only — never charged today, never taxed. Extra-guest fee defaults to "Same as accommodation".

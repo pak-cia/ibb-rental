@@ -197,7 +197,13 @@ final class PricingService {
 				continue;
 			}
 			$wc_class = $class === 'standard' ? '' : $class;
-			$rates    = \WC_Tax::find_rates( [ 'tax_class' => $wc_class ] );
+			// Use the shop's base location for quote-time tax preview. The
+			// REST `/quote` endpoint runs before checkout so there is no
+			// customer billing country set; `WC_Tax::find_rates()` would
+			// silently return [] without one. `get_base_tax_rates()`
+			// always resolves via `wc_get_base_location()` — the same
+			// behaviour WC's product price-suffix uses on the shop page.
+			$rates = \WC_Tax::get_base_tax_rates( $wc_class );
 			if ( ! $rates ) {
 				continue;
 			}

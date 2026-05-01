@@ -10,6 +10,13 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.10.1] — 2026-05-01
+
+### Fixed
+- **Quote panel showed no tax breakdown despite tax classes being configured.** `Services/PricingService::compute_tax()` called `WC_Tax::find_rates([ 'tax_class' => $class ])` without country / state / postcode / city. WC's rate lookup needs at minimum a country code; in a REST `/quote` request there is no customer billing context yet, so the implicit defaults resolved to empty strings and `find_rates()` silently returned `[]`. Cart-side tax worked because by then WC had populated the customer session from billing details. Switched to `WC_Tax::get_base_tax_rates( $tax_class )` which always resolves rates against `wc_get_base_location()` — the same approach WC uses for product price-suffix preview on the shop page.
+
+---
+
 ## [0.10.0] — 2026-05-01
 
 ### Added

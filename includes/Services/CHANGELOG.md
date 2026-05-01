@@ -4,6 +4,13 @@
 
 ---
 
+## [0.10.1] — 2026-05-01
+
+### Fixed
+- **`PricingService::compute_tax()` returned empty `tax_breakdown`** when called from the public `/quote` REST endpoint despite tax classes being correctly configured. `WC_Tax::find_rates([ 'tax_class' => ... ])` requires at minimum a country code; without an active customer session it resolves to empty defaults and returns no rates. Switched the call to `WC_Tax::get_base_tax_rates( $wc_class )` which uses `wc_get_base_location()` — guaranteed to return a country in any context.
+
+---
+
 ## [0.10.0] — 2026-05-01
 
 ### Added
