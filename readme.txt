@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.8.4
+Stable tag: 0.8.5
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.8.5 =
+* Fix: Elementor Pro Theme Builder Single templates assigned to Properties still didn't render after 0.8.4. Detection rewritten to use a path-based check (does `$template` already point inside another plugin's directory?) as the primary signal, with the Elementor Pro API call as a secondary signal. Catches edge cases where Elementor's API returns empty even when a template is matched.
 
 = 0.8.4 =
 * Fix: Elementor Pro Theme Builder Single templates assigned to the Properties post type via Display Conditions now render. Previously the plugin's `template_include` filter ran at priority 99 and overrode whatever Elementor had set, silently discarding the admin-assigned template. The plugin now defers to Elementor when its Theme Builder has a matching Single document for the current request, falling through to the plugin template otherwise.

@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.5] — 2026-05-01
+
+### Fixed
+- **`TemplateLoader` deference rewritten with path-based primary check.** 0.8.4's API-only detection still returned empty for matched Theme Builder templates on some sites. New `should_defer_to_external_template()` first inspects whether `$template` already lives inside another plugin's directory (most reliable signal — directly observes `template_include`'s current value). Falls back to Elementor Pro's API check. Either signal triggers deference.
+
+---
+
 ## [0.8.4] — 2026-05-01
 
 ### Fixed

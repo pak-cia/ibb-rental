@@ -10,6 +10,17 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.5] — 2026-05-01
+
+### Fixed
+- **Elementor Pro Theme Builder Single templates STILL didn't render after 0.8.4.** The API-only check (`get_documents_for_location('single')`) returned empty even when a Theme Builder template with matching Display Conditions was assigned to the request — likely because of the order in which Elementor Pro initialises its conditions registry vs when our `template_include` filter fires, or a version-specific API quirk. Detection rewritten in `Frontend/TemplateLoader::should_defer_to_external_template()`:
+  1. **Primary: path check.** If `wp_normalize_path( $template )` already points inside any plugin directory other than ours (e.g. `/wp-content/plugins/elementor-pro/...`), some other plugin has explicitly hooked `template_include` ahead of us with intent — back off. This is the most reliable signal because it directly observes what's already in `$template` rather than asking an API to predict it.
+  2. **Secondary: Elementor Pro API.** Same `get_documents_for_location('single')` check from 0.8.4 retained as a backup.
+
+  Either path triggers deference. Without Elementor Pro the existing theme-override → plugin-fallback chain still applies and is unaffected.
+
+---
+
 ## [0.8.4] — 2026-05-01
 
 ### Fixed
