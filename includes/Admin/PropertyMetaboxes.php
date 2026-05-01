@@ -292,6 +292,37 @@ final class PropertyMetaboxes {
 		$this->row( __( 'Extra-guest threshold', 'ibb-rentals' ),    $this->number( '_ibb_extra_guest_threshold', $p->extra_guest_threshold(), 0 ) );
 		$this->row( __( 'Security deposit (informational)', 'ibb-rentals' ), $this->number( '_ibb_security_deposit', $p->security_deposit(), 0, 0.01 ) );
 
+		// ── Tax class ─────────────────────────────────────────────────────
+		// Maps to the linked WC product's tax_class + tax_status. See ProductSync.
+		// Empty value = not taxed (tax_status='none'); 'standard' = WC standard rate
+		// (tax_class=''); any other slug = WC user-defined tax class.
+		$current_tax_class = (string) $p->meta( '_ibb_tax_class', '' );
+		$tax_options       = [
+			''         => __( 'Not taxed', 'ibb-rentals' ),
+			'standard' => __( 'Standard rate', 'ibb-rentals' ),
+		];
+		if ( class_exists( '\\WC_Tax' ) ) {
+			foreach ( \WC_Tax::get_tax_classes() as $class_label ) {
+				$slug = sanitize_title( $class_label );
+				if ( $slug !== '' && $slug !== 'standard' ) {
+					$tax_options[ $slug ] = $class_label;
+				}
+			}
+		}
+		echo '<tr><th><label>' . esc_html__( 'Tax class', 'ibb-rentals' ) . '</label></th><td>';
+		echo '<select name="_ibb_tax_class">';
+		foreach ( $tax_options as $value => $label ) {
+			printf(
+				'<option value="%s" %s>%s</option>',
+				esc_attr( (string) $value ),
+				selected( $current_tax_class, (string) $value, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Tax rates are configured under WooCommerce → Settings → Tax. Pick which class applies to this property; the linked WC product is updated on save.', 'ibb-rentals' ) . '</p>';
+		echo '</td></tr>';
+
 		$mode = $p->payment_mode();
 		echo '<tr><th><label>' . esc_html__( 'Payment mode', 'ibb-rentals' ) . '</label></th><td>';
 		echo '<select name="_ibb_payment_mode">';
@@ -461,6 +492,18 @@ final class PropertyMetaboxes {
 		if ( isset( $_POST['_ibb_payment_mode'] ) ) {
 			$mode = (string) wp_unslash( $_POST['_ibb_payment_mode'] );
 			update_post_meta( $post_id, '_ibb_payment_mode', $mode === 'deposit' ? 'deposit' : 'full' );
+		}
+
+		if ( isset( $_POST['_ibb_tax_class'] ) ) {
+			// Validate against WC's known tax classes (plus 'standard' and '' for not-taxed).
+			$raw     = sanitize_title( (string) wp_unslash( $_POST['_ibb_tax_class'] ) );
+			$allowed = [ '', 'standard' ];
+			if ( class_exists( '\\WC_Tax' ) ) {
+				foreach ( \WC_Tax::get_tax_classes() as $class_label ) {
+					$allowed[] = sanitize_title( $class_label );
+				}
+			}
+			update_post_meta( $post_id, '_ibb_tax_class', in_array( $raw, $allowed, true ) ? $raw : '' );
 		}
 
 		// LOS discounts: row-based UI now (was JSON textarea). Each row is

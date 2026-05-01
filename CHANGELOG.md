@@ -10,6 +10,20 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.9.0] — 2026-05-01
+
+### Added
+- **Per-property tax-class selector.** Booking Rules tab now has a "Tax class" dropdown that enumerates every WC tax class (`WC_Tax::get_tax_classes()`), plus the implicit "Standard rate" and a default "Not taxed" option. Stored as `_ibb_tax_class` postmeta. `Woo/ProductSync` translates the selection into the linked `ibb_booking` product's `tax_status` + `tax_class` on save (`ProductSync::apply_tax_settings()`):
+  - `''` (default, "Not taxed") → `tax_status='none'`
+  - `'standard'` → `tax_status='taxable', tax_class=''` (WC's empty-string convention for the standard rate)
+  - any other slug → `tax_status='taxable', tax_class=<slug>`
+
+  Cart, checkout, and order computations all flow through WC's standard tax pipeline once the product is configured, so no plugin-side tax math was needed. Existing properties default to "Not taxed" (no behaviour change without explicit opt-in).
+
+  Save handler validates the submitted slug against the live `WC_Tax` class list — any unknown value is sanitised to `''`.
+
+---
+
 ## [0.8.9] — 2026-05-01
 
 ### Fixed

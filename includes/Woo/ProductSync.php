@@ -136,9 +136,33 @@ final class ProductSync {
 		$product->set_catalog_visibility( 'hidden' );
 		$product->set_regular_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
 		$product->set_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
+		$this->apply_tax_settings( $product, (string) get_post_meta( $post_id, '_ibb_tax_class', true ) );
 		$product->update_meta_data( self::META_PROPERTY_ID, $post_id );
 		$product->update_meta_data( '_ibb_base_rate', (string) get_post_meta( $post_id, '_ibb_base_rate', true ) );
 		$product->save();
+	}
+
+	/**
+	 * Translate the property's `_ibb_tax_class` postmeta into the linked WC
+	 * product's `tax_status` + `tax_class`.
+	 *
+	 * Mapping:
+	 *   ''         → tax_status='none'                    (not taxed)
+	 *   'standard' → tax_status='taxable', tax_class=''   (WC standard rate)
+	 *   '<slug>'   → tax_status='taxable', tax_class=<slug> (user-defined class)
+	 *
+	 * WC's `tax_class` field uses '' to mean the standard rate, but our UI
+	 * uses the literal 'standard' so users see something more readable than
+	 * an empty option label.
+	 */
+	private function apply_tax_settings( \WC_Product $product, string $ibb_tax_class ): void {
+		if ( $ibb_tax_class === '' ) {
+			$product->set_tax_status( 'none' );
+			$product->set_tax_class( '' );
+			return;
+		}
+		$product->set_tax_status( 'taxable' );
+		$product->set_tax_class( $ibb_tax_class === 'standard' ? '' : $ibb_tax_class );
 	}
 
 	private function create_product( \WP_Post $post ): int {
@@ -153,6 +177,7 @@ final class ProductSync {
 		$product->set_sold_individually( false );
 		$product->set_regular_price( (string) ( get_post_meta( $post->ID, '_ibb_base_rate', true ) ?: '0' ) );
 		$product->set_price( (string) ( get_post_meta( $post->ID, '_ibb_base_rate', true ) ?: '0' ) );
+		$this->apply_tax_settings( $product, (string) get_post_meta( $post->ID, '_ibb_tax_class', true ) );
 		$product->update_meta_data( self::META_PROPERTY_ID, $post->ID );
 		$product->update_meta_data( '_ibb_base_rate', (string) get_post_meta( $post->ID, '_ibb_base_rate', true ) );
 		return (int) $product->save();

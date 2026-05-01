@@ -4,6 +4,13 @@
 
 ---
 
+## [0.9.0] — 2026-05-01
+
+### Added
+- **`ProductSync::apply_tax_settings()`** translates the property's `_ibb_tax_class` postmeta into the linked product's `tax_status` + `tax_class`. Called from both `sync()` and `create_product()`. Empty postmeta → `tax_status='none'`; `'standard'` → standard rate (`tax_class=''`); any other slug passes through verbatim as the WC tax-class slug. WC's cart / checkout pipeline picks up the rest.
+
+---
+
 ## [0.8.1] — 2026-04-30
 
 ### Fixed

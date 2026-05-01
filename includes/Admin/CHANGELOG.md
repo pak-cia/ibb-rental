@@ -4,6 +4,13 @@
 
 ---
 
+## [0.9.0] — 2026-05-01
+
+### Added
+- **Tax class dropdown** on Booking Rules tab. Lists "Not taxed" (default), "Standard rate", and every user-defined class from WC → Settings → Tax. Saved to `_ibb_tax_class`; mirrored by `Woo/ProductSync::apply_tax_settings()` to the linked product's `tax_status` + `tax_class`.
+
+---
+
 ## [0.8.3] — 2026-05-01
 
 ### Changed
