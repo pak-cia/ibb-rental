@@ -421,10 +421,16 @@ CSS;
         up.disabled = v >= max;
       }
 
+      // Programmatic value changes don't fire 'input' events, so we have to
+      // call syncStepperState() ourselves after each click — otherwise disabled
+      // flags become stale (e.g. clicking up to max leaves down stuck disabled
+      // from initial state, until the user types in the input or uses keyboard
+      // arrows, which DO fire 'input').
       down.addEventListener('click', function(){
         var v = parseInt(guestsInput.value, 10) || min;
         if (v > min) {
           guestsInput.value = v - 1;
+          syncStepperState();
           guestsInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
       });
@@ -432,6 +438,7 @@ CSS;
         var v = parseInt(guestsInput.value, 10) || min;
         if (v < max) {
           guestsInput.value = v + 1;
+          syncStepperState();
           guestsInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
       });

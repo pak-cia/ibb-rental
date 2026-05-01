@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.7] — 2026-05-01
+
+### Fixed
+- **Guest-stepper +/− buttons stuck after reaching min/max.** `Assets.php` booking-form JS: stepper click handlers programmatically set `guestsInput.value` and dispatched `'change'` — but `'input'` events don't fire on programmatic value changes, and `syncStepperState()` was only listening to `'input'`. Result: disabled flags became permanently stale until the user typed/used keyboard arrows. Fix: call `syncStepperState()` directly inside both click handlers.
+
+---
+
 ## [0.8.5] — 2026-05-01
 
 ### Fixed

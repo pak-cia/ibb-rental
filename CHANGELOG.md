@@ -10,6 +10,17 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.7] — 2026-05-01
+
+### Fixed
+- **Guest-stepper +/− buttons stuck disabled after reaching min/max.** Frontend booking form: clicking up to max-guests would leave the down button stuck disabled (and vice versa) until the user typed in the input or used keyboard arrows.
+
+  Cause: `syncStepperState()` (which sets `down.disabled` / `up.disabled`) was only invoked from the input element's `'input'` event listener and at init. The +/− click handlers programmatically set `guestsInput.value = v ± 1` and dispatched a `'change'` event — but programmatic `.value =` assignments don't fire `'input'` events, and the listener only watched `'input'`. So the click flow updated the value but never re-evaluated which buttons should be enabled, leaving the stale state from page load (where v=min meant down was disabled). After clicking up to max, down was *still* disabled from that initial v=min sync.
+
+  Fix in `Frontend/Assets.php`: `syncStepperState()` now runs inside both click handlers, immediately after the value mutation. The dispatched `'change'` event is preserved (it triggers the quote re-fetch downstream).
+
+---
+
 ## [0.8.6] — 2026-05-01
 
 ### Fixed
