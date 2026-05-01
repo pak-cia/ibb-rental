@@ -10,6 +10,15 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.8] — 2026-05-01
+
+### Changed
+- **`AvailabilityService::validate_booking_rules()` now surfaces conflicting blocks** when the `unavailable` WP_Error fires. Message gets a parenthetical with each overlapping block's source / guest name / date range, e.g. `Selected dates are not available. (Airbnb / Brian Zending · 2026-05-22 → 2026-05-29)`. Full block details (id, source, source_override, dates, guest_name, status) are also included in the WP_Error data array under `overlapping_blocks` so a frontend or admin debugging via DevTools can read structured info from the response body.
+
+  This is both a UX win (errors are actionable) and a diagnostic primitive: when calendar UI and quote API disagree about availability, the response now points directly at the block causing the conflict.
+
+---
+
 ## [0.8.7] — 2026-05-01
 
 ### Fixed

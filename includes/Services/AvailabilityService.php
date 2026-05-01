@@ -157,7 +157,48 @@ final class AvailabilityService {
 		}
 
 		if ( ! $this->is_available( $property->id, $range ) ) {
-			return new WP_Error( 'unavailable', __( 'Selected dates are not available.', 'ibb-rentals' ) );
+			// Include overlap details in both the message and the response data so the
+			// frontend (and an admin debugging via DevTools) can see which existing
+			// block is in the way — far more useful than a generic "not available".
+			$overlaps = $this->blocks->find_overlapping( $property->id, $range );
+			$summaries = [];
+			foreach ( $overlaps as $block ) {
+				$source = $block->source_override !== '' ? $block->source_override : $block->source;
+				$label  = ucfirst( $source );
+				if ( $block->guest_name !== '' ) {
+					$label .= ' / ' . $block->guest_name;
+				}
+				$summaries[] = sprintf(
+					'%s · %s → %s',
+					$label,
+					$block->range->checkin_string(),
+					$block->range->checkout_string()
+				);
+			}
+
+			$msg = __( 'Selected dates are not available.', 'ibb-rentals' );
+			if ( $summaries ) {
+				$msg .= ' (' . implode( '; ', $summaries ) . ')';
+			}
+
+			return new WP_Error(
+				'unavailable',
+				$msg,
+				[
+					'overlapping_blocks' => array_map(
+						fn( $b ) => [
+							'id'         => $b->id,
+							'source'     => $b->source,
+							'override'   => $b->source_override,
+							'start'      => $b->range->checkin_string(),
+							'end'        => $b->range->checkout_string(),
+							'guest_name' => $b->guest_name,
+							'status'     => $b->status,
+						],
+						$overlaps
+					),
+				]
+			);
 		}
 
 		return true;
