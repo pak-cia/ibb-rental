@@ -4,6 +4,17 @@
 
 ---
 
+## [0.10.0] — 2026-05-01
+
+### Added
+- **`PricingService::compute_tax()`** — resolves each component's IBB tax class (`''` / `'standard'` / slug) to the matching WC tax class, looks up rates via `WC_Tax::find_rates([ 'tax_class' => ... ])`, computes per-rate amounts via `WC_Tax::calc_tax( $amount, $rates, false )`, and aggregates results bucketed by rate-id. Returns `[ list<{label,rate_id,amount}>, total_tax_float ]`. Components with empty tax-class slugs or zero amounts are skipped (no work, no rate lookup). Falls back to `[ [], 0.0 ]` when `WC_Tax` is unavailable, so quotes still compute cleanly on a non-WC test harness.
+
+### Changed
+- **`PricingService::get_quote()` now computes tax per component** (accommodation, cleaning, extra-guest), each with its own IBB tax class. `Quote` is constructed with the new `tax_breakdown`, `tax_total`, `grand_total`, `accommodation_tax_class`, `cleaning_tax_class`, and `extra_guest_tax_class` fields populated.
+- **`split_payment()` now operates on `grand_total` (post-tax) rather than `total` (pre-tax).** Deposit and balance amounts therefore include their proportional share of tax, so the gateway's charge-today figure matches the all-in figure the guest agreed to. For untaxed properties this is a no-op (grand_total === total).
+
+---
+
 ## [0.6.0] — 2026-04-30
 
 ### Added

@@ -77,7 +77,24 @@ final class PricingService {
 
 		$total = $discounted + $extra_guest_fee + $cleaning_fee;
 
-		[ $payment_mode, $deposit_due, $balance_due, $balance_due_date ] = $this->split_payment( $property, $range, $total );
+		// Tax is computed per component using each component's own tax class,
+		// then aggregated by rate-id so the front-end can render one line per
+		// distinct tax rate (matches what WC's checkout will display). Net
+		// amounts are passed to WC_Tax (we do not handle inclusive pricing in
+		// v1 — see Pricing/CHANGELOG for the rationale).
+		$accommodation_tax_class = $property->tax_class();
+		$cleaning_tax_class      = $property->cleaning_tax_class();
+		$extra_guest_tax_class   = $property->extra_guest_tax_class();
+
+		$tax_components = [
+			[ 'amount' => $discounted,        'class' => $accommodation_tax_class ],
+			[ 'amount' => $cleaning_fee,      'class' => $cleaning_tax_class ],
+			[ 'amount' => $extra_guest_fee,   'class' => $extra_guest_tax_class ],
+		];
+		[ $tax_breakdown, $tax_total ] = $this->compute_tax( $tax_components );
+		$grand_total                   = round( $total + $tax_total, 2 );
+
+		[ $payment_mode, $deposit_due, $balance_due, $balance_due_date ] = $this->split_payment( $property, $range, $grand_total );
 
 		$quote = new Quote(
 			property_id:       $property->id,
@@ -90,6 +107,12 @@ final class PricingService {
 			cleaning_fee:      $cleaning_fee,
 			security_deposit:  $security_deposit,
 			total:             $total,
+			tax_breakdown:     $tax_breakdown,
+			tax_total:         $tax_total,
+			grand_total:       $grand_total,
+			accommodation_tax_class: $accommodation_tax_class,
+			cleaning_tax_class:      $cleaning_tax_class,
+			extra_guest_tax_class:   $extra_guest_tax_class,
 			payment_mode:      $payment_mode,
 			deposit_due:       $deposit_due,
 			balance_due:       $balance_due,
@@ -140,6 +163,64 @@ final class PricingService {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Compute tax for a list of (amount, IBB-tax-class) components.
+	 *
+	 * Each component's tax class is mapped to a WC tax-class slug:
+	 *   '' (or unknown)  → not taxed → component skipped
+	 *   'standard'       → '' (WC's standard rate)
+	 *   any other slug   → that slug verbatim (validated by save handler)
+	 *
+	 * For each taxable component we resolve the active rates via
+	 * `WC_Tax::find_rates()` (uses store base location + customer billing for
+	 * shop-default; here we have no checkout context so base location is the
+	 * sensible choice — matches what's printed in the cart subtotal during
+	 * the quote-generation phase). Per-rate tax is summed across components
+	 * and returned bucketed by rate-id so the UI can render one line per
+	 * distinct rate (e.g. "PB1 10%", "Service 5%").
+	 *
+	 * @param list<array{amount:float,class:string}> $components
+	 * @return array{0:list<array{label:string,rate_id:int,amount:float}>,1:float}
+	 */
+	private function compute_tax( array $components ): array {
+		if ( ! class_exists( '\\WC_Tax' ) ) {
+			return [ [], 0.0 ];
+		}
+
+		$by_rate_id = [];
+		foreach ( $components as $component ) {
+			$amount = (float) $component['amount'];
+			$class  = (string) $component['class'];
+			if ( $amount <= 0 || $class === '' ) {
+				continue;
+			}
+			$wc_class = $class === 'standard' ? '' : $class;
+			$rates    = \WC_Tax::find_rates( [ 'tax_class' => $wc_class ] );
+			if ( ! $rates ) {
+				continue;
+			}
+			$tax_amounts = \WC_Tax::calc_tax( $amount, $rates, false );
+			foreach ( $tax_amounts as $rate_id => $tax_amount ) {
+				$rate_id = (int) $rate_id;
+				if ( ! isset( $by_rate_id[ $rate_id ] ) ) {
+					$by_rate_id[ $rate_id ] = [
+						'label'   => (string) \WC_Tax::get_rate_label( $rate_id ),
+						'rate_id' => $rate_id,
+						'amount'  => 0.0,
+					];
+				}
+				$by_rate_id[ $rate_id ]['amount'] += (float) $tax_amount;
+			}
+		}
+
+		$breakdown = array_values( $by_rate_id );
+		$total     = 0.0;
+		foreach ( $breakdown as $row ) {
+			$total += $row['amount'];
+		}
+		return [ $breakdown, round( $total, 2 ) ];
 	}
 
 	/**

@@ -4,6 +4,13 @@
 
 ---
 
+## [0.10.0] — 2026-05-01
+
+### Added
+- **Tax-breakdown rendering in the booking-form quote panel** (`Assets.php` `renderQuote()`). When the priced quote returns a non-empty `tax_breakdown` and `tax_total > 0`, a new section appears between the fees block and the Total row containing one "Subtotal" line plus one row per distinct tax rate (label + amount, e.g. "PB1 10%: $X.XX"). The Total row then displays `grand_total` instead of pre-tax `total`. When no tax is configured the entire section is suppressed and the panel layout matches v0.9.0 byte-for-byte. Three new i18n strings: `subtotalLabel`, `taxLabel`, `grandTotal`.
+
+---
+
 ## [0.8.9] — 2026-05-01
 
 ### Fixed

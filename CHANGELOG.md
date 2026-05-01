@@ -10,6 +10,18 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.10.0] — 2026-05-01
+
+### Added
+- **Per-fee tax classes.** Booking Rules tab gained two new dropdowns alongside the existing accommodation tax class: **Tax class — cleaning fee** (`_ibb_cleaning_tax_class`) and **Tax class — extra-guest fee** (`_ibb_extra_guest_tax_class`). The extra-guest selector also exposes a `__inherit__` sentinel ("Same as accommodation", default) so it tracks the stay class unless explicitly overridden — common case for jurisdictions that lump extra-guest into the room tax. Cleaning defaults to "Not taxed". Save handler validates each submitted slug against `WC_Tax::get_tax_classes()` and falls back to safe defaults on unknown values. `Domain/Property` exposes `tax_class()`, `cleaning_tax_class()`, and `extra_guest_tax_class()` accessors; the third resolves the `__inherit__` sentinel transparently.
+- **Quote tax breakdown.** `Domain/Quote` gains four readonly fields (`tax_breakdown`, `tax_total`, `grand_total`, plus the three tax-class slugs) and `Services/PricingService::compute_tax()` resolves each component's class through `WC_Tax::find_rates()` + `WC_Tax::calc_tax()` and aggregates the result by rate-id so the front-end can render one row per distinct rate ("PB1 10%: $X.XX"). The booking-form quote panel (`Frontend/Assets.php` `renderQuote()`) now renders a Subtotal / per-rate-tax / Total trio whenever any taxable component resolved to non-zero tax — otherwise the section is suppressed entirely so untaxed properties keep the v0.9.0 layout.
+- **Per-fee tax routing through WC's cart.** `Woo/CartHandler::apply_prices()` now sets the line price to the **accommodation portion only** (nights × rate, after LOS) for full-payment bookings; cleaning + extra-guest amounts are added separately via `WC_Cart::add_fee()` on a new `woocommerce_cart_calculate_fees` callback (`add_fees()`), each carrying its own tax class. WC's tax engine then computes per-rate totals across the line + the two fees, matching what was quoted on the booking form. Deposit-mode bookings continue to charge a single tax-inclusive line today (we set `tax_status='none'` on the cart-line clone so WC doesn't re-tax the proportional tax already baked into the deposit figure); the breakdown still surfaces in the quote panel and in the cart line meta as an "Includes tax" row.
+
+### Changed
+- **Deposit / balance split now operates on `grand_total`** (post-tax) instead of `total` (pre-tax). Practical effect: a 30 % deposit on a $1,000 stay with $100 of tax now collects $330 today and $770 by the balance-due date, rather than $300 + $700 + tax-on-arrival surprises. For untaxed properties the figures are identical to v0.9.0.
+
+---
+
 ## [0.9.0] — 2026-05-01
 
 ### Added

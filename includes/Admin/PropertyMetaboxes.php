@@ -292,36 +292,34 @@ final class PropertyMetaboxes {
 		$this->row( __( 'Extra-guest threshold', 'ibb-rentals' ),    $this->number( '_ibb_extra_guest_threshold', $p->extra_guest_threshold(), 0 ) );
 		$this->row( __( 'Security deposit (informational)', 'ibb-rentals' ), $this->number( '_ibb_security_deposit', $p->security_deposit(), 0, 0.01 ) );
 
-		// ── Tax class ─────────────────────────────────────────────────────
-		// Maps to the linked WC product's tax_class + tax_status. See ProductSync.
-		// Empty value = not taxed (tax_status='none'); 'standard' = WC standard rate
-		// (tax_class=''); any other slug = WC user-defined tax class.
-		$current_tax_class = (string) $p->meta( '_ibb_tax_class', '' );
-		$tax_options       = [
-			''         => __( 'Not taxed', 'ibb-rentals' ),
-			'standard' => __( 'Standard rate', 'ibb-rentals' ),
-		];
-		if ( class_exists( '\\WC_Tax' ) ) {
-			foreach ( \WC_Tax::get_tax_classes() as $class_label ) {
-				$slug = sanitize_title( $class_label );
-				if ( $slug !== '' && $slug !== 'standard' ) {
-					$tax_options[ $slug ] = $class_label;
-				}
-			}
-		}
-		echo '<tr><th><label>' . esc_html__( 'Tax class', 'ibb-rentals' ) . '</label></th><td>';
-		echo '<select name="_ibb_tax_class">';
-		foreach ( $tax_options as $value => $label ) {
-			printf(
-				'<option value="%s" %s>%s</option>',
-				esc_attr( (string) $value ),
-				selected( $current_tax_class, (string) $value, false ),
-				esc_html( $label )
-			);
-		}
-		echo '</select>';
-		echo '<p class="description">' . esc_html__( 'Tax rates are configured under WooCommerce → Settings → Tax. Pick which class applies to this property; the linked WC product is updated on save.', 'ibb-rentals' ) . '</p>';
+		// ── Tax classes ───────────────────────────────────────────────────
+		// Three independent selectors so admins can charge e.g. PB1 hotel tax
+		// on the stay but keep cleaning at standard VAT (or untaxed). The
+		// accommodation class also mirrors to the linked WC product's
+		// tax_class + tax_status (see ProductSync). Cleaning and extra-guest
+		// tax classes are applied at cart time via WC_Cart::add_fee() so each
+		// fee carries its own tax class through to checkout — see
+		// Woo/CartHandler.php.
+		$tax_options = $this->tax_class_options();
+
+		echo '<tr><th><label>' . esc_html__( 'Tax class — accommodation', 'ibb-rentals' ) . '</label></th><td>';
+		$this->render_tax_class_select( '_ibb_tax_class', (string) $p->meta( '_ibb_tax_class', '' ), $tax_options );
+		echo '<p class="description">' . esc_html__( 'Applied to nights × rate (after any length-of-stay discount). Mirrored to the linked WC product on save. Configure rates under WooCommerce → Settings → Tax.', 'ibb-rentals' ) . '</p>';
 		echo '</td></tr>';
+
+		echo '<tr><th><label>' . esc_html__( 'Tax class — cleaning fee', 'ibb-rentals' ) . '</label></th><td>';
+		$this->render_tax_class_select( '_ibb_cleaning_tax_class', (string) $p->meta( '_ibb_cleaning_tax_class', '' ), $tax_options );
+		echo '<p class="description">' . esc_html__( 'Defaults to "Not taxed". Some jurisdictions exempt cleaning from accommodation tax — set this independently of the stay class.', 'ibb-rentals' ) . '</p>';
+		echo '</td></tr>';
+
+		echo '<tr><th><label>' . esc_html__( 'Tax class — extra-guest fee', 'ibb-rentals' ) . '</label></th><td>';
+		$current_eg = (string) $p->meta( '_ibb_extra_guest_tax_class', '__inherit__' );
+		$eg_options = [ '__inherit__' => __( 'Same as accommodation', 'ibb-rentals' ) ] + $tax_options;
+		$this->render_tax_class_select( '_ibb_extra_guest_tax_class', $current_eg, $eg_options );
+		echo '<p class="description">' . esc_html__( 'Extra-guest fees usually follow the accommodation tax. Override here if your tax regime treats them differently.', 'ibb-rentals' ) . '</p>';
+		echo '</td></tr>';
+
+		echo '<tr><th></th><td><p class="description"><em>' . esc_html__( 'Security deposit is informational only and never charged today, so no tax class applies to it.', 'ibb-rentals' ) . '</em></p></td></tr>';
 
 		$mode = $p->payment_mode();
 		echo '<tr><th><label>' . esc_html__( 'Payment mode', 'ibb-rentals' ) . '</label></th><td>';
@@ -494,16 +492,26 @@ final class PropertyMetaboxes {
 			update_post_meta( $post_id, '_ibb_payment_mode', $mode === 'deposit' ? 'deposit' : 'full' );
 		}
 
-		if ( isset( $_POST['_ibb_tax_class'] ) ) {
-			// Validate against WC's known tax classes (plus 'standard' and '' for not-taxed).
-			$raw     = sanitize_title( (string) wp_unslash( $_POST['_ibb_tax_class'] ) );
-			$allowed = [ '', 'standard' ];
-			if ( class_exists( '\\WC_Tax' ) ) {
-				foreach ( \WC_Tax::get_tax_classes() as $class_label ) {
-					$allowed[] = sanitize_title( $class_label );
-				}
+		// Tax-class fields. Allowed values: '', 'standard', plus every slug from
+		// WC → Settings → Tax. The extra-guest field also accepts the sentinel
+		// '__inherit__' meaning "follow the accommodation tax class".
+		$allowed_tax = [ '', 'standard' ];
+		if ( class_exists( '\\WC_Tax' ) ) {
+			foreach ( \WC_Tax::get_tax_classes() as $class_label ) {
+				$allowed_tax[] = sanitize_title( $class_label );
 			}
-			update_post_meta( $post_id, '_ibb_tax_class', in_array( $raw, $allowed, true ) ? $raw : '' );
+		}
+		foreach ( [ '_ibb_tax_class', '_ibb_cleaning_tax_class' ] as $key ) {
+			if ( isset( $_POST[ $key ] ) ) {
+				$raw = sanitize_title( (string) wp_unslash( $_POST[ $key ] ) );
+				update_post_meta( $post_id, $key, in_array( $raw, $allowed_tax, true ) ? $raw : '' );
+			}
+		}
+		if ( isset( $_POST['_ibb_extra_guest_tax_class'] ) ) {
+			$raw = (string) wp_unslash( $_POST['_ibb_extra_guest_tax_class'] );
+			$raw = $raw === '__inherit__' ? '__inherit__' : sanitize_title( $raw );
+			$allowed_eg = array_merge( $allowed_tax, [ '__inherit__' ] );
+			update_post_meta( $post_id, '_ibb_extra_guest_tax_class', in_array( $raw, $allowed_eg, true ) ? $raw : '__inherit__' );
 		}
 
 		// LOS discounts: row-based UI now (was JSON textarea). Each row is
@@ -714,6 +722,44 @@ final class PropertyMetaboxes {
 
 	private function time( string $name, string $value ): string {
 		return sprintf( '<input type="time" name="%s" value="%s" />', esc_attr( $name ), esc_attr( $value ) );
+	}
+
+	/**
+	 * Build the canonical IBB tax-class option list:
+	 *   ''         => Not taxed
+	 *   'standard' => Standard rate
+	 *   <slug>     => each user-defined class from WC → Settings → Tax
+	 *
+	 * @return array<string,string>
+	 */
+	private function tax_class_options(): array {
+		$opts = [
+			''         => __( 'Not taxed', 'ibb-rentals' ),
+			'standard' => __( 'Standard rate', 'ibb-rentals' ),
+		];
+		if ( class_exists( '\\WC_Tax' ) ) {
+			foreach ( \WC_Tax::get_tax_classes() as $class_label ) {
+				$slug = sanitize_title( $class_label );
+				if ( $slug !== '' && $slug !== 'standard' ) {
+					$opts[ $slug ] = $class_label;
+				}
+			}
+		}
+		return $opts;
+	}
+
+	/** @param array<string,string> $options */
+	private function render_tax_class_select( string $name, string $current, array $options ): void {
+		printf( '<select name="%s">', esc_attr( $name ) );
+		foreach ( $options as $value => $label ) {
+			printf(
+				'<option value="%s" %s>%s</option>',
+				esc_attr( (string) $value ),
+				selected( $current, (string) $value, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</select>';
 	}
 
 	private function css(): string {

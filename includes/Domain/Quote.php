@@ -19,6 +19,7 @@ final class Quote {
 	/**
 	 * @param list<array{date:string,base_rate:float,weekend:bool,applied_rate:float}> $nights
 	 * @param array{min_nights:int,pct:float,amount:float}|null                        $los_discount
+	 * @param list<array{label:string,rate_id:int,amount:float}>                       $tax_breakdown
 	 */
 	public function __construct(
 		public readonly int $property_id,
@@ -31,6 +32,12 @@ final class Quote {
 		public readonly float $cleaning_fee,
 		public readonly float $security_deposit,
 		public readonly float $total,
+		public readonly array $tax_breakdown,
+		public readonly float $tax_total,
+		public readonly float $grand_total,
+		public readonly string $accommodation_tax_class,
+		public readonly string $cleaning_tax_class,
+		public readonly string $extra_guest_tax_class,
 		public readonly string $payment_mode,
 		public readonly float $deposit_due,
 		public readonly float $balance_due,
@@ -41,6 +48,14 @@ final class Quote {
 
 	/** @return array<string, mixed> */
 	public function to_array(): array {
+		$rounded_breakdown = array_map(
+			fn( array $row ): array => [
+				'label'   => (string) $row['label'],
+				'rate_id' => (int) $row['rate_id'],
+				'amount'  => $this->round( (float) $row['amount'] ),
+			],
+			$this->tax_breakdown
+		);
 		return [
 			'property_id'      => $this->property_id,
 			'checkin'          => $this->range->checkin_string(),
@@ -54,6 +69,12 @@ final class Quote {
 			'cleaning_fee'     => $this->round( $this->cleaning_fee ),
 			'security_deposit' => $this->round( $this->security_deposit ),
 			'total'            => $this->round( $this->total ),
+			'tax_breakdown'    => $rounded_breakdown,
+			'tax_total'        => $this->round( $this->tax_total ),
+			'grand_total'      => $this->round( $this->grand_total ),
+			'accommodation_tax_class' => $this->accommodation_tax_class,
+			'cleaning_tax_class'      => $this->cleaning_tax_class,
+			'extra_guest_tax_class'   => $this->extra_guest_tax_class,
 			'payment_mode'     => $this->payment_mode,
 			'deposit_due'      => $this->round( $this->deposit_due ),
 			'balance_due'      => $this->round( $this->balance_due ),

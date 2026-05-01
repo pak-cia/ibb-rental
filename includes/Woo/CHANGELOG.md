@@ -4,6 +4,16 @@
 
 ---
 
+## [0.10.0] — 2026-05-01
+
+### Changed
+- **`CartHandler::apply_prices()` now splits per payment mode.**
+  - **Full payment**: line price = accommodation only (`nightly_subtotal − los_discount.amount`). Cleaning + extra-guest fees are added on a new `woocommerce_cart_calculate_fees` callback (`add_fees()`), each via `WC_Cart::add_fee( $name, $amount, $taxable, $tax_class )` with its own tax class pulled from the signed quote payload. WC's tax engine then computes per-rate totals across the line + the two fees, matching the booking-form breakdown.
+  - **Deposit mode**: unchanged single-line behaviour, but the line clone is now forced to `tax_status='none'` + `tax_class=''` because the deposit_due figure already includes the proportional share of tax (PricingService now splits `grand_total` rather than pre-tax `total`). This avoids WC double-charging tax on top.
+- `render_item_meta()` deposit-mode branch now uses `grand_total` for "Stay total" (was pre-tax `total`) and inserts an "Includes tax" line whenever `tax_total > 0`, so the cart line meta matches the all-in figure the gateway will charge today.
+
+---
+
 ## [0.9.0] — 2026-05-01
 
 ### Added

@@ -97,6 +97,36 @@ final class Property {
 	public function security_deposit(): float     { return (float) $this->meta( '_ibb_security_deposit', 0 ); }
 
 	/**
+	 * Tax class slug applied to the accommodation portion of the booking
+	 * (nights × rate, after LOS discount). `''` = not taxed,
+	 * `'standard'` = WC standard rate, anything else = a user-defined slug
+	 * registered under WooCommerce → Settings → Tax.
+	 */
+	public function tax_class(): string {
+		return (string) $this->meta( '_ibb_tax_class', '' );
+	}
+
+	/**
+	 * Tax class slug for the cleaning fee. Empty string = not taxed (default).
+	 * Stored separately from the accommodation tax class so a property can be
+	 * subject to e.g. hotel/PB1 tax on accommodation while keeping the cleaning
+	 * fee at standard VAT (or untaxed altogether).
+	 */
+	public function cleaning_tax_class(): string {
+		return (string) $this->meta( '_ibb_cleaning_tax_class', '' );
+	}
+
+	/**
+	 * Tax class slug for the extra-guest fee. Defaults to whatever the
+	 * accommodation tax class is — extra-guest is logically part of the stay
+	 * — but can be overridden when the local tax regime treats them differently.
+	 */
+	public function extra_guest_tax_class(): string {
+		$raw = (string) $this->meta( '_ibb_extra_guest_tax_class', '__inherit__' );
+		return $raw === '__inherit__' ? $this->tax_class() : $raw;
+	}
+
+	/**
 	 * @return list<array{min_nights:int,pct:float}>  sorted descending by min_nights
 	 */
 	public function los_discounts(): array {

@@ -84,6 +84,9 @@ final class Assets {
 						'cleaningFee'    => __( 'Cleaning fee', 'ibb-rentals' ),
 						'extraGuestFee'  => __( 'Extra guests', 'ibb-rentals' ),
 						'securityDeposit'=> __( 'Security deposit (refundable)', 'ibb-rentals' ),
+						'subtotalLabel'  => __( 'Subtotal', 'ibb-rentals' ),
+						'taxLabel'       => __( 'Tax', 'ibb-rentals' ),
+						'grandTotal'     => __( 'Total', 'ibb-rentals' ),
 					],
 				] )
 			),
@@ -537,9 +540,25 @@ CSS;
       if (q.extra_guest_fee > 0) feesHtml += row(i18n.extraGuestFee, fmt(q.extra_guest_fee));
       var feesSection = feesHtml ? '<div class="ibb-booking__quote-section">' + feesHtml + '</div>' : '';
 
-      // Total
+      // Section 3: tax breakdown — only when at least one taxable component
+      // resolved to non-zero tax (otherwise no taxes are configured / applied
+      // and we skip the section entirely so the panel stays clean).
+      var hasTax = q.tax_breakdown && q.tax_breakdown.length > 0 && q.tax_total > 0;
+      var taxSection = '';
+      if (hasTax) {
+        var taxHtml = row(i18n.subtotalLabel, fmt(q.total));
+        for (var i = 0; i < q.tax_breakdown.length; i++) {
+          var t = q.tax_breakdown[i];
+          taxHtml += row(escapeHtml(t.label || i18n.taxLabel), fmt(t.amount));
+        }
+        taxSection = '<div class="ibb-booking__quote-section">' + taxHtml + '</div>';
+      }
+
+      // Total — grand_total when tax is in play, otherwise total (which equals
+      // grand_total when there's no tax, so the displayed figure is consistent).
+      var totalAmount = hasTax ? q.grand_total : q.total;
       var totalSection = '<div class="ibb-booking__quote-section">';
-      totalSection += '<div class="ibb-booking__quote-row ibb-booking__quote-total"><span>' + escapeHtml(i18n.total) + '</span><span>' + fmt(q.total) + '</span></div>';
+      totalSection += '<div class="ibb-booking__quote-row ibb-booking__quote-total"><span>' + escapeHtml(i18n.total) + '</span><span>' + fmt(totalAmount) + '</span></div>';
       if (q.security_deposit > 0) {
         totalSection += row(i18n.securityDeposit, fmt(q.security_deposit), 'muted');
       }
@@ -555,7 +574,7 @@ CSS;
         paymentSection += '</div>';
       }
 
-      quoteEl.innerHTML = nightsSection + feesSection + totalSection + paymentSection;
+      quoteEl.innerHTML = nightsSection + feesSection + taxSection + totalSection + paymentSection;
       submit.disabled = false;
     }
 

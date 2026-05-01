@@ -37,6 +37,12 @@ final class CartHandler {
 		add_filter( 'woocommerce_get_cart_item_from_session', [ $this, 'rehydrate' ], 10, 2 );
 		add_action( 'woocommerce_before_calculate_totals', [ $this, 'apply_prices' ], 20 );
 
+		// Per-fee tax routing: cleaning + extra-guest each carry their own tax
+		// class through to checkout via add_fee(), so the WC tax engine applies
+		// the right rate to each component without us having to mirror three
+		// tax classes onto a single product.
+		add_action( 'woocommerce_cart_calculate_fees', [ $this, 'add_fees' ], 10, 1 );
+
 		// Cart-page rendering: emit a single woocommerce_get_item_data entry
 		// whose `display` field is the full meta block as <br>-separated lines.
 		// This works in every cart context (classic shortcode, Cart block,
@@ -108,13 +114,71 @@ final class CartHandler {
 			if ( ! is_array( $quote ) || empty( $quote['total'] ) ) {
 				continue;
 			}
-			// Deposit mode: charge only the deposit through the cart;
-			// the balance is collected later via BalanceService.
-			$mode  = (string) ( $quote['payment_mode'] ?? 'full' );
-			$price = $mode === 'deposit'
-				? (float) ( $quote['deposit_due'] ?? $quote['total'] )
-				: (float) $quote['total'];
-			$cart_item['data']->set_price( $price );
+			$mode    = (string) ( $quote['payment_mode'] ?? 'full' );
+			$product = $cart_item['data'];
+
+			if ( $mode === 'deposit' ) {
+				// Deposit mode keeps the v0.9.0 single-line behaviour: the
+				// quote's deposit_due already includes the proportional share
+				// of tax (see PricingService::compute_tax — the split is done
+				// against grand_total). We zero out the line's tax-status so
+				// WC doesn't add tax on top of an already-tax-inclusive figure.
+				// The balance is collected later via BalanceService.
+				$product->set_price( (float) ( $quote['deposit_due'] ?? $quote['total'] ) );
+				$product->set_tax_status( 'none' );
+				$product->set_tax_class( '' );
+				continue;
+			}
+
+			// Full mode: line price = accommodation only (after LOS).
+			// Cleaning + extra-guest fees are added separately in add_fees()
+			// so each carries its own tax class through to checkout.
+			$accommodation = (float) ( $quote['nightly_subtotal'] ?? 0 );
+			if ( ! empty( $quote['los_discount']['amount'] ) ) {
+				$accommodation -= (float) $quote['los_discount']['amount'];
+			}
+			$product->set_price( $accommodation );
+		}
+	}
+
+	/**
+	 * Add cleaning + extra-guest fees to the cart with their own tax classes.
+	 *
+	 * Only fires for full-payment bookings — deposit-mode quotes route the
+	 * single deposit amount through the line price (see apply_prices()) so
+	 * the cart total matches what the gateway will actually charge today.
+	 */
+	public function add_fees( \WC_Cart $cart ): void {
+		foreach ( $cart->get_cart() as $cart_item ) {
+			$quote = $cart_item[ self::ITEM_KEY ]['quote'] ?? null;
+			if ( ! is_array( $quote ) ) {
+				continue;
+			}
+			if ( (string) ( $quote['payment_mode'] ?? 'full' ) !== 'full' ) {
+				continue;
+			}
+
+			$cleaning = (float) ( $quote['cleaning_fee'] ?? 0 );
+			if ( $cleaning > 0 ) {
+				$class = (string) ( $quote['cleaning_tax_class'] ?? '' );
+				$cart->add_fee(
+					__( 'Cleaning fee', 'ibb-rentals' ),
+					$cleaning,
+					$class !== '',
+					$class === 'standard' ? '' : $class
+				);
+			}
+
+			$extra = (float) ( $quote['extra_guest_fee'] ?? 0 );
+			if ( $extra > 0 ) {
+				$class = (string) ( $quote['extra_guest_tax_class'] ?? '' );
+				$cart->add_fee(
+					__( 'Extra-guest fee', 'ibb-rentals' ),
+					$extra,
+					$class !== '',
+					$class === 'standard' ? '' : $class
+				);
+			}
 		}
 	}
 
@@ -164,7 +228,14 @@ final class CartHandler {
 		$lines[] = $this->meta_line( __( 'Guests', 'ibb-rentals' ),    (string) (int) $quote['guests'] );
 
 		if ( ( $quote['payment_mode'] ?? 'full' ) === 'deposit' ) {
-			$lines[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( (float) $quote['total'] ) );
+			// Deposit mode collapses the whole stay onto a single cart line so
+			// the gateway sees one charge today. The detailed breakdown
+			// (tax included) only surfaces here in the line meta.
+			$stay_total = (float) ( $quote['grand_total'] ?? $quote['total'] );
+			$lines[] = $this->meta_line( __( 'Stay total', 'ibb-rentals' ),            wc_price( $stay_total ) );
+			if ( ! empty( $quote['tax_total'] ) && (float) $quote['tax_total'] > 0 ) {
+				$lines[] = $this->meta_line( __( 'Includes tax', 'ibb-rentals' ),     wc_price( (float) $quote['tax_total'] ) );
+			}
 			$lines[] = $this->meta_line( __( 'Deposit charged today', 'ibb-rentals' ), wc_price( (float) $quote['deposit_due'] ) );
 			$lines[] = $this->meta_line(
 				__( 'Balance due', 'ibb-rentals' ),

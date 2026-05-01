@@ -4,6 +4,14 @@
 
 ---
 
+## [0.10.0] — 2026-05-01
+
+### Added
+- **Two new tax-class dropdowns on the Booking Rules tab**, alongside the v0.9.0 accommodation selector: **Tax class — cleaning fee** (`_ibb_cleaning_tax_class`) and **Tax class — extra-guest fee** (`_ibb_extra_guest_tax_class`). Extra-guest exposes an extra "Same as accommodation" option (sentinel `__inherit__`, default) so it tracks the stay class without an explicit re-pick. Cleaning defaults to "Not taxed". Three selectors share a private `tax_class_options()` builder + `render_tax_class_select()` helper so the option list stays in sync. Save handler validates all three keys against the live `WC_Tax::get_tax_classes()` list; unknown slugs are coerced to safe defaults.
+- An informational helper row at the bottom of the tax block clarifies that the security deposit is never charged today and so has no tax class.
+
+---
+
 ## [0.9.0] — 2026-05-01
 
 ### Added
