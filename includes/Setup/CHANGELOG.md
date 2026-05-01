@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.2] — 2026-05-01
+
+### Changed
+- `Schema::ical_feeds_sql()` — `sync_interval` column DEFAULT lowered from 1800 → 900. Existing rows unaffected (keep their saved value); newly-inserted feeds get 15 min instead of 30 min.
+
+---
+
 ## [0.6.0] — 2026-04-30
 
 ### Added

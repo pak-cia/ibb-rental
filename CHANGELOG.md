@@ -10,6 +10,15 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.2] — 2026-05-01
+
+### Changed
+- **Gallery picker auto-engages Bulk Select mode on open.** Default WP behaviour requires Ctrl/Cmd-click to multi-select in the media library — that's an accessibility blocker for users with limited modifier-key access. The Photos-tab "Add images" frame now programmatically clicks the toolbar's "Bulk select" toggle on `frame.on('open')`, so each thumbnail tap toggles selection without any modifier. Frame option also flipped from `multiple: true` to `multiple: 'add'` (additive selection across consecutive picks).
+- **Currency / rate input fields widened** on the Rates and Booking Rules tabs from WP's default ~75px to 140px (CSS rule on `#ibb-tab-rates input.small-text[type="number"]` and `#ibb-tab-rules`). Seasonal-rate-row inline widths bumped: `nightly_rate` 80px → 140px, `weekend_uplift` 65px → 110px. IDR-scale values (e.g. `2,200,000`) now fit without overflow or scroll. No data layout change.
+- **iCal feed `sync_interval` default lowered from 1800s (30 min) to 900s (15 min).** Touches `Setup/Schema.php` (column DEFAULT) and `Admin/Menu.php` (Add-feed form value + handler fallback). Existing feed rows keep their previous interval; only newly-added feeds pick up the new default.
+
+---
+
 ## [0.8.1] — 2026-04-30
 
 ### Fixed

@@ -149,7 +149,7 @@ final class Menu {
 		echo '<input type="url" name="feed_url" class="large-text" required /></td></tr>';
 
 		echo '<tr><th>' . esc_html__( 'Sync interval (seconds)', 'ibb-rentals' ) . '</th><td>';
-		echo '<input type="number" name="feed_sync_interval" value="1800" min="300" step="60" /></td></tr>';
+		echo '<input type="number" name="feed_sync_interval" value="900" min="300" step="60" /></td></tr>';
 
 		echo '</tbody></table>';
 		submit_button( __( 'Add feed', 'ibb-rentals' ), 'primary', 'submit', false );
@@ -209,7 +209,7 @@ final class Menu {
 		$label       = sanitize_text_field( (string) wp_unslash( $_POST['feed_label'] ?? '' ) );
 		$source      = sanitize_key( (string) ( $_POST['feed_source'] ?? 'custom' ) );
 		$url         = esc_url_raw( (string) wp_unslash( $_POST['feed_url'] ?? '' ) );
-		$interval    = max( 300, (int) ( $_POST['feed_sync_interval'] ?? 1800 ) );
+		$interval    = max( 300, (int) ( $_POST['feed_sync_interval'] ?? 900 ) );
 
 		if ( $property_id > 0 && $label !== '' && $url !== '' ) {
 			$this->feeds->insert( [

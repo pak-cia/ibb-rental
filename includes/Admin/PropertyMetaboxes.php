@@ -267,11 +267,11 @@ final class PropertyMetaboxes {
 		echo '<tr class="ibb-srates__row">';
 		printf( '<td><input type="date" name="%s[date_from]" value="%s" required /></td>', esc_attr( $n ), $from );
 		printf( '<td><input type="date" name="%s[date_to]" value="%s" required /></td>', esc_attr( $n ), $to );
-		printf( '<td><input type="number" name="%s[nightly_rate]" value="%s" min="0" step="0.01" style="width:80px" required /></td>', esc_attr( $n ), $rate );
+		printf( '<td><input type="number" name="%s[nightly_rate]" value="%s" min="0" step="0.01" style="width:140px" required /></td>', esc_attr( $n ), $rate );
 		printf( '<td><input type="text" name="%s[label]" value="%s" placeholder="%s" style="width:120px" /></td>', esc_attr( $n ), $label, esc_attr__( 'e.g. High season', 'ibb-rentals' ) );
 		printf( '<td><input type="number" name="%s[priority]" value="%s" min="0" max="999" style="width:55px" /></td>', esc_attr( $n ), $priority );
 		echo '<td>';
-		printf( '<input type="number" name="%s[weekend_uplift]" value="%s" min="0" step="0.01" style="width:65px" placeholder="—" />', esc_attr( $n ), $uplift );
+		printf( '<input type="number" name="%s[weekend_uplift]" value="%s" min="0" step="0.01" style="width:110px" placeholder="—" />', esc_attr( $n ), $uplift );
 		echo ' <select name="' . esc_attr( $n ) . '[uplift_type]" style="width:52px">';
 		printf( '<option value="pct" %s>%%</option>', selected( $utype, 'pct', false ) );
 		printf( '<option value="abs" %s>abs</option>', selected( $utype, 'abs', false ) );
@@ -683,6 +683,12 @@ final class PropertyMetaboxes {
 .ibb-tab.is-active { display:block; }
 .ibb-tab h4 { margin-top:18px; }
 
+/* Currency-style inputs need room for IDR-scale values (e.g. 2,200,000 = 7 digits + commas).
+   Bumps every <input type="number" class="small-text"> on the Rates and Booking-rules tabs
+   from WP's default ~75px to ~140px. */
+#ibb-tab-rates input.small-text[type="number"],
+#ibb-tab-rules input.small-text[type="number"] { width:140px; }
+
 .ibb-galleries__add { display:flex; gap:8px; margin:12px 0 18px; }
 .ibb-galleries__add input { flex:1; max-width:340px; }
 .ibb-gallery { background:#fff; border:1px solid #dcdcde; border-radius:6px; padding:14px 16px; margin-bottom:14px; }
@@ -863,9 +869,25 @@ CSS;
     if (e.target.classList.contains('ibb-gallery__add-images')) {
       var frame = wp.media({
         title: 'Add images to "' + gallery.label + '"',
-        multiple: true,
+        multiple: 'add',
         library: { type: 'image' },
         button: { text: 'Add to gallery' }
+      });
+      // Force the modal into Bulk-Select mode on open so each thumbnail click
+      // toggles selection without needing Ctrl/Cmd. Default WP behaviour requires
+      // Ctrl-click for multi-select, which is an accessibility blocker for users
+      // with limited modifier-key access. The "Bulk select" toggle button on the
+      // toolbar normally engages this; we click it programmatically.
+      frame.on('open', function () {
+        // Wait a tick for the toolbar to render, then click the bulk-select button
+        // if it isn't already engaged. Re-runs are no-op idempotent (we check the
+        // pressed state before clicking).
+        setTimeout(function () {
+          var btn = document.querySelector('.media-modal .select-mode-toggle-button');
+          if (btn && btn.getAttribute('aria-pressed') !== 'true') {
+            btn.click();
+          }
+        }, 50);
       });
       frame.on('select', function(){
         var sel = frame.state().get('selection').toJSON();

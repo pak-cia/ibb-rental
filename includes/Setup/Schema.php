@@ -109,7 +109,7 @@ final class Schema {
 			last_error TEXT NULL,
 			etag VARCHAR(190) NOT NULL DEFAULT '',
 			last_modified VARCHAR(190) NOT NULL DEFAULT '',
-			sync_interval INT NOT NULL DEFAULT 1800,
+			sync_interval INT NOT NULL DEFAULT 900,
 			failure_count INT NOT NULL DEFAULT 0,
 			enabled TINYINT(1) NOT NULL DEFAULT 1,
 			created_at DATETIME NOT NULL,

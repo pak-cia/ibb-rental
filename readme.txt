@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.8.1
+Stable tag: 0.8.2
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,11 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.8.2 =
+* Gallery picker auto-engages WP's Bulk Select mode on open, so each thumbnail click toggles selection without needing Ctrl/Cmd. Accessibility fix for users with limited modifier-key access.
+* Currency / rate input fields on the Rates and Booking Rules tabs widened to 140px to fit IDR-scale values (7+ digit prices).
+* iCal feed sync interval default lowered from 1800s (30 min) to 900s (15 min) for fresher OTA imports.
 
 = 0.8.1 =
 * Fix: critical error opening WooCommerce → Settings → Emails. `OrderObserver::suppress_for_ibb_order()` filter callback was strictly typed `WC_Order $order` but WC's settings page invokes `is_enabled()` with `$order = null`. Now accepts nullable order and falls through to the original $enabled when no order context is present.

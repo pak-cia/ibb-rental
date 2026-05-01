@@ -4,6 +4,15 @@
 
 ---
 
+## [0.8.2] — 2026-05-01
+
+### Changed
+- **Gallery picker auto-engages Bulk Select mode on open** (`PropertyMetaboxes.php`). Eliminates Ctrl/Cmd-click requirement for multi-image selection — accessibility fix.
+- **Currency input fields widened** on Rates and Booking Rules tabs to fit IDR 7-digit values. Inline CSS in the metabox stylesheet plus inline-style bumps on the seasonal-rate-row `nightly_rate` and `weekend_uplift` inputs.
+- **Add iCal Feed form** default sync interval lowered from 1800 → 900 seconds.
+
+---
+
 ## [0.7.0] — 2026-04-30
 
 ### Changed
