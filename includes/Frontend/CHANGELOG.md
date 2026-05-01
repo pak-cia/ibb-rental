@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.4] — 2026-05-01
+
+### Fixed
+- **`TemplateLoader::route()` now defers to Elementor Pro Theme Builder.** Previously the priority-99 `template_include` filter unconditionally overrode whatever Elementor had set. Now it returns the incoming `$template` unchanged when `\ElementorPro\Modules\ThemeBuilder\Module::instance()->get_conditions_manager()->get_documents_for_location('single')` reports any matching document. Without Elementor Pro the existing fallback chain (theme override → plugin template) still applies. See `TROUBLESHOOTING.md`.
+
+---
+
 ## [0.3.5] — 2026-04-28
 
 ### Fixed

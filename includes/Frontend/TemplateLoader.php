@@ -30,6 +30,13 @@ final class TemplateLoader {
 			return $template;
 		}
 
+		// If Elementor Pro Theme Builder has a Single template whose Display Conditions
+		// match this request (e.g. "Properties / All"), defer to it. Without this guard,
+		// our plugin template silently overwrites the admin-assigned Elementor template.
+		if ( $this->has_elementor_theme_template_for_single() ) {
+			return $template;
+		}
+
 		$theme_locations = [ 'ibb-rentals/single-ibb_property.php', 'single-ibb_property.php' ];
 		$located = locate_template( $theme_locations );
 		if ( $located ) {
@@ -41,5 +48,30 @@ final class TemplateLoader {
 			return $fallback;
 		}
 		return $template;
+	}
+
+	/**
+	 * True when Elementor Pro's Theme Builder has at least one Single-location document
+	 * whose conditions match the current request. Returns false if Elementor Pro isn't
+	 * loaded or its API throws — we then fall through to the plugin template.
+	 */
+	private function has_elementor_theme_template_for_single(): bool {
+		if ( ! class_exists( '\\ElementorPro\\Modules\\ThemeBuilder\\Module' ) ) {
+			return false;
+		}
+		try {
+			$module = \ElementorPro\Modules\ThemeBuilder\Module::instance();
+			if ( ! $module || ! method_exists( $module, 'get_conditions_manager' ) ) {
+				return false;
+			}
+			$conditions_manager = $module->get_conditions_manager();
+			if ( ! $conditions_manager || ! method_exists( $conditions_manager, 'get_documents_for_location' ) ) {
+				return false;
+			}
+			$docs = $conditions_manager->get_documents_for_location( 'single' );
+			return ! empty( $docs );
+		} catch ( \Throwable ) {
+			return false;
+		}
 	}
 }

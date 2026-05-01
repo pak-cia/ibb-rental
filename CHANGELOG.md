@@ -10,6 +10,13 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.4] — 2026-05-01
+
+### Fixed
+- **Elementor Pro Theme Builder Single templates assigned to Properties weren't rendering.** `Frontend/TemplateLoader::route()` hooks `template_include` at priority 99 and used to unconditionally override `$template` for `is_singular('ibb_property')`. Elementor Pro's Theme Builder runs earlier (~priority 11) and sets `$template` to its matched document, but our filter then threw it away. `route()` now calls `\ElementorPro\Modules\ThemeBuilder\Module::instance()->get_conditions_manager()->get_documents_for_location('single')` and, if any documents match the current request, returns the incoming `$template` unchanged so Elementor wins. Otherwise the existing theme-override → plugin-fallback chain applies. Detection is wrapped in `class_exists` + try/catch so the plugin still works without Elementor Pro and degrades safely if Elementor's API shape changes. Filed in `Frontend/TROUBLESHOOTING.md`.
+
+---
+
 ## [0.8.3] — 2026-05-01
 
 ### Changed

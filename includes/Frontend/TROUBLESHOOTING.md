@@ -108,6 +108,18 @@ $item_data[] = [
 
 ---
 
+## Elementor Pro Theme Builder template assigned to Properties doesn't render
+
+**Symptom:** an admin builds an Elementor Pro Single template in **Templates → Theme Builder**, sets Display Conditions to `Include / Properties / All`, publishes — but visiting any single property URL shows the plugin's default template (or the theme's default), not the Elementor design.
+
+**Root cause:** `Frontend/TemplateLoader::route()` hooks `template_include` at priority 99 and used to unconditionally override `$template` for any `is_singular('ibb_property')` request. Elementor Pro's Theme Builder also hooks `template_include` (typically priority 11) and replaces `$template` with its own document when conditions match. Our priority-99 filter ran later and threw away whatever Elementor had set.
+
+**Fix:** `route()` now checks whether `\ElementorPro\Modules\ThemeBuilder\Module::instance()->get_conditions_manager()->get_documents_for_location('single')` returns any matching documents for the current request. If yes, we return the incoming `$template` unchanged so Elementor's template wins. Otherwise the existing theme-override → plugin-fallback chain still applies. Fixed in v0.8.4.
+
+**If this regresses:** confirm the user has Elementor Pro (free Elementor doesn't ship Theme Builder) and that their template's "Single" location has matching conditions for the property they're viewing. The detection is conservative — if Elementor Pro is loaded but throws or the API shape changes, we silently fall through to our plugin template.
+
+---
+
 ## Availability calendar shows more than 7 days per row / dates don't align to day-of-week headers
 
 **Symptom:** the inline availability calendar (Flatpickr) shows all dates for a month crammed onto one or two rows, or day numbers don't sit under the correct weekday header.
