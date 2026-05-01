@@ -10,6 +10,17 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.6] — 2026-05-01
+
+### Fixed
+- **Booking Form widget — Book button styling didn't match the editor preview on the frontend.** Elementor only generates per-widget CSS for Style controls that have a value, so leaving Text color / Border radius / Padding blank let the user's Site Kit "Button" defaults (different from the plugin's baseline) cascade through on the frontend — pink text, 3px radius, 8/16px padding — even though the editor preview showed something else.
+
+  `BookingFormWidget` Style control declarations now ship with sensible `default` values: `button_color = '#ffffff'`, `button_radius = 4px` linked, `button_padding = 10/14px`. Elementor renders these defaults as per-widget CSS at sufficient specificity to override Site Kit Button styles. Customizing in the Style panel still overrides these defaults as before.
+
+  **For existing widgets:** open the Elementor template, click "Update" — Elementor regenerates the per-widget CSS file (`elementor/css/post-{id}.css`) with the new defaults baked in.
+
+---
+
 ## [0.8.5] — 2026-05-01
 
 ### Fixed

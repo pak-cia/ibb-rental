@@ -260,6 +260,7 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 		$this->add_control( 'button_color', [
 			'label'     => __( 'Text color', 'ibb-rentals' ),
 			'type'      => \Elementor\Controls_Manager::COLOR,
+			'default'   => '#ffffff',
 			'selectors' => [ '{{WRAPPER}} .ibb-booking__submit' => 'color: {{VALUE}};' ],
 		] );
 
@@ -305,6 +306,17 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 			'label'      => __( 'Border radius', 'ibb-rentals' ),
 			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
 			'size_units' => [ 'px' ],
+			// Default values guarantee Elementor generates per-widget CSS for this property
+			// even when the user hasn't customized it — otherwise Site Kit's global "Button"
+			// border-radius leaks through and looks inconsistent with the editor preview.
+			'default'    => [
+				'top'      => '4',
+				'right'    => '4',
+				'bottom'   => '4',
+				'left'     => '4',
+				'unit'     => 'px',
+				'isLinked' => true,
+			],
 			'selectors'  => [
 				'{{WRAPPER}} .ibb-booking__submit' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 			],
@@ -314,6 +326,16 @@ class BookingFormWidget extends \Elementor\Widget_Base {
 			'label'      => __( 'Padding', 'ibb-rentals' ),
 			'type'       => \Elementor\Controls_Manager::DIMENSIONS,
 			'size_units' => [ 'px', 'em' ],
+			// Same rationale — match the plugin's base CSS so Site Kit Button padding
+			// can't override.
+			'default'    => [
+				'top'      => '10',
+				'right'    => '14',
+				'bottom'   => '10',
+				'left'     => '14',
+				'unit'     => 'px',
+				'isLinked' => false,
+			],
 			'selectors'  => [
 				'{{WRAPPER}} .ibb-booking__submit' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 			],

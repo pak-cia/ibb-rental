@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.8.5
+Stable tag: 0.8.6
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.8.6 =
+* Fix: Booking Form Elementor widget — Style → Book button defaults now match plugin baseline (white text, 4px border-radius, 10/14px padding) so per-widget Style controls always generate CSS that wins over Site Kit / theme "Button" defaults. Without this, leaving fields blank in the editor let kit Button text-color and padding leak through on the frontend with values different from what the editor preview showed.
 
 = 0.8.5 =
 * Fix: Elementor Pro Theme Builder Single templates assigned to Properties still didn't render after 0.8.4. Detection rewritten to use a path-based check (does `$template` already point inside another plugin's directory?) as the primary signal, with the Elementor Pro API call as a secondary signal. Catches edge cases where Elementor's API returns empty even when a template is matched.
