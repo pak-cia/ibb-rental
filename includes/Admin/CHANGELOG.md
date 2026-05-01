@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.3] — 2026-05-01
+
+### Changed
+- **`AdminCalendar` Month / Week views: visible spacing between event bars.** Inline `<style>` block in `render()` adds `margin: 1px 1px 2px !important` to `.fc-daygrid-event` / `.fc-timegrid-event` and a translucent inset box-shadow to `.fc-event` so adjacent same-color bookings no longer bleed together. No JS or layout-math changes — purely visual.
+
+---
+
 ## [0.8.2] — 2026-05-01
 
 ### Changed

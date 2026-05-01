@@ -111,6 +111,19 @@ final class AdminCalendar {
 				</div>
 			</div>
 
+			<?php
+			/* FullCalendar month / week event spacing.
+			 * Default FC dayGrid stacks events with no vertical gap, so adjacent
+			 * same-color bars (e.g. two airbnb bookings on consecutive rows) blend
+			 * together visually. A 2px bottom margin + a faint outline makes each
+			 * event clearly distinct without touching FC's layout math.
+			 */
+			?>
+			<style>
+				#ibb-admin-calendar .fc-daygrid-event,
+				#ibb-admin-calendar .fc-timegrid-event { margin: 1px 1px 2px !important; }
+				#ibb-admin-calendar .fc-event { box-shadow: 0 0 0 1px rgba(255,255,255,0.35) inset; }
+			</style>
 			<?php /* FullCalendar month / week views */ ?>
 			<div id="ibb-admin-calendar" style="background:#fff;padding:16px;border:1px solid #ddd;border-radius:4px;"></div>
 

@@ -10,6 +10,13 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.3] — 2026-05-01
+
+### Changed
+- **Calendar Month / Week event spacing.** FullCalendar's dayGrid and timeGrid views render events flush against each other vertically. With our solid-color OTA bars, that meant two consecutive same-source bookings (e.g. an Airbnb block ending Sun + another Airbnb block starting Mon, on different rows of the dayGrid) bled into one continuous block — visually misleading. Added a small inline `<style>` in `AdminCalendar::render()`: `.fc-daygrid-event` / `.fc-timegrid-event` get `margin: 1px 1px 2px`, plus a translucent inset box-shadow on every `.fc-event` for a subtle internal outline. Each booking is now clearly distinct.
+
+---
+
 ## [0.8.2] — 2026-05-01
 
 ### Changed
