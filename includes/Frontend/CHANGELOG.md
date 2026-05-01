@@ -4,6 +4,13 @@
 
 ---
 
+## [0.8.9] — 2026-05-01
+
+### Fixed
+- **Booking form date timezone shift** in `Assets.php`. `d.toISOString().slice(0,10)` was converting Flatpickr's local-midnight Dates to UTC, which shifted the date back a day in any UTC+ timezone. New `fmtd(d)` helper formats from `getFullYear/getMonth/getDate` (local components). Applied in the booking-form `/availability` and `/quote` calls and in the `[ibb_calendar]` shortcode. Also filed in `TROUBLESHOOTING.md` (see "Booking form rejects valid turnover-day check-ins").
+
+---
+
 ## [0.8.7] — 2026-05-01
 
 ### Fixed

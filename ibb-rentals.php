@@ -3,7 +3,7 @@
  * Plugin Name:       IBB Rentals
  * Plugin URI:        https://github.com/ibb/ibb-rentals
  * Description:       Tourism vacation-rental property management for WooCommerce — direct bookings, iCal calendar sync (Airbnb, Booking.com, Agoda, VRBO), seasonal pricing, deposit + balance payments.
- * Version:           0.8.8
+ * Version:           0.8.9
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
@@ -18,7 +18,7 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'IBB_RENTALS_VERSION', '0.8.8' );
+define( 'IBB_RENTALS_VERSION', '0.8.9' );
 define( 'IBB_RENTALS_FILE', __FILE__ );
 define( 'IBB_RENTALS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'IBB_RENTALS_URL', plugin_dir_url( __FILE__ ) );

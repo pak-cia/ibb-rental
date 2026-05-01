@@ -451,10 +451,20 @@ CSS;
       syncStepperState();
     }
 
+    // Local-date formatter — never use toISOString().slice(0,10) for a Date that
+    // came from Flatpickr (local midnight). In any positive-UTC timezone (e.g.
+    // Asia/Makassar +8) toISOString shifts the date back a day because local
+    // midnight is the prior-day evening in UTC. Format from local components instead.
+    function fmtd(d) {
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
     var today = new Date();
     var horizon = new Date(); horizon.setMonth(horizon.getMonth()+18);
 
-    fetch(window.IBBRentals.restUrl + '/availability?property_id=' + pid + '&from=' + today.toISOString().slice(0,10) + '&to=' + horizon.toISOString().slice(0,10))
+    fetch(window.IBBRentals.restUrl + '/availability?property_id=' + pid + '&from=' + fmtd(today) + '&to=' + fmtd(horizon))
       .then(function(r){ return r.json(); })
       .then(function(data){
         var blocked = (data && data.blocked_dates) || [];
@@ -477,7 +487,10 @@ CSS;
     function requestQuote(){
       var dates = dateInput._flatpickr.selectedDates;
       if (dates.length !== 2) return;
-      var fmtd = function(d){ return d.toISOString().slice(0,10); };
+      // Uses the outer fmtd() (local-component formatter). The inline
+      // toISOString().slice(0,10) variant that lived here previously was the
+      // root cause of the v0.8.7- "selected dates not available" bug: it
+      // shifted Flatpickr's local-midnight Date back a day for any UTC+ user.
       setError(''); setLoading(true);
       fetch(window.IBBRentals.restUrl + '/quote', {
         method: 'POST',
@@ -703,10 +716,16 @@ CSS;
     if (!pid) return;
 
     // Fetch 18 months of availability (enough for showMonths up to 3).
+    // Local-date formatter — see booking form's fmtd() comment for rationale.
+    function fmtd(d) {
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
     var today   = new Date();
     var horizon = new Date(); horizon.setMonth(horizon.getMonth() + 18);
-    var from    = today.toISOString().slice(0, 10);
-    var to      = horizon.toISOString().slice(0, 10);
+    var from    = fmtd(today);
+    var to      = fmtd(horizon);
 
     fetch(window.IBBRentals.restUrl + '/availability?property_id=' + pid + '&from=' + from + '&to=' + to)
       .then(function(r){ return r.json(); })

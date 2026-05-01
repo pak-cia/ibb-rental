@@ -1,5 +1,29 @@
 # Frontend — Troubleshooting
 
+## Booking form rejects valid turnover-day check-ins
+
+**Symptom:** user picks dates that are visibly free in the date picker (typically the day immediately after a previous booking's checkout) and the form returns "Selected dates are not available." Affects sites in any UTC+ timezone (e.g. Asia/Makassar +8 / Asia/Jakarta +7 / Australia / Asia generally).
+
+**Root cause:** `Assets.php` used `d.toISOString().slice(0,10)` to format Flatpickr's selected Date objects before sending to `/availability` and `/quote`. Flatpickr creates Dates at *local midnight*. In any UTC+ timezone, local midnight is the previous day's evening in UTC, so `toISOString()` returns the prior calendar day. The form sent `checkin=2026-05-27` to the backend when the user actually picked May 28 — and the backend overlap query then matched the previous booking that legitimately ends May 28 (turnover day, half-open).
+
+**Fix (v0.8.9):** replace `toISOString().slice(0,10)` with a local-component formatter:
+
+```js
+function fmtd(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+```
+
+Applied in four places: booking-form `/availability` GET (init), booking-form `/quote` POST (`requestQuote`), `[ibb_calendar]` shortcode `from`, `[ibb_calendar]` shortcode `to`.
+
+**General lesson:** never use `toISOString()` on a Date that represents a calendar date. It's a UTC serializer. For "what calendar date did the user pick," always pull `getFullYear / getMonth / getDate` from the same Date object the user's locale created. This applies anywhere Flatpickr, native `<input type="date">`, or a date-only datepicker hands you a Date.
+
+**Diagnostic primitive:** the v0.8.8 enrichment of `unavailable` WP_Error responses (now includes `data.overlapping_blocks[]` and a parenthetical naming the conflicting block in the message) makes this kind of off-by-one immediately visible — the response says "block ending 2026-05-28" while the user clearly picked May 28+, exposing the date-shift.
+
+---
+
 ## Shortcodes inside a property's description render as raw text
 
 **Symptom:** `[ibb_gallery gallery="bedroom-1"]` typed into the property's main content shows on the front-end as literal `[ibb_gallery gallery="bedroom-1"]`.

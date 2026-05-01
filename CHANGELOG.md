@@ -10,6 +10,19 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.8.9] — 2026-05-01
+
+### Fixed
+- **Timezone shift in booking-form date submission.** The booking-form JS in `Frontend/Assets.php` formatted picked dates with `d.toISOString().slice(0,10)`. Flatpickr creates Date objects at local midnight; in any UTC+ timezone (e.g. Asia/Makassar +8) `toISOString()` returns the prior calendar day because local midnight = previous-day evening in UTC.
+
+  Real-world consequence on theuluhills.com (UTC+8): user picks May 28 → May 31 (a legitimate turnover-day check-in after Brian Zending's May 23-28 stay). JS sends `checkin=2026-05-27, checkout=2026-05-30`. Backend overlap query: `block.end_date='2026-05-28' > checkin='2026-05-27'` → TRUE → quote rejected as "Selected dates are not available". The 0.8.8 diagnostic addition surfaced Brian's real block in the error message and pinpointed the off-by-one.
+
+  Fix: introduce `fmtd(d)` local-component formatter in all four spots (booking-form `/availability` GET, booking-form `/quote` POST, `[ibb_calendar]` shortcode `from`, `[ibb_calendar]` shortcode `to`). The formatter uses `getFullYear()`, `getMonth()+1`, `getDate()` so the Y-m-d output matches the user's calendar selection regardless of browser timezone.
+
+  No backend change — the half-open `[checkin, checkout)` semantics in `DateRange`, `find_overlapping`, and `each_night` were correct all along; the bug was purely in how the frontend serialised picked dates over the wire.
+
+---
+
 ## [0.8.8] — 2026-05-01
 
 ### Changed

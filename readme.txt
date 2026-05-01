@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.8.8
+Stable tag: 0.8.9
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.8.9 =
+* Fix: booking-form date timezone bug. Selected dates from the picker were converted via `Date.toISOString()` which UTC-shifted them — for any UTC+ timezone (e.g. Asia/Makassar +8) Flatpickr's local-midnight Date became the previous calendar day in UTC. The form sent the wrong dates to the backend, causing valid turnover-day check-ins to be rejected as overlapping. Replaced with a local-component formatter (`getFullYear/getMonth/getDate`) in all four spots in `Frontend/Assets.php`.
 
 = 0.8.8 =
 * "Selected dates are not available" booking-form error now names the conflicting block — source, guest name, and date range — so admins (and guests, debugging) can see exactly which existing booking is in the way instead of a vague unavailable message. Also returned in the JSON response under `data.overlapping_blocks` for programmatic consumption.
