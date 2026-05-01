@@ -137,6 +137,7 @@ final class ProductSync {
 		$product->set_regular_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
 		$product->set_price( (string) ( get_post_meta( $post_id, '_ibb_base_rate', true ) ?: '0' ) );
 		$this->apply_tax_settings( $product, (string) get_post_meta( $post_id, '_ibb_tax_class', true ) );
+		$product->set_image_id( (int) get_post_thumbnail_id( $post_id ) );
 		$product->update_meta_data( self::META_PROPERTY_ID, $post_id );
 		$product->update_meta_data( '_ibb_base_rate', (string) get_post_meta( $post_id, '_ibb_base_rate', true ) );
 		$product->save();
@@ -178,6 +179,7 @@ final class ProductSync {
 		$product->set_regular_price( (string) ( get_post_meta( $post->ID, '_ibb_base_rate', true ) ?: '0' ) );
 		$product->set_price( (string) ( get_post_meta( $post->ID, '_ibb_base_rate', true ) ?: '0' ) );
 		$this->apply_tax_settings( $product, (string) get_post_meta( $post->ID, '_ibb_tax_class', true ) );
+		$product->set_image_id( (int) get_post_thumbnail_id( $post->ID ) );
 		$product->update_meta_data( self::META_PROPERTY_ID, $post->ID );
 		$product->update_meta_data( '_ibb_base_rate', (string) get_post_meta( $post->ID, '_ibb_base_rate', true ) );
 		return (int) $product->save();

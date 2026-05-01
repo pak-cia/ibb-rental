@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.10.1
+Stable tag: 0.10.2
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.10.2 =
+* Fix: cart / checkout / order emails showed the WooCommerce placeholder image for booking lines. The mirrored WC product had no thumbnail set; the property's featured image was never copied across. `ProductSync` now mirrors the property's featured image (`get_post_thumbnail_id`) onto the linked product on every save, so re-saving any property in admin populates the missing thumbnail. New properties get the right image automatically.
 
 = 0.10.1 =
 * Fix: quote panel showed no tax breakdown despite WooCommerce tax classes being configured. The pricing engine called `WC_Tax::find_rates()` which silently returns empty when invoked from a context with no customer billing country set (the `/quote` REST endpoint runs before checkout). Now uses `WC_Tax::get_base_tax_rates()` which always resolves against the shop base location — same approach WC's product price-suffix uses on the shop page. Cart was already correct, this only affected the booking-form preview.

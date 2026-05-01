@@ -4,6 +4,13 @@
 
 ---
 
+## [0.10.2] — 2026-05-01
+
+### Fixed
+- **`ProductSync` now mirrors the property's featured image to the linked WC product** (`set_image_id( get_post_thumbnail_id( $property_id ) )`) in both `sync()` and `create_product()`. Without this the cart line, mini-cart, order edit screen, and customer emails all rendered WC's built-in placeholder. Saving any property post retrofills the thumbnail on its existing product.
+
+---
+
 ## [0.10.0] — 2026-05-01
 
 ### Changed

@@ -10,6 +10,13 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.10.2] — 2026-05-01
+
+### Fixed
+- **Cart / checkout / order-email image was the WooCommerce placeholder for booking lines.** The mirrored `ibb_booking` product had no `_thumbnail_id` set — `ProductSync` had never copied the property's featured image across, so WC fell back to its built-in placeholder. `Woo/ProductSync::sync()` and `create_product()` now call `$product->set_image_id( get_post_thumbnail_id( $property_id ) )`, so the property's featured image flows everywhere WC renders the product image (cart, mini-cart, classic + Cart-block, order edit screen, customer emails). Re-saving any property in admin retrofills the missing thumbnail on the linked product.
+
+---
+
 ## [0.10.1] — 2026-05-01
 
 ### Fixed
