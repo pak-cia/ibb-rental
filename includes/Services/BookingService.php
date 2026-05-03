@@ -62,7 +62,7 @@ final class BookingService {
 			id:           null,
 			property_id:  $property_id,
 			range:        $range,
-			source:       Block::SOURCE_DIRECT,
+			source:       Block::SOURCE_WEB,
 			external_uid: $external_uid,
 			status:       Block::STATUS_CONFIRMED,
 			order_id:     $order->get_id(),

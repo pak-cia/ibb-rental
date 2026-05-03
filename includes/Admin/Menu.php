@@ -359,7 +359,7 @@ final class Menu {
 		$clickup_folder_id    = (string) ( $settings['clickup_folder_id']    ?? '' );
 		$clickup_list_id      = (string) ( $settings['clickup_list_id']      ?? '' );
 		$lookup_nonce         = wp_create_nonce( 'ibb_rentals_clickup_lookup' );
-		$default_map          = '{"abnb":"airbnb","airbnb":"airbnb","agoda":"agoda","booking":"booking","vrbo":"vrbo","expedia":"expedia","direct":"direct","manual":"manual"}';
+		$default_map          = '{"abnb":"airbnb","airbnb":"airbnb","agoda":"agoda","booking":"booking","vrbo":"vrbo","expedia":"expedia","web":"web","direct":"direct","manual":"manual"}';
 
 		echo '<h2 class="title">' . esc_html__( 'ClickUp integration', 'ibb-rentals' ) . '</h2>';
 		echo '<p class="description">' . esc_html__( 'When configured, a background job periodically reads your ClickUp Bookings list and writes guest names onto matching OTA blocks in the calendar. Guest data is read from the task itself: title for the name (split on " - "), start_date / due_date for check-in / check-out, and tags for the OTA source.', 'ibb-rentals' ) . '</p>';
@@ -461,6 +461,53 @@ final class Menu {
 		);
 		echo '<p class="description">' . esc_html__( 'JSON object mapping your ClickUp tag names to IBB sources. Keys are tag names (lowercase), values are source slugs.', 'ibb-rentals' ) . '</p></td></tr>';
 
+		// ── Auto-create blocks from ClickUp tasks ────────────────────────
+		// Sources that have an active iCal feed configured for ANY property
+		// are excluded from the allowlist UI — those OTAs are already the
+		// authoritative source of truth for their own bookings, and letting
+		// ClickUp insert phantom blocks for them would compete.
+		$feeds_by_source = [];
+		foreach ( $this->feeds->find_enabled() as $feed_row ) {
+			$feeds_by_source[ (string) $feed_row['source'] ] = true;
+		}
+
+		$allowlist_options = [
+			'web'     => __( 'Website (this site\'s checkout — leave off, plugin already inserts these)', 'ibb-rentals' ),
+			'direct'  => __( 'Walk-in / phone', 'ibb-rentals' ),
+			'manual'  => __( 'Manual block', 'ibb-rentals' ),
+			'airbnb'  => 'Airbnb',
+			'booking' => 'Booking.com',
+			'agoda'   => 'Agoda',
+			'vrbo'    => 'VRBO',
+			'expedia' => 'Expedia',
+		];
+		$saved_allowlist = [];
+		if ( ! empty( $settings['clickup_create_sources'] ) ) {
+			$decoded = json_decode( (string) $settings['clickup_create_sources'], true );
+			if ( is_array( $decoded ) ) {
+				$saved_allowlist = array_map( 'strval', $decoded );
+			}
+		}
+
+		echo '<tr><th>' . esc_html__( 'Create blocks for', 'ibb-rentals' ) . '</th><td>';
+		echo '<p class="description" style="margin-top:0">' . esc_html__( 'When a ClickUp task has property + dates + a mapped source but no matching block exists yet, the sync inserts one. Tick each source you want this auto-create behaviour for. OTAs that already have an iCal feed configured (greyed out) are excluded — their feed is the authoritative source of truth for their bookings, so ClickUp creating phantoms there would compete.', 'ibb-rentals' ) . '</p>';
+		foreach ( $allowlist_options as $slug => $label ) {
+			$has_feed = isset( $feeds_by_source[ $slug ] );
+			$disabled = $has_feed ? ' disabled' : '';
+			$checked  = ( ! $has_feed && in_array( $slug, $saved_allowlist, true ) ) ? ' checked' : '';
+			$style    = $has_feed ? ' style="color:#999"' : '';
+			printf(
+				'<label%s style="display:block;margin:2px 0"><input type="checkbox" name="clickup_create_sources[]" value="%s"%s%s /> %s%s</label>',
+				$style,
+				esc_attr( $slug ),
+				$checked,
+				$disabled,
+				esc_html( $label ),
+				$has_feed ? ' <em>' . esc_html__( '(has iCal feed — disabled)', 'ibb-rentals' ) . '</em>' : ''
+			);
+		}
+		echo '</td></tr>';
+
 		$this->setting_row( __( 'Sync interval (seconds)', 'ibb-rentals' ), 'clickup_sync_interval', (int) ( $settings['clickup_sync_interval'] ?? 3600 ), 'number', [ 'min' => 300 ] );
 
 		echo '</tbody></table>';
@@ -475,11 +522,13 @@ final class Menu {
 
 			$status = (array) get_option( ClickUpService::STATUS_OPT, [] );
 			if ( ! empty( $status['last_sync_at'] ) ) {
-				$when     = (int) $status['last_sync_at'];
-				$error    = (string) ( $status['error'] ?? '' );
-				$updated  = (int) ( $status['updated'] ?? 0 );
-				$total    = (int) ( $status['total_tasks'] ?? 0 );
-				$relative = human_time_diff( $when, time() );
+				$when      = (int) $status['last_sync_at'];
+				$error     = (string) ( $status['error'] ?? '' );
+				$updated   = (int) ( $status['updated']   ?? 0 );
+				$created   = (int) ( $status['created']   ?? 0 );
+				$cancelled = (int) ( $status['cancelled'] ?? 0 );
+				$total     = (int) ( $status['total_tasks'] ?? 0 );
+				$relative  = human_time_diff( $when, time() );
 
 				if ( $error !== '' ) {
 					printf(
@@ -495,15 +544,12 @@ final class Menu {
 					printf(
 						'<span style="color:#0a8f3d;font-weight:600">%s</span>',
 						esc_html( sprintf(
-							/* translators: 1 = relative time, 2 = blocks updated, 3 = tasks fetched */
-							_n(
-								'✓ Last sync %1$s ago — updated %2$d block from %3$d task',
-								'✓ Last sync %1$s ago — updated %2$d blocks from %3$d tasks',
-								$updated,
-								'ibb-rentals'
-							),
+							/* translators: 1 = relative time, 2 = created, 3 = updated, 4 = cancelled, 5 = tasks fetched */
+							__( '✓ Last sync %1$s ago — %2$d created, %3$d updated, %4$d cancelled (from %5$d task(s))', 'ibb-rentals' ),
 							$relative,
+							$created,
 							$updated,
+							$cancelled,
 							$total
 						) )
 					);
@@ -756,6 +802,27 @@ final class Menu {
 		}
 		$clickup_unit_property_map_json = wp_json_encode( $unit_property_map ) ?: '{}';
 
+		// Allowlist of sources for which ClickUp may auto-create blocks.
+		// We deliberately re-validate here rather than trusting the UI to have
+		// disabled feed-backed sources — if someone POSTs a source that has an
+		// iCal feed configured, we drop it server-side too.
+		$allowed_create = [ 'web', 'direct', 'manual', 'airbnb', 'booking', 'agoda', 'vrbo', 'expedia' ];
+		$feeds_by_source = [];
+		foreach ( $this->feeds->find_enabled() as $feed_row ) {
+			$feeds_by_source[ (string) $feed_row['source'] ] = true;
+		}
+		$create_sources_input = isset( $_POST['clickup_create_sources'] ) && is_array( $_POST['clickup_create_sources'] )
+			? wp_unslash( (array) $_POST['clickup_create_sources'] )
+			: [];
+		$create_sources = [];
+		foreach ( $create_sources_input as $slug ) {
+			$slug = sanitize_key( (string) $slug );
+			if ( in_array( $slug, $allowed_create, true ) && ! isset( $feeds_by_source[ $slug ] ) ) {
+				$create_sources[] = $slug;
+			}
+		}
+		$clickup_create_sources_json = wp_json_encode( array_values( array_unique( $create_sources ) ) ) ?: '[]';
+
 		$updated = array_merge( $existing, [
 			'default_payment_mode'      => $raw_mode === 'deposit' ? 'deposit' : 'full',
 			'default_check_in_time'     => sanitize_text_field( (string) wp_unslash( $_POST['default_check_in_time'] ?? '15:00' ) ),
@@ -773,6 +840,7 @@ final class Menu {
 			'clickup_list_id'           => $clickup_list,
 			'clickup_tag_map'           => $clickup_map,
 			'clickup_unit_property_map' => $clickup_unit_property_map_json,
+			'clickup_create_sources'    => $clickup_create_sources_json,
 			'clickup_sync_interval'     => $clickup_interval,
 		] );
 

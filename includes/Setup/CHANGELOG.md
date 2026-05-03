@@ -4,6 +4,13 @@
 
 ---
 
+## [0.11.0] — 2026-05-03
+
+### Added
+- **Migration v5** — backfills `wp_ibb_blocks.source` from `'direct'` to `'web'` for any row that has a non-NULL `order_id`. These came from the website checkout, not walk-ins, so the new `web` source is correct for them. `direct` rows without an order (manual entries the host typed in) stay `direct` since walk-ins is the new meaning. No schema change — `source` is already free-text VARCHAR(32). `Migrations::LATEST_VERSION` bumped to 5.
+
+---
+
 ## [0.8.2] — 2026-05-01
 
 ### Changed

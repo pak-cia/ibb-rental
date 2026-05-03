@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.10.2
+Stable tag: 0.11.0
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,14 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.0 =
+* Hub-and-spoke calendar sync. The plugin is now the single source of truth for property availability across every OTA. Each OTA gets its own per-property feed URL — `/ical/<property_id>/<ota>.ics?token=…` — and that feed includes every confirmed block from every other source, with a per-OTA loop guard so an OTA never re-imports its own bookings. Paste each URL into the matching OTA (Airbnb, Booking.com, Agoda, VRBO, Expedia) as its inbound calendar feed; bookings made anywhere fan out to everywhere.
+* New booking-source split. Plugin/website checkout bookings now use `source='web'`; `source='direct'` is reserved for walk-ins / phone bookings entered manually. Existing website bookings are migrated automatically (any `direct` block linked to a WC order becomes `web`). Calendar gets a teal swatch for walk-ins; website bookings keep the purple. Source-filter dropdown adds a "Walk-in / phone" option.
+* ClickUp can auto-create blocks. When a ClickUp task has property + dates + a mapped source but no matching block exists yet, the sync now inserts one. Settings → ClickUp gains a "Create blocks for" allowlist (per source), with sources that already have an iCal feed greyed out so ClickUp can't compete with the OTA's authoritative feed. Solves the Agoda case (no native iCal feed — ClickUp drops `source=agoda` blocks into the system, and Airbnb / Booking.com / VRBO see them via their per-OTA feeds).
+* ClickUp cancellation handling. Tasks marked cancelled (custom status named "cancelled" or a "cancelled" tag) flip the matching block (those we previously created via `external_uid='clickup:<id>'`) to `status='cancelled'` so they drop out of every per-OTA feed. iCal-imported blocks owned by other OTAs are never touched.
+* Sync-status pill on the Settings page now shows created / updated / cancelled counts, not just "updated" total.
+* **Hard URL switch.** The legacy `/ical/<property_id>.ics` feed URL is removed. Re-paste the new per-OTA URLs from each property's iCal tab into your OTAs after upgrading.
 
 = 0.10.2 =
 * Fix: cart / checkout / order emails showed the WooCommerce placeholder image for booking lines. The mirrored WC product had no thumbnail set; the property's featured image was never copied across. `ProductSync` now mirrors the property's featured image (`get_post_thumbnail_id`) onto the linked product on every save, so re-saving any property in admin populates the missing thumbnail. New properties get the right image automatically.

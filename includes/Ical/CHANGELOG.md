@@ -5,6 +5,17 @@
 ### Fixed
 - `Exporter::feed_url` uses `add_query_arg()` so the URL is correctly formed on plain-permalink sites.
 
+## [0.11.0] — 2026-05-03
+
+### Changed
+- **Hub-and-spoke export topology.** `Exporter::build( $property_id, $for_ota = '' )` now scopes the feed to a specific OTA — `$for_ota` is one of `Block::OTA_SOURCES`. The exporter calls `AvailabilityRepository::find_exportable( $property_id, $for_ota )` which returns every confirmed block except those whose `source` matches `$for_ota` (loop guard) and except `hold`. Every other source — including ClickUp-created `agoda` / `vrbo` blocks for OTAs without iCal feeds — flows through.
+- `feed_url( $property_id, $for_ota )`, `token_for( $property_id, $for_ota )`, `verify_token( $property_id, $for_ota, $token )` — all gained the per-OTA arg. Tokens are namespaced `ical:<id>:<ota>` so rotating one OTA's feed doesn't invalidate the others.
+- New `feed_urls( int $property_id ): array<string,string>` returning an OTA-keyed map of feed URLs — used by `Admin/PropertyMetaboxes` to render the iCal tab's one-row-per-OTA table.
+- `compute_etag( $property_id, $for_ota = '' )` — etag varies per feed because their bodies differ.
+
+### Removed
+- The legacy combined feed URL `/ical/<property_id>.ics?token=…` is gone — `Rest/Controllers/IcalController` only registers `/ical/<id>/<ota>.ics` now. Hard switch.
+
 ## [0.1.0] — 2026-04-26
 
 ### Added

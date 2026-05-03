@@ -410,10 +410,26 @@ final class PropertyMetaboxes {
 	private function render_ical( Property $p ): void {
 		echo '<div class="ibb-tab" id="ibb-tab-ical">';
 
-		$feed_url = $this->ical_exporter->feed_url( $p->id );
-		echo '<h4>' . esc_html__( 'Export feed for OTAs', 'ibb-rentals' ) . '</h4>';
-		echo '<p class="description">' . esc_html__( 'Paste this URL into Airbnb / Booking.com / Agoda / VRBO as your inbound calendar feed. Direct bookings made on this site will appear there as "Reserved".', 'ibb-rentals' ) . '</p>';
-		printf( '<input type="text" readonly value="%s" class="large-text code" onclick="this.select()" />', esc_attr( $feed_url ) );
+		$urls   = $this->ical_exporter->feed_urls( $p->id );
+		$labels = [
+			'airbnb'  => 'Airbnb',
+			'booking' => 'Booking.com',
+			'agoda'   => 'Agoda',
+			'vrbo'    => 'VRBO',
+			'expedia' => 'Expedia',
+		];
+
+		echo '<h4>' . esc_html__( 'Export feeds — one URL per OTA', 'ibb-rentals' ) . '</h4>';
+		echo '<p class="description">' . esc_html__( 'Paste each URL into the matching OTA as its inbound calendar feed. The plugin acts as the central availability hub: every booking on every OTA (plus website + walk-in bookings) flows out to the others, with a per-OTA loop guard so an OTA never re-imports its own bookings.', 'ibb-rentals' ) . '</p>';
+		echo '<table class="widefat striped" style="margin-bottom:16px;"><thead><tr><th style="width:140px;">' . esc_html__( 'OTA', 'ibb-rentals' ) . '</th><th>' . esc_html__( 'Feed URL', 'ibb-rentals' ) . '</th></tr></thead><tbody>';
+		foreach ( $urls as $ota => $url ) {
+			printf(
+				'<tr><td><strong>%s</strong></td><td><input type="text" readonly value="%s" class="large-text code" onclick="this.select()" /></td></tr>',
+				esc_html( $labels[ $ota ] ?? ucfirst( $ota ) ),
+				esc_attr( $url )
+			);
+		}
+		echo '</tbody></table>';
 
 		echo '<h4>' . esc_html__( 'Import feeds from OTAs', 'ibb-rentals' ) . '</h4>';
 		$rows = $this->feeds->find_for_property( $p->id );

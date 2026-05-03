@@ -2,10 +2,18 @@
 /**
  * A single availability block — one row in `wp_ibb_blocks`.
  *
- * Blocks come from three places: direct bookings on this site (source='direct'),
- * imported iCal events from OTAs (source='airbnb'|'booking'|'agoda'|'vrbo'|'other'),
- * and manual admin block-outs (source='manual'). A short-lived 'hold' source is
- * used to reserve dates during checkout submission to prevent races.
+ * Sources (the `source` column):
+ *   - `web`     — booked via this site's WooCommerce checkout (paid order)
+ *   - `direct`  — walk-in / phone / in-person, entered manually by the host
+ *   - `manual`  — admin block-out (maintenance, owner stay, etc.)
+ *   - `hold`    — short-lived race-prevention lock during checkout submission
+ *   - `airbnb` / `booking` / `agoda` / `vrbo` / `expedia` — imported from that
+ *     OTA, either via iCal feed *or* synthesised from ClickUp tasks for OTAs
+ *     that don't expose an iCal feed (Agoda is the motivating case). The plugin
+ *     becomes the central availability hub: every OTA points its inbound
+ *     calendar at our per-OTA export URL, and every block gets fanned out to
+ *     every other OTA — see Ical/Exporter for the loop-guard rule.
+ *   - `other`   — generic catch-all when iCal source can't be classified
  */
 
 declare( strict_types=1 );
@@ -19,7 +27,8 @@ defined( 'ABSPATH' ) || exit;
 
 final class Block {
 
-	public const SOURCE_DIRECT  = 'direct';
+	public const SOURCE_WEB     = 'web';      // Plugin/website checkout
+	public const SOURCE_DIRECT  = 'direct';   // Walk-in / phone / in-person
 	public const SOURCE_MANUAL  = 'manual';
 	public const SOURCE_HOLD    = 'hold';
 	public const SOURCE_AIRBNB  = 'airbnb';
@@ -28,6 +37,31 @@ final class Block {
 	public const SOURCE_VRBO    = 'vrbo';
 	public const SOURCE_EXPEDIA = 'expedia';
 	public const SOURCE_OTHER   = 'other';
+
+	/**
+	 * Sources that originate inside this plugin (not synced in from
+	 * elsewhere). These are always exported to every OTA's feed — they
+	 * never need a loop-guard because no OTA owns them.
+	 *
+	 * @var list<string>
+	 */
+	public const LOCAL_SOURCES = [ self::SOURCE_WEB, self::SOURCE_DIRECT, self::SOURCE_MANUAL ];
+
+	/**
+	 * Sources tied to a specific OTA. Used by the per-OTA feed exporter to
+	 * decide which blocks to suppress when serving that OTA's feed (a block
+	 * with `source=airbnb` is excluded from the Airbnb feed to prevent
+	 * loops, but included in every other OTA's feed).
+	 *
+	 * @var list<string>
+	 */
+	public const OTA_SOURCES = [
+		self::SOURCE_AIRBNB,
+		self::SOURCE_BOOKING,
+		self::SOURCE_AGODA,
+		self::SOURCE_VRBO,
+		self::SOURCE_EXPEDIA,
+	];
 
 	public const STATUS_CONFIRMED = 'confirmed';
 	public const STATUS_TENTATIVE = 'tentative';
@@ -100,6 +134,6 @@ final class Block {
 	}
 
 	public function is_imported(): bool {
-		return ! in_array( $this->source, [ self::SOURCE_DIRECT, self::SOURCE_MANUAL, self::SOURCE_HOLD ], true );
+		return ! in_array( $this->source, [ self::SOURCE_WEB, self::SOURCE_DIRECT, self::SOURCE_MANUAL, self::SOURCE_HOLD ], true );
 	}
 }

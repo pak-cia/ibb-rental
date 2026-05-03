@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
 final class Migrations {
 
 	public const OPTION_KEY     = 'ibb_rentals_db_version';
-	public const LATEST_VERSION = 4;
+	public const LATEST_VERSION = 5;
 
 	public static function run_to_latest(): void {
 		$current = (int) get_option( self::OPTION_KEY, 0 );
@@ -68,5 +68,26 @@ final class Migrations {
 		// so a manual-blackout block on Airbnb that's actually an Agoda or direct
 		// booking per ClickUp shows the right OTA color and label in the calendar.
 		dbDelta( Schema::blocks_sql( $charset_collate ) );
+	}
+
+	/**
+	 * v5 — split the legacy `direct` source into `web` (plugin-checkout
+	 * bookings) and `direct` (walk-in / phone). Existing blocks tied to a
+	 * WC order had to have come from the website, so we flip those to
+	 * `web` and leave the rest alone (the few admin-entered manual
+	 * `direct` blocks that pre-date this split stay labelled `direct`,
+	 * which is now reserved for walk-ins anyway).
+	 *
+	 * No schema change — `source` is already VARCHAR(32) with no CHECK
+	 * constraint — only data backfill.
+	 */
+	private static function migrate_to_5(): void {
+		global $wpdb;
+		$blocks = $wpdb->prefix . 'ibb_blocks';
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE `$blocks` SET source = %s WHERE source = %s AND order_id IS NOT NULL",
+			'web',
+			'direct'
+		) );
 	}
 }

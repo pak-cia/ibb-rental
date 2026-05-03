@@ -4,6 +4,17 @@
 
 ---
 
+## [0.11.0] — 2026-05-03
+
+### Changed
+- **`BookingService::create_from_order_item()` writes `Block::SOURCE_WEB`** (was `SOURCE_DIRECT`). `direct` is now reserved for walk-in / phone bookings entered manually.
+- **`ClickUpService` constructor accepts `array $create_sources = []`** — list of source slugs for which the sync may auto-INSERT a block when no existing match is found. Empty list = enrichment-only (v0.10.x behaviour preserved when no allowlist is configured).
+- **`ClickUpService::sync()` now has three strategies**: (1) match by Booking ID against `external_uid` (existing); (2) date-tuple fallback with property + source disambiguation (existing); (3) **new** — auto-create a block when no match exists, the source is in `$create_sources`, and we have property + dates + source + task_id. Inserts use `external_uid='clickup:<task_id>'`. Idempotent across AS retries and re-runs (existing rows are updated in place; new INSERTs are guarded by an existence check).
+- **`ClickUpService::task_is_cancelled()`** — reads `task.status.status` and tag list; matched ClickUp-created blocks (those with `external_uid='clickup:<id>'`) flip to `status='cancelled'` so the per-OTA feed exporter drops them. Never touches iCal-imported blocks owned by other OTAs.
+- **`ClickUpService::record_status()`** gained `created` and `cancelled` counts so the Settings sync-status pill can show "X created, Y updated, Z cancelled" instead of a single updated total.
+
+---
+
 ## [0.10.1] — 2026-05-01
 
 ### Fixed

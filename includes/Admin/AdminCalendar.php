@@ -34,7 +34,8 @@ final class AdminCalendar {
 
 	/** Colours keyed by block source — matched to the user's OTA sales spreadsheet. */
 	private const SOURCE_COLOURS = [
-		'direct'  => '#7c3aed', // purple       — Direct
+		'web'     => '#7c3aed', // purple       — Website / plugin checkout
+		'direct'  => '#0d9488', // teal         — Walk-in / phone
 		'airbnb'  => '#dc2626', // red          — Airbnb
 		'booking' => '#003580', // blue         — Booking.com
 		'agoda'   => '#ea580c', // orange       — Agoda
@@ -95,7 +96,8 @@ final class AdminCalendar {
 				</label>
 				<select id="ibb-cal-source-filter">
 					<option value=""><?php esc_html_e( '— All sources —', 'ibb-rentals' ); ?></option>
-					<option value="direct"><?php esc_html_e( 'Direct bookings', 'ibb-rentals' ); ?></option>
+					<option value="web"><?php esc_html_e( 'Website bookings', 'ibb-rentals' ); ?></option>
+					<option value="direct"><?php esc_html_e( 'Walk-in / phone', 'ibb-rentals' ); ?></option>
 					<option value="manual"><?php esc_html_e( 'Manual blocks', 'ibb-rentals' ); ?></option>
 					<option value="airbnb">Airbnb</option>
 					<option value="booking">Booking.com</option>

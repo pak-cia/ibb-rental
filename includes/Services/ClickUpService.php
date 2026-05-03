@@ -37,6 +37,9 @@ final class ClickUpService {
 	/**
 	 * @param array<string,string> $tag_source_map     ClickUp tag name (lowercased) → IBB source value
 	 * @param array<string,int>    $unit_property_map  Unit code parsed from task title (lowercased) → IBB property ID
+	 * @param list<string>         $create_sources     Source slugs for which this service may auto-INSERT
+	 *                                                 a block when no existing block matches a task. Empty
+	 *                                                 list = enrichment-only mode (v0.10.x behaviour).
 	 */
 	public function __construct(
 		private readonly string $api_token,
@@ -45,6 +48,7 @@ final class ClickUpService {
 		private readonly array  $tag_source_map,
 		private readonly array  $unit_property_map,
 		private readonly Logger $logger,
+		private readonly array  $create_sources = [],
 	) {}
 
 	/**
@@ -70,6 +74,8 @@ final class ClickUpService {
 		$updated     = 0;
 		$matched_uid = 0;
 		$matched_dt  = 0;
+		$created     = 0;
+		$cancelled   = 0;
 		$now         = current_time( 'mysql', true );
 
 		foreach ( $tasks as $task ) {
@@ -80,6 +86,24 @@ final class ClickUpService {
 			$checkout    = $this->extract_checkout( $task );
 			$source      = $this->extract_source( $task );
 			$property_id = $this->extract_property_id( $task );
+			$is_cancelled = $this->task_is_cancelled( $task );
+
+			// Cancellation path: when ClickUp marks a task cancelled, flip the
+			// matching block to status='cancelled' so the per-OTA feed exporter
+			// drops it and the date frees up downstream. We only target blocks
+			// we previously created (external_uid LIKE 'clickup:<id>') — never
+			// touch iCal-imported blocks the OTA still considers active.
+			if ( $is_cancelled && $task_id !== '' ) {
+				$rows = (int) $wpdb->update(
+					$table,
+					[ 'status' => 'cancelled', 'updated_at' => $now ],
+					[ 'external_uid' => 'clickup:' . $task_id ],
+					[ '%s', '%s' ],
+					[ '%s' ]
+				);
+				$cancelled += $rows;
+				continue;
+			}
 
 			if ( $guest_name === '' ) {
 				continue;
@@ -155,25 +179,119 @@ final class ClickUpService {
 			if ( $rows > 0 ) {
 				$updated    += $rows;
 				$matched_dt += $rows;
+				continue;
+			}
+
+			// ── Strategy 3: auto-create when no existing block matches and the
+			// source is in the configured allowlist. Used for OTAs that don't
+			// expose an iCal feed (Agoda is the motivating case): a ClickUp
+			// task says "Villa 1, May 10–15, agoda", we have no airbnb/booking
+			// import that would have created the block, so we insert one
+			// ourselves. Once it lands in wp_ibb_blocks, every other OTA's
+			// per-OTA export feed picks it up automatically — Airbnb sees the
+			// dates blocked without any further plumbing.
+			//
+			// Pre-conditions: property + dates + source resolved, source ∈
+			// allowlist, and no existing block with this exact external_uid
+			// (idempotency for AS retries / multiple sync runs).
+			if (
+				$source !== ''
+				&& $property_id > 0
+				&& $checkin !== ''
+				&& $checkout !== ''
+				&& $task_id !== ''
+				&& in_array( $source, $this->create_sources, true )
+			) {
+				$external_uid = 'clickup:' . $task_id;
+				$exists = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT id FROM {$table} WHERE external_uid = %s LIMIT 1",
+						$external_uid
+					)
+				);
+				if ( $exists === 0 ) {
+					$inserted = (int) $wpdb->insert(
+						$table,
+						[
+							'property_id'     => $property_id,
+							'start_date'      => $checkin,
+							'end_date'        => $checkout,
+							'source'          => $source,
+							'external_uid'    => $external_uid,
+							'status'          => 'confirmed',
+							'order_id'        => null,
+							'summary'         => 'Reserved',
+							'guest_name'      => $guest_name,
+							'clickup_task_id' => $task_id,
+							'source_override' => '',
+							'created_at'      => $now,
+							'updated_at'      => $now,
+						],
+						[ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s' ]
+					);
+					if ( $inserted > 0 ) {
+						$created++;
+					}
+				} else {
+					// Idempotent re-sync: update mutable fields on the existing row.
+					$rows = (int) $wpdb->update(
+						$table,
+						[
+							'start_date'  => $checkin,
+							'end_date'    => $checkout,
+							'guest_name'  => $guest_name,
+							'updated_at'  => $now,
+						],
+						[ 'external_uid' => $external_uid ],
+						[ '%s', '%s', '%s', '%s' ],
+						[ '%s' ]
+					);
+					if ( $rows > 0 ) {
+						$updated += $rows;
+					}
+				}
 			}
 		}
 
 		$this->logger->info(
-			"ClickUp sync: updated guest_name on {$updated} block(s) from " . count( $tasks )
+			"ClickUp sync: {$created} created, {$updated} updated, {$cancelled} cancelled from " . count( $tasks )
 			. " task(s) (uid match: {$matched_uid}, date-tuple fallback: {$matched_dt})."
 		);
-		$this->record_status( $updated, count( $tasks ), $this->last_error );
+		$this->record_status( $updated, count( $tasks ), $this->last_error, $created, $cancelled );
 		return $updated;
+	}
+
+	/**
+	 * Detect whether a ClickUp task represents a cancelled booking. ClickUp
+	 * exposes status as `task.status.status` (the human label) and
+	 * `task.status.type` (the metaphysical bucket — `closed` for done-state
+	 * statuses, `custom` for custom workflow). The user's workflow uses a
+	 * "cancelled" custom status plus optionally a "cancelled" tag.
+	 */
+	private function task_is_cancelled( array $task ): bool {
+		$status_label = strtolower( (string) ( $task['status']['status'] ?? '' ) );
+		if ( $status_label === 'cancelled' || $status_label === 'canceled' ) {
+			return true;
+		}
+		foreach ( (array) ( $task['tags'] ?? [] ) as $tag ) {
+			$name = strtolower( (string) ( $tag['name'] ?? '' ) );
+			if ( $name === 'cancelled' || $name === 'canceled' ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
 	 * Persist the most recent run's outcome so the Settings page can show a status pill
 	 * without going to WC → Status → Logs.
 	 */
-	private function record_status( int $updated, int $total_tasks, string $error ): void {
+	private function record_status( int $updated, int $total_tasks, string $error, int $created = 0, int $cancelled = 0 ): void {
 		update_option( self::STATUS_OPT, [
 			'last_sync_at' => time(),
 			'updated'      => $updated,
+			'created'      => $created,
+			'cancelled'    => $cancelled,
 			'total_tasks'  => $total_tasks,
 			'error'        => $error,
 		], false );

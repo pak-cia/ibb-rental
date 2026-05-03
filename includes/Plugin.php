@@ -299,6 +299,17 @@ final class Plugin {
 			}
 		}
 
+		// Source-allowlist: ClickUp may auto-create blocks for these sources
+		// when no existing block matches the task. Configured at
+		// Rentals → Settings → ClickUp → "Create blocks for".
+		$create_sources = [];
+		if ( ! empty( $s['clickup_create_sources'] ) ) {
+			$decoded = json_decode( (string) $s['clickup_create_sources'], true );
+			if ( is_array( $decoded ) ) {
+				$create_sources = array_values( array_map( 'strval', $decoded ) );
+			}
+		}
+
 		// Not cached: settings may change between AS invocations.
 		// $api_token_override lets the cascading-dropdown AJAX endpoints look up the hierarchy
 		// using a token the user has typed in but not yet saved.
@@ -309,6 +320,7 @@ final class Plugin {
 			tag_source_map:    $tag_map,
 			unit_property_map: $unit_map,
 			logger:            $this->logger(),
+			create_sources:    $create_sources,
 		);
 	}
 

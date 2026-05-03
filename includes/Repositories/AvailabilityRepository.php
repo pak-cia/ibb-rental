@@ -117,17 +117,40 @@ final class AvailabilityRepository {
 	}
 
 	/**
+	 * Blocks to include in the iCal feed served to a specific OTA.
+	 *
+	 * Hub-and-spoke topology: every OTA points its inbound calendar at our
+	 * per-OTA feed URL. Each feed includes every confirmed block EXCEPT
+	 * those whose source is the OTA we're serving (loop guard — Airbnb's
+	 * own bookings already live on Airbnb's calendar; we'd just be
+	 * re-importing them with rewritten UIDs and risking phantom
+	 * double-blocks). When `$exclude_source` is empty (e.g. the legacy
+	 * combined feed, no longer surfaced), nothing is suppressed.
+	 *
 	 * @return list<Block>
 	 */
-	public function find_exportable( int $property_id ): array {
-		$sql = $this->db->prepare(
-			"SELECT * FROM {$this->table}
-			 WHERE property_id = %d
-			   AND status = 'confirmed'
-			   AND source IN ('direct','manual')
-			 ORDER BY start_date",
-			$property_id
-		);
+	public function find_exportable( int $property_id, string $exclude_source = '' ): array {
+		if ( $exclude_source !== '' ) {
+			$sql = $this->db->prepare(
+				"SELECT * FROM {$this->table}
+				 WHERE property_id = %d
+				   AND status = 'confirmed'
+				   AND source <> 'hold'
+				   AND source <> %s
+				 ORDER BY start_date",
+				$property_id,
+				$exclude_source
+			);
+		} else {
+			$sql = $this->db->prepare(
+				"SELECT * FROM {$this->table}
+				 WHERE property_id = %d
+				   AND status = 'confirmed'
+				   AND source <> 'hold'
+				 ORDER BY start_date",
+				$property_id
+			);
+		}
 		return $this->hydrate( $this->db->get_results( $sql, ARRAY_A ) );
 	}
 

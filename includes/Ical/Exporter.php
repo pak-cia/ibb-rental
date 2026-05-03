@@ -1,11 +1,16 @@
 <?php
 /**
- * Builds an RFC 5545 iCalendar feed for a single property.
+ * Builds an RFC 5545 iCalendar feed for a single property, scoped to a
+ * specific OTA.
  *
- * Exports ONLY direct bookings + manual block-outs — never re-exports events
- * imported from other channels. This avoids the classic two-way feedback loop
- * where Airbnb pulls our feed, sees a Booking.com block re-exported, and
- * (after UID rewrites) double-blocks the date.
+ * Hub-and-spoke topology (v0.11): the plugin is the central availability
+ * source-of-truth. Each OTA points its inbound calendar at our **per-OTA**
+ * feed URL — `/ical/<property_id>/<for_ota>.ics?token=…`. The feed served to
+ * a given OTA includes every confirmed block from every other source — its
+ * own iCal-imported blocks are suppressed (loop-guard) but blocks from other
+ * OTAs and from this site (web / direct / manual) are included. ClickUp's
+ * Agoda-via-task-sync (also v0.11) drops blocks with `source='agoda'` into
+ * the same store, so Airbnb's feed sees them too without any extra plumbing.
  *
  * SUMMARY is always "Reserved" — guest names never appear in exports for
  * privacy and OTA-policy compliance reasons.
@@ -34,11 +39,22 @@ final class Exporter {
 		private AvailabilityRepository $blocks,
 	) {}
 
-	public function build( int $property_id ): string {
-		$events = $this->blocks->find_exportable( $property_id );
-		$events = (array) apply_filters( Hooks::ICAL_BEFORE_EXPORT, $events, $property_id );
+	/**
+	 * @param string $for_ota One of Block::OTA_SOURCES (airbnb / booking /
+	 *                        agoda / vrbo / expedia). Empty string means
+	 *                        "include everything except holds" — used by
+	 *                        admin previews, not exposed as a published feed.
+	 */
+	public function build( int $property_id, string $for_ota = '' ): string {
+		$events = $this->blocks->find_exportable( $property_id, $for_ota );
+		$events = (array) apply_filters( Hooks::ICAL_BEFORE_EXPORT, $events, $property_id, $for_ota );
 
 		$site_host = wp_parse_url( home_url(), PHP_URL_HOST ) ?: 'localhost';
+
+		$calname = (string) ( get_the_title( $property_id ) ?: 'Property ' . $property_id );
+		if ( $for_ota !== '' ) {
+			$calname .= ' — for ' . ucfirst( $for_ota );
+		}
 
 		$lines = [
 			'BEGIN:VCALENDAR',
@@ -46,7 +62,7 @@ final class Exporter {
 			'PRODID:' . self::PRODID,
 			'CALSCALE:GREGORIAN',
 			'METHOD:PUBLISH',
-			'X-WR-CALNAME:' . $this->escape( get_the_title( $property_id ) ?: 'Property ' . $property_id ),
+			'X-WR-CALNAME:' . $this->escape( $calname ),
 		];
 
 		$now_utc = gmdate( 'Ymd\THis\Z' );
@@ -73,11 +89,16 @@ final class Exporter {
 		return $this->fold( $lines );
 	}
 
-	public function compute_etag( int $property_id ): string {
-		return md5( $this->build( $property_id ) );
+	public function compute_etag( int $property_id, string $for_ota = '' ): string {
+		return md5( $this->build( $property_id, $for_ota ) );
 	}
 
-	public function verify_token( int $property_id, string $token ): bool {
+	/**
+	 * Tokens are namespaced per (property, OTA) so rotating one OTA's feed
+	 * doesn't invalidate the others. The legacy combined token shape
+	 * (`ical:<id>`) is no longer accepted — v0.11 is a hard switch.
+	 */
+	public function verify_token( int $property_id, string $for_ota, string $token ): bool {
 		if ( $token === '' ) {
 			return false;
 		}
@@ -85,21 +106,35 @@ final class Exporter {
 		if ( $secret === '' ) {
 			return false;
 		}
-		$expected = hash_hmac( 'sha256', 'ical:' . $property_id, $secret );
+		$expected = hash_hmac( 'sha256', 'ical:' . $property_id . ':' . $for_ota, $secret );
 		return hash_equals( $expected, $token );
 	}
 
-	public function token_for( int $property_id ): string {
+	public function token_for( int $property_id, string $for_ota ): string {
 		$secret = (string) get_option( 'ibb_rentals_token_secret', '' );
-		return hash_hmac( 'sha256', 'ical:' . $property_id, $secret );
+		return hash_hmac( 'sha256', 'ical:' . $property_id . ':' . $for_ota, $secret );
 	}
 
-	public function feed_url( int $property_id ): string {
+	public function feed_url( int $property_id, string $for_ota ): string {
 		return add_query_arg(
 			'token',
-			$this->token_for( $property_id ),
-			rest_url( 'ibb-rentals/v1/ical/' . $property_id . '.ics' )
+			$this->token_for( $property_id, $for_ota ),
+			rest_url( 'ibb-rentals/v1/ical/' . $property_id . '/' . $for_ota . '.ics' )
 		);
+	}
+
+	/**
+	 * Map of for_ota → feed URL for every OTA the plugin can serve. Useful
+	 * for the property iCal-tab UI which renders one row per OTA.
+	 *
+	 * @return array<string,string>
+	 */
+	public function feed_urls( int $property_id ): array {
+		$out = [];
+		foreach ( \IBB\Rentals\Domain\Block::OTA_SOURCES as $ota ) {
+			$out[ $ota ] = $this->feed_url( $property_id, $ota );
+		}
+		return $out;
 	}
 
 	private function compact_date( string $ymd ): string {

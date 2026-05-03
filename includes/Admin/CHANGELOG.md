@@ -4,6 +4,20 @@
 
 ---
 
+## [0.11.0] — 2026-05-03
+
+### Added
+- **Property iCal tab — per-OTA feed-URL table.** Replaced the single combined feed URL with a five-row table (Airbnb / Booking.com / Agoda / VRBO / Expedia), each cell a click-to-select read-only input. Built off `Exporter::feed_urls( $property_id )`.
+- **Settings → ClickUp → "Create blocks for"** — multi-checkbox allowlist UI (`clickup_create_sources` setting, JSON array). Lists `web` / `direct` / `manual` and the five OTA slugs; sources that already have an enabled iCal feed (`FeedRepository::find_enabled()`) render disabled + greyed so ClickUp can't compete with the OTA's authoritative feed. Server-side save handler re-validates the same way (defence-in-depth — a feed-backed source POSTed via tampered form is dropped).
+
+### Changed
+- **`AdminCalendar::SOURCE_COLOURS`** — added `web => purple` (the colour previously assigned to `direct`); `direct` flipped to `teal #0d9488` so walk-in / phone bookings are visually distinct from website bookings on the calendar timeline.
+- **Source-filter dropdown on the calendar page** — added "Website bookings" and "Walk-in / phone" entries; the prior single "Direct bookings" entry is gone.
+- **ClickUp settings — sync-status pill** now reads "✓ Last sync N ago — X created, Y updated, Z cancelled (from N tasks)" instead of just "updated N blocks from N tasks".
+- **Default tag→source map** gains `"web":"web"` so admins who use a `web` ClickUp tag for plugin-generated bookings get the correct slug.
+
+---
+
 ## [0.10.0] — 2026-05-01
 
 ### Added

@@ -10,6 +10,30 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.0] — 2026-05-03
+
+### Added
+- **Hub-and-spoke iCal export.** Each property now publishes one feed URL **per OTA** — `/ical/<property_id>/<ota>.ics?token=…`. The feed served to a given OTA includes every confirmed block from every other source (web checkout, walk-in, manual block, every other OTA, and ClickUp-created blocks for OTAs without iCal feeds), with a per-OTA loop guard that suppresses blocks whose `source` matches the requesting OTA. Net effect: a booking made anywhere is visible everywhere, and no OTA re-imports its own bookings.
+- **`Block::SOURCE_WEB`** — new source slug for plugin/website checkout bookings. `Block::SOURCE_DIRECT` is now reserved for walk-in / phone bookings entered manually. `Block::LOCAL_SOURCES` (web/direct/manual — always exported to every OTA) and `Block::OTA_SOURCES` (airbnb/booking/agoda/vrbo/expedia — used by the per-OTA loop guard) constants centralise the routing rules. `is_imported()` updated to recognise `web` as local.
+- **ClickUp auto-create from task.** `Services/ClickUpService::sync()` gained a third strategy: when a task has property + dates + a mapped source but no existing block matches, INSERT a new block with `source=<mapped>`, `external_uid='clickup:<task_id>'`, `summary='Reserved'`, `status='confirmed'`. Gated on a configurable per-source allowlist (`clickup_create_sources` setting) — sources with an active iCal feed are auto-excluded both in the UI and in the save handler so ClickUp can't compete with an OTA's authoritative feed. Idempotent across AS retries (existing rows are updated in place).
+- **ClickUp cancellation handling.** `task_is_cancelled()` reads `task.status.status` ("cancelled"/"canceled") and tag list; matched ClickUp-created blocks (those with `external_uid='clickup:<id>'`) flip to `status='cancelled'` so the per-OTA feed exporter drops them. Never touches iCal-imported blocks owned by other OTAs.
+- **Settings → ClickUp → "Create blocks for"** — multi-checkbox allowlist UI; sources with iCal feeds rendered disabled + greyed.
+- **Settings sync-status pill** — "X created, Y updated, Z cancelled (from N tasks)" instead of just an updated total.
+- **Property iCal tab** — replaces the single combined feed URL with a one-row-per-OTA table; each cell is a click-to-select read-only input.
+- **Migration v5** — backfills existing `source='direct'` rows that have an `order_id` to `source='web'` (those came from the website checkout, not walk-ins). No schema change — `source` is already free-text VARCHAR.
+
+### Changed
+- `Services/BookingService::create_from_order_item()` now writes `Block::SOURCE_WEB` (was `SOURCE_DIRECT`).
+- `Repositories/AvailabilityRepository::find_exportable( int $property_id, string $exclude_source = '' )` — second arg is the OTA the feed is being served to; that source is suppressed from the result. Always excludes `hold` blocks.
+- `Ical/Exporter::build( $property_id, $for_ota = '' )`, `feed_url( $property_id, $for_ota )`, `token_for( $property_id, $for_ota )`, `verify_token( $property_id, $for_ota, $token )` — all gained a per-OTA arg. Tokens are now namespaced as `ical:<id>:<ota>` so rotating one OTA's feed doesn't invalidate the others. New `feed_urls( $property_id )` returns an OTA-keyed map for the admin UI.
+- `Rest/Controllers/IcalController` route is now `/ical/(?P<property_id>\d+)/(?P<for_ota>[a-z]+)\.ics`. Unknown / non-OTA `for_ota` values return 404.
+- Admin calendar source-filter dropdown gains "Website bookings" + "Walk-in / phone" entries; `direct` swatch flipped from purple to teal so it's visually distinct from the new `web` purple.
+
+### Removed
+- **Legacy combined feed URL** `/ical/<property_id>.ics?token=…` is no longer registered. Existing OTAs pointed at this URL will start getting 404s after upgrading — re-paste the new per-OTA URLs from each property's iCal tab.
+
+---
+
 ## [0.10.2] — 2026-05-01
 
 ### Fixed
