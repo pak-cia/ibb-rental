@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.11.2
+Stable tag: 0.11.3
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.3 =
+* Fix: ClickUp "Sync now" button on the Settings page redirected to wherever the user was BEFORE loading Settings (often the Plugins → Add New page after a fresh upload), instead of staying on Settings. The link's pre-baked `_wp_http_referer` query param captured stale referer state at render time. Removed the param and hard-coded the post-action target to the Settings page.
 
 = 0.11.2 =
 * ClickUp sync now filters by status at the API. Settings → ClickUp → "Sync these statuses only" — comma-separated list of ClickUp status names; default `upcoming, currently staying, checked out, cancelled`. Tasks in any other status (housekeeping subtasks parked in `inquiries`, old auto-archived `Closed` cards, etc.) are skipped at the API level rather than fetched and dropped client-side. On busy lists this drops the per-sync task count by an order of magnitude.

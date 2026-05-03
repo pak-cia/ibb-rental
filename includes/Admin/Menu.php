@@ -262,8 +262,13 @@ final class Menu {
 		if ( function_exists( 'as_schedule_single_action' ) ) {
 			as_schedule_single_action( time(), Hooks::AS_SYNC_CLICKUP, [], Hooks::AS_GROUP );
 		}
-		$ref = wp_get_referer() ?: admin_url( 'edit.php?post_type=' . PropertyPostType::POST_TYPE . '&page=' . self::PAGE_SETTINGS );
-		wp_safe_redirect( add_query_arg( 'ibb_settings_notice', 'clickup_synced', $ref ) );
+		// Always return to the Settings page — the Sync-now link's pre-baked
+		// _wp_http_referer captures wherever the user *was* before loading
+		// Settings (e.g. Plugins → Add New from a fresh upload), which is
+		// never where they want to land after a sync trigger. The Settings
+		// page is the only sensible destination.
+		$target = admin_url( 'edit.php?post_type=' . PropertyPostType::POST_TYPE . '&page=' . self::PAGE_SETTINGS );
+		wp_safe_redirect( add_query_arg( 'ibb_settings_notice', 'clickup_synced', $target ) );
 		exit;
 	}
 
@@ -542,7 +547,7 @@ final class Menu {
 
 		if ( $clickup_token !== '' && $clickup_list_id !== '' ) {
 			$sync_url = wp_nonce_url(
-				admin_url( 'admin-post.php?action=ibb_rentals_sync_clickup&_wp_http_referer=' . rawurlencode( (string) wp_get_referer() ) ),
+				admin_url( 'admin-post.php?action=ibb_rentals_sync_clickup' ),
 				'ibb_rentals_sync_clickup'
 			);
 			echo '<p style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">';

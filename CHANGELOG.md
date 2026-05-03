@@ -10,6 +10,13 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.3] — 2026-05-03
+
+### Fixed
+- **ClickUp "Sync now" button redirected to the wrong page.** `Admin/Menu::handle_sync_clickup()` called `wp_get_referer()` to compute the post-sync redirect target, but the button's link pre-baked `_wp_http_referer=<wp_get_referer()>` at render time — capturing wherever the user came *from* before loading Settings (e.g. Plugins → Add New after a fresh upload). On click, that stale URL fed `wp_get_referer()` and bounced the user away from Settings. Hard-coded the target to the Settings page (the only sensible destination after a sync trigger) and removed the `_wp_http_referer` query param from the button link so the bug can't reappear via different code paths.
+
+---
+
 ## [0.11.2] — 2026-05-03
 
 ### Added

@@ -11,6 +11,13 @@
 
 ---
 
+## [0.11.3] — 2026-05-03
+
+### Fixed
+- **`handle_sync_clickup()` redirects to the Settings page on success, not back via `wp_get_referer()`.** The Sync-now link's pre-baked `_wp_http_referer` was carrying stale state (whichever page loaded Settings — typically Plugins → Add New after a fresh upload), and `wp_get_referer()` then sent the user there instead. The button's link no longer includes `_wp_http_referer`, and the handler hard-codes the post-action URL to the Settings page.
+
+---
+
 ## [0.11.2] — 2026-05-03
 
 ### Added
