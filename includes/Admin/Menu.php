@@ -350,6 +350,22 @@ final class Menu {
 		echo '<h2 class="title">' . esc_html__( 'iCal sync', 'ibb-rentals' ) . '</h2>';
 		echo '<table class="form-table"><tbody>';
 		$this->setting_row( __( 'Default sync interval (seconds)', 'ibb-rentals' ), 'default_sync_interval', (int) ( $settings['default_sync_interval'] ?? 1800 ), 'number', [ 'min' => 300 ] );
+
+		// Privacy toggle for outgoing feeds. When ON, SUMMARY = "Bob Jones (Agoda)"
+		// and DESCRIPTION includes the guest name; the host can see who's
+		// staying when on each OTA's calendar. When OFF, SUMMARY falls back
+		// to "<Source> booking" with no name. ClickUp deep-links in
+		// DESCRIPTION are independent of this toggle (they don't expose
+		// guest data).
+		$include_names = ! empty( $settings['ical_include_guest_names'] );
+		echo '<tr><th>' . esc_html__( 'Guest names in feeds', 'ibb-rentals' ) . '</th><td>';
+		printf(
+			'<label><input type="checkbox" name="ical_include_guest_names" value="1" %s /> %s</label>',
+			checked( $include_names, true, false ),
+			esc_html__( 'Include guest names in outgoing iCal SUMMARY / DESCRIPTION', 'ibb-rentals' )
+		);
+		echo '<p class="description">' . esc_html__( 'When enabled, each OTA\'s calendar shows "Bob Jones (Agoda)" instead of "Agoda booking". ClickUp deep-links in event descriptions are always included regardless of this toggle. Turn off if your OTA contracts prohibit guest data in third-party calendar feeds.', 'ibb-rentals' ) . '</p>';
+		echo '</td></tr>';
 		echo '</tbody></table>';
 
 		// ── ClickUp integration ───────────────────────────────────────────
@@ -831,6 +847,7 @@ final class Menu {
 			'default_deposit_pct'       => max( 1, min( 99, (int) ( $_POST['default_deposit_pct'] ?? 30 ) ) ),
 			'default_balance_lead_days' => max( 0, (int) ( $_POST['default_balance_lead_days'] ?? 14 ) ),
 			'default_sync_interval'     => max( 300, (int) ( $_POST['default_sync_interval'] ?? 1800 ) ),
+			'ical_include_guest_names'  => ! empty( $_POST['ical_include_guest_names'] ),
 			'log_retention_days'        => max( 1, (int) ( $_POST['log_retention_days'] ?? 30 ) ),
 			'uninstall_purge_data'      => ! empty( $_POST['uninstall_purge_data'] ),
 			'clickup_api_token'         => $clickup_token,

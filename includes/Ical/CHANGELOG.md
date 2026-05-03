@@ -5,6 +5,17 @@
 ### Fixed
 - `Exporter::feed_url` uses `add_query_arg()` so the URL is correctly formed on plain-permalink sites.
 
+## [0.11.1] — 2026-05-03
+
+### Added
+- **`Exporter::build()` composes SUMMARY + DESCRIPTION per block from real data.** SUMMARY: `"<guest_name> (<Source>)"` when names are enabled and present, otherwise `"<Source> booking"`. DESCRIPTION: property title, nights, source, optional guest name, and a ClickUp deep-link (`https://app.clickup.com/t/<task_id>`) whenever the block has a `clickup_task_id`. Replaces v0.10's static `"Reserved"`.
+- **`Exporter::source_label( string $slug )`** — branded labels for the source slug (e.g. `booking → "Booking.com"`, `vrbo → "VRBO"`). `match` expression with explicit cases so casing/branding is centralised.
+
+### Changed
+- `Hooks::FILTER_ICAL_EXPORT_SUMMARY` is now applied **after** the v0.11.1 default summary is composed — same hook contract for integrators, but the default is no longer `'Reserved'`.
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Changed

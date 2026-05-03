@@ -4,6 +4,13 @@
 
 ---
 
+## [0.11.1] — 2026-05-03
+
+### Added
+- **Settings → iCal sync — "Guest names in feeds" checkbox** (`ical_include_guest_names`, default false). Toggles whether outgoing iCal SUMMARY / DESCRIPTION includes the guest name. Save handler persists as a strict bool. ClickUp deep-links in DESCRIPTION are unaffected by the toggle.
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Added

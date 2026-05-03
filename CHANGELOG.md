@@ -10,6 +10,16 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.1] — 2026-05-03
+
+### Added
+- **Richer outgoing iCal event data.** `Ical/Exporter::build()` now composes per-block `SUMMARY` and `DESCRIPTION` from real block data instead of the v0.10 placeholder `"Reserved"`:
+  - **SUMMARY** — `"<guest_name> (<Source>)"` when guest names are opted in and the block has a name (set by ClickUp sync), `"<Source> booking"` otherwise. Source is resolved via `Block::effective_source()` so ClickUp's `source_override` wins over an iCal-import misattribution. Source label map: `web` → "Website", `direct` → "Walk-in", `airbnb` / `booking` / `agoda` / `vrbo` / `expedia` → branded names.
+  - **DESCRIPTION** — multi-line: property title, `N night(s)`, `Source: <label>`, optional `Guest: <name>`, and a **ClickUp deep-link** `ClickUp: https://app.clickup.com/t/<task_id>` whenever the block has a `clickup_task_id`. ClickUp's short URL form redirects through to the workspace-scoped page so we don't need workspace IDs at export time. The host can click directly from an Airbnb / Booking.com calendar event into the matching ClickUp card.
+- **Settings → iCal sync → "Guest names in feeds"** checkbox (`ical_include_guest_names`, default OFF). Privacy escape hatch: when off, SUMMARY falls back to `"<Source> booking"` and the `Guest:` line is omitted from DESCRIPTION. The ClickUp deep-link is always included regardless — it's an internal pointer, not guest data.
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Added

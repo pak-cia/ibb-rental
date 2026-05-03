@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.11.0
+Stable tag: 0.11.1
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,10 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.1 =
+* Outgoing iCal feeds now include richer event data so the host sees useful info on each OTA's calendar. SUMMARY is "Bob Jones (Agoda)" when guest names are enabled (or "Agoda booking" when not — Airbnb / Booking.com previously rendered just "Synced: theuluhills.com"). DESCRIPTION carries the property title, stay length, source label, optional guest name, and a clickable ClickUp deep-link (https://app.clickup.com/t/<task_id>) when the block came from a ClickUp sync — click straight from Airbnb's calendar event into the booking card.
+* Settings → iCal sync → "Guest names in feeds" toggle (default OFF for privacy). When enabled, guest names appear in SUMMARY + DESCRIPTION across every per-OTA feed. ClickUp deep-links are always included, independent of this toggle.
 
 = 0.11.0 =
 * Hub-and-spoke calendar sync. The plugin is now the single source of truth for property availability across every OTA. Each OTA gets its own per-property feed URL — `/ical/<property_id>/<ota>.ics?token=…` — and that feed includes every confirmed block from every other source, with a per-OTA loop guard so an OTA never re-imports its own bookings. Paste each URL into the matching OTA (Airbnb, Booking.com, Agoda, VRBO, Expedia) as its inbound calendar feed; bookings made anywhere fan out to everywhere.
