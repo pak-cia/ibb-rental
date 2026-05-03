@@ -222,11 +222,11 @@ final class PropertyMetaboxes {
 	/** @param list<array<string, mixed>> $rate_rows */
 	private function render_seasonal_rates_editor( array $rate_rows ): void {
 		echo '<h4>' . esc_html__( 'Seasonal rates', 'ibb-rentals' ) . '</h4>';
-		echo '<p class="description">' . esc_html__( 'Override the base nightly rate for specific date ranges. On overlap, higher priority wins.', 'ibb-rentals' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Override the base nightly rate for specific date ranges. Both From and To are inclusive — the rate applies on every night from From through To. On overlap, higher priority wins.', 'ibb-rentals' ) . '</p>';
 
 		echo '<div class="ibb-srates-wrap"><table class="ibb-srates" id="ibb-srates"><thead><tr>';
-		echo '<th>' . esc_html__( 'From', 'ibb-rentals' ) . '</th>';
-		echo '<th>' . esc_html__( 'To', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'From (inclusive)', 'ibb-rentals' ) . '</th>';
+		echo '<th>' . esc_html__( 'To (inclusive)', 'ibb-rentals' ) . '</th>';
 		echo '<th>' . esc_html__( 'Rate/night', 'ibb-rentals' ) . '</th>';
 		echo '<th>' . esc_html__( 'Label', 'ibb-rentals' ) . '</th>';
 		echo '<th>' . esc_html__( 'Priority', 'ibb-rentals' ) . '</th>';
@@ -363,11 +363,11 @@ final class PropertyMetaboxes {
 		usort( $rows, static fn( $a, $b ) => strcmp( (string) $a['start'], (string) $b['start'] ) );
 
 		echo '<h4>' . esc_html__( 'Blackout ranges', 'ibb-rentals' ) . '</h4>';
-		echo '<p class="description">' . esc_html__( 'Date ranges where new bookings are refused. Guests see these dates as unavailable in the date picker.', 'ibb-rentals' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Date ranges where new bookings are refused. Both From and To are inclusive — entering May 1 → May 7 means the property is unavailable on every night from May 1 through May 7. Guests see these dates greyed out in the date picker.', 'ibb-rentals' ) . '</p>';
 
 		echo '<table class="ibb-blackout" id="ibb-blackout"><thead><tr>';
 		echo '<th class="ibb-blackout__col-start">' . esc_html__( 'From (inclusive)', 'ibb-rentals' ) . '</th>';
-		echo '<th class="ibb-blackout__col-end">' . esc_html__( 'To (exclusive)', 'ibb-rentals' ) . '</th>';
+		echo '<th class="ibb-blackout__col-end">' . esc_html__( 'To (inclusive)', 'ibb-rentals' ) . '</th>';
 		echo '<th class="ibb-blackout__col-actions"></th>';
 		echo '</tr></thead><tbody id="ibb-blackout-rows">';
 
@@ -388,7 +388,15 @@ final class PropertyMetaboxes {
 		echo '<p><button type="button" class="button button-secondary" id="ibb-blackout-add">+ ' . esc_html__( 'Add blackout range', 'ibb-rentals' ) . '</button></p>';
 	}
 
-	/** @param int|string $index */
+	/**
+	 * @param int|string $index
+	 *
+	 * Blackout ranges (and seasonal rate ranges) use INCLUSIVE end-date
+	 * semantics — different from booking ranges (`wp_ibb_blocks`, iCal
+	 * VEVENTs) which are half-open `[checkin, checkout)` so turnover days
+	 * work. For an admin-defined blackout, "May 1 → May 7" means every
+	 * night from May 1 through May 7 is unavailable.
+	 */
 	private function render_blackout_row( int|string $index, array $row, bool $is_blank ): void {
 		$start_name = '_ibb_blackout_rows[' . $index . '][start]';
 		$end_name   = '_ibb_blackout_rows[' . $index . '][end]';
@@ -567,10 +575,13 @@ final class PropertyMetaboxes {
 				if ( $start === '' || $end === '' ) {
 					continue;
 				}
-				// Validate date format and logical order.
-				$s = \DateTimeImmutable::createFromFormat( 'Y-m-d', $start );
-				$e = \DateTimeImmutable::createFromFormat( 'Y-m-d', $end );
-				if ( ! $s || ! $e || $e <= $s ) {
+				// Validate date format and logical order. Both ends are
+				// inclusive — admin enters "May 1 → May 7" to block 7
+				// nights. Same-day blackout (start == end) blocks one
+				// night. Reject only when end is BEFORE start.
+				$s = \DateTimeImmutable::createFromFormat( '!Y-m-d', $start );
+				$e = \DateTimeImmutable::createFromFormat( '!Y-m-d', $end );
+				if ( ! $s || ! $e || $e < $s ) {
 					continue;
 				}
 				$out[] = [ 'start' => $start, 'end' => $end ];
@@ -592,9 +603,12 @@ final class PropertyMetaboxes {
 				if ( $from === '' || $to === '' || $rate <= 0 ) {
 					continue;
 				}
-				$df = \DateTimeImmutable::createFromFormat( 'Y-m-d', $from );
-				$dt = \DateTimeImmutable::createFromFormat( 'Y-m-d', $to );
-				if ( ! $df || ! $dt || $dt <= $df ) {
+				$df = \DateTimeImmutable::createFromFormat( '!Y-m-d', $from );
+				$dt = \DateTimeImmutable::createFromFormat( '!Y-m-d', $to );
+				// Both ends inclusive — same-day rate (single-night
+				// override, e.g. Christmas) is valid; reject only when
+				// `to` is BEFORE `from`.
+				if ( ! $df || ! $dt || $dt < $df ) {
 					continue;
 				}
 				$uplift_raw = trim( (string) ( $row['weekend_uplift'] ?? '' ) );

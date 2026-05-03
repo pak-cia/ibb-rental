@@ -10,6 +10,23 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.4] — 2026-05-03
+
+### Fixed
+- **Inclusive end-date semantics for admin-entered ranges (blackouts + seasonal rates).** Two distinct range conventions now coexist cleanly: booking ranges (`wp_ibb_blocks`, iCal VEVENTs, cart) stay half-open `[checkin, checkout)` so turnover days work; admin-entered ranges (blackouts, seasonal rates) are inclusive on both ends — "May 1 → May 7" means every night from May 1 through May 7 is blacked out (or has the seasonal rate applied). Previously blackouts read as half-open in storage *and* the UI labelled the end "(exclusive)", which most admins read as inclusive and got bitten by the off-by-one.
+- **Single-day blackouts and seasonal rates are now valid** (`start == end`). Was previously rejected by the save-handler (`$end <= $start`).
+
+### Changed
+- **`Services/AvailabilityService::blackout_to_range()`** — new private helper that converts an inclusive blackout postmeta entry to a half-open `DateRange` (by adding one day to the stored end), so the existing `DateRange::overlaps()` / `each_night()` machinery continues to work without forking the range type. Both consumption sites (`get_blocked_dates()` and `validate_booking_rules()`) now go through it.
+- **`Admin/PropertyMetaboxes.php` save handlers** for blackouts and seasonal rates relax the validation from `$end <= $start` (rejected single-day) to `$end < $start` (rejects only when end is BEFORE start).
+- **UI labels updated** on both the Rates and Availability tabs: column headers read "From (inclusive)" / "To (inclusive)"; the description text spells out the convention with an example.
+- **Storage shape unchanged.** Blackout postmeta still serialises as `{start, end}` strings; seasonal rate rows still write `date_from` / `date_to`. Only the *interpretation* of the end date changed (inclusive instead of half-open) for blackouts; rates were already inclusive in `PricingService::rate_for_night()` lookup so storage and consumption there were consistent — just the UI label was missing.
+
+### Notes on existing data
+- **No migration.** The user's existing blackout entries were entered to compensate for the prior off-by-one (e.g. they entered `May 8` when they wanted "through May 7" blocked). Under the new inclusive semantics those same stored values now block one extra day. The user has explicitly accepted this and will fix the handful of affected entries by hand on next save.
+
+---
+
 ## [0.11.3] — 2026-05-03
 
 ### Fixed

@@ -32,6 +32,39 @@ final class AvailabilityService {
 	}
 
 	/**
+	 * Convert a blackout postmeta entry to a DateRange suitable for overlap
+	 * checks against booking ranges.
+	 *
+	 * Two range conventions live in the codebase. Booking ranges (this site's
+	 * checkouts, iCal VEVENTs, `wp_ibb_blocks`) are half-open `[checkin,
+	 * checkout)` so turnover days work — guest A checking out and guest B
+	 * checking in on the same day is not an overlap. Admin-defined ranges
+	 * (blackouts, seasonal rates) are inclusive on both ends — "May 1 → May 7"
+	 * means every night from May 1 through May 7 is unavailable. To use the
+	 * half-open `DateRange` machinery for blackouts we add one day to the
+	 * stored inclusive end so the resulting range covers the same set of
+	 * nights.
+	 *
+	 * @param array{start:string,end:string} $blackout
+	 */
+	private function blackout_to_range( array $blackout ): ?DateRange {
+		try {
+			$start = DateTimeImmutable::createFromFormat( '!Y-m-d', (string) ( $blackout['start'] ?? '' ) );
+			$end   = DateTimeImmutable::createFromFormat( '!Y-m-d', (string) ( $blackout['end']   ?? '' ) );
+			if ( ! $start || ! $end || $end < $start ) {
+				return null;
+			}
+			$exclusive_end = $end->add( new \DateInterval( 'P1D' ) );
+			return DateRange::from_strings(
+				$start->format( 'Y-m-d' ),
+				$exclusive_end->format( 'Y-m-d' )
+			);
+		} catch ( \Throwable ) {
+			return null;
+		}
+	}
+
+	/**
 	 * Returns every blocked calendar date inside the window, formatted as Y-m-d.
 	 * Includes both DB blocks (direct bookings + iCal imports) and the property's
 	 * blackout ranges so the date-picker greys them all out.
@@ -50,12 +83,8 @@ final class AvailabilityService {
 		$property = Property::from_id( $property_id );
 		if ( $property ) {
 			foreach ( $property->blackout_ranges() as $blackout ) {
-				try {
-					$br = DateRange::from_strings( $blackout['start'], $blackout['end'] );
-				} catch ( \Throwable ) {
-					continue;
-				}
-				if ( ! $br->overlaps( $window ) ) {
+				$br = $this->blackout_to_range( $blackout );
+				if ( ! $br || ! $br->overlaps( $window ) ) {
 					continue;
 				}
 				foreach ( $br->each_night() as $night ) {
@@ -146,12 +175,8 @@ final class AvailabilityService {
 		}
 
 		foreach ( $property->blackout_ranges() as $blackout ) {
-			try {
-				$blackout_range = DateRange::from_strings( $blackout['start'], $blackout['end'] );
-			} catch ( \Throwable $e ) {
-				continue;
-			}
-			if ( $range->overlaps( $blackout_range ) ) {
+			$blackout_range = $this->blackout_to_range( $blackout );
+			if ( $blackout_range && $range->overlaps( $blackout_range ) ) {
 				return new WP_Error( 'blackout', __( 'Selected dates fall within a blackout period.', 'ibb-rentals' ) );
 			}
 		}

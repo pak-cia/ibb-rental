@@ -4,6 +4,17 @@
 
 ---
 
+## [0.11.4] — 2026-05-03
+
+### Added
+- **`AvailabilityService::blackout_to_range()`** — private helper that converts an inclusive `{start, end}` blackout postmeta entry into a half-open `DateRange` by adding one day to the stored end. Lets the existing `overlaps()` / `each_night()` machinery work against the inclusive admin-input convention without introducing a second range type. Returns `null` on invalid date strings (silent skip — same behaviour as the previous inline try/catch).
+
+### Changed
+- **Both blackout consumption sites** (`get_blocked_dates()` and `validate_booking_rules()`) now go through `blackout_to_range()` instead of constructing `DateRange::from_strings($start, $end)` directly. Net effect: a blackout entered as "May 1 → May 7" blocks May 1, 2, 3, 4, 5, 6, 7 — was May 1–6 under the old half-open interpretation.
+- **`PricingService::rate_for_night()`** unchanged — was already inclusive (`date_from <= ymd && date_to >= ymd`) so storage and consumption already matched. Only the admin UI label needed clarifying.
+
+---
+
 ## [0.11.2] — 2026-05-03
 
 ### Added

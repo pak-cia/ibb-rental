@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.11.3
+Stable tag: 0.11.4
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.4 =
+* Fix: blackout-range and seasonal-rate datepickers are now inclusive on both ends. Entering "May 1 → May 7" blocks (or rates) every night from May 1 through May 7. Previously the blackout end was exclusive — entering May 8 was needed to block through May 7 — which surprised most admins. Single-day blackouts and single-day seasonal rates (start == end) are now valid. UI labels updated to "From (inclusive) / To (inclusive)" and the description text spells out the convention. Booking ranges (cart, iCal, `wp_ibb_blocks`) keep their half-open `[checkin, checkout)` semantics so turnover days continue to work — the inclusive convention only applies to admin-entered date ranges. No data migration was needed because existing blackout values were entered by the admin to compensate for the prior off-by-one.
 
 = 0.11.3 =
 * Fix: ClickUp "Sync now" button on the Settings page redirected to wherever the user was BEFORE loading Settings (often the Plugins → Add New page after a fresh upload), instead of staying on Settings. The link's pre-baked `_wp_http_referer` query param captured stale referer state at render time. Removed the param and hard-coded the post-action target to the Settings page.

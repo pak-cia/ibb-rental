@@ -11,6 +11,15 @@
 
 ---
 
+## [0.11.4] — 2026-05-03
+
+### Changed
+- **Blackout-range editor UI labels** — column header flipped from "To (exclusive)" to "To (inclusive)"; description text rewritten to spell out the convention with a concrete example.
+- **Seasonal-rate editor UI labels** — column headers gain explicit "(inclusive)" tags; description text mirrors the blackout copy.
+- **Save-handler validation relaxed** for both editors: now accepts `start == end` (single-day blackout / single-day seasonal rate). Previously rejected as `$end <= $start`.
+
+---
+
 ## [0.11.3] — 2026-05-03
 
 ### Fixed
