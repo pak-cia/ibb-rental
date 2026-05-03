@@ -66,7 +66,10 @@ A standalone WordPress plugin that turns a WooCommerce store into a vacation-ren
 - **Custom DB tables for hot-path queries** — date-range overlap (`Repositories/AvailabilityRepository::any_overlap`) hits a compound index `(property_id, start_date, end_date)`. Postmeta would be a scan.
 - **HPOS-safe** — every order access uses `wc_get_order()` / `$order->get_meta()` / `$item->add_meta_data()`. Never `get_post_meta` on order IDs.
 - **Action Scheduler for all background jobs** — never WP-Cron. Group: `ibb-rentals`. Hooks: `ibb_rentals_*` (underscores; AS doesn't accept slashes). All jobs are idempotent and take per-resource locks via `add_option`.
-- **Half-open date ranges** — every booking range is `[checkin, checkout)`. Turnover days are not overlaps.
+- **Two date-range conventions, deliberately distinct:**
+  - **Booking ranges** (`wp_ibb_blocks`, iCal VEVENTs, cart, `Domain/DateRange`) are half-open `[checkin, checkout)` so turnover days are not overlaps — guest A checking out and guest B checking in on the same day is fine.
+  - **Admin-entered ranges** (blackouts via `_ibb_blackout_ranges`, seasonal rates via `wp_ibb_rates.date_from`/`date_to`) are **inclusive on both ends** — "May 1 → May 7" means every night from May 1 through May 7. `Services/AvailabilityService::blackout_to_range()` is the bridge: it converts inclusive postmeta into a half-open `DateRange` (by adding one day to the stored end) so the rest of the machinery still works.
+  - Don't introduce a third range type. If you need to consume admin ranges, route through `blackout_to_range()` or replicate its inclusive→half-open shift inline.
 - **Signed quote tokens** — `Domain/Quote::sign($secret)` produces an HMAC-signed token the cart can verify. Token TTL 15 min.
 - **Slash-namespaced public hooks** — `ibb-rentals/booking/created`, `ibb-rentals/quote/computed`, etc. Constants live in [`includes/Support/Hooks.php`](includes/Support/Hooks.php).
 
