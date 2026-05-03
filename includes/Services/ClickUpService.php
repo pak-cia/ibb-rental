@@ -40,6 +40,9 @@ final class ClickUpService {
 	 * @param list<string>         $create_sources     Source slugs for which this service may auto-INSERT
 	 *                                                 a block when no existing block matches a task. Empty
 	 *                                                 list = enrichment-only mode (v0.10.x behaviour).
+	 * @param list<string>         $sync_statuses      ClickUp status names to include in the fetch — passed
+	 *                                                 to the API as `statuses[]` so non-matching tasks are
+	 *                                                 never pulled. Empty list = no filter (every status).
 	 */
 	public function __construct(
 		private readonly string $api_token,
@@ -49,6 +52,7 @@ final class ClickUpService {
 		private readonly array  $unit_property_map,
 		private readonly Logger $logger,
 		private readonly array  $create_sources = [],
+		private readonly array  $sync_statuses  = [],
 	) {}
 
 	/**
@@ -377,12 +381,23 @@ final class ClickUpService {
 		$page  = 0;
 
 		do {
-			$query = http_build_query( [
+			$params = [
 				'include_closed'               => 'true',
 				'include_markdown_description' => 'false',
 				'subtasks'                     => 'false',
 				'page'                         => $page,
-			] );
+			];
+			// Server-side status filter — biggest perf win, since the
+			// Bookings list is dominated by housekeeping subtasks parked in
+			// `inquiries` and old `Closed` archive cards. Passing
+			// statuses[]=… on the request makes ClickUp skip them entirely
+			// rather than us paging through and dropping them client-side.
+			// http_build_query encodes lists as statuses%5B0%5D=…; ClickUp
+			// accepts that shape.
+			if ( ! empty( $this->sync_statuses ) ) {
+				$params['statuses'] = array_values( $this->sync_statuses );
+			}
+			$query = http_build_query( $params );
 			$body  = $this->api_get( '/list/' . rawurlencode( $this->list_id ) . '/task?' . $query );
 			$batch = (array) ( $body['tasks'] ?? [] );
 

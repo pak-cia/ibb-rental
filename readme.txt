@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.11.1
+Stable tag: 0.11.2
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,9 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.2 =
+* ClickUp sync now filters by status at the API. Settings → ClickUp → "Sync these statuses only" — comma-separated list of ClickUp status names; default `upcoming, currently staying, checked out, cancelled`. Tasks in any other status (housekeeping subtasks parked in `inquiries`, old auto-archived `Closed` cards, etc.) are skipped at the API level rather than fetched and dropped client-side. On busy lists this drops the per-sync task count by an order of magnitude.
 
 = 0.11.1 =
 * Outgoing iCal feeds now include richer event data so the host sees useful info on each OTA's calendar. SUMMARY is "Bob Jones (Agoda)" when guest names are enabled (or "Agoda booking" when not — Airbnb / Booking.com previously rendered just "Synced: theuluhills.com"). DESCRIPTION carries the property title, stay length, source label, optional guest name, and a clickable ClickUp deep-link (https://app.clickup.com/t/<task_id>) when the block came from a ClickUp sync — click straight from Airbnb's calendar event into the booking card.

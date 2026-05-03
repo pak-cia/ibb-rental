@@ -310,6 +310,19 @@ final class Plugin {
 			}
 		}
 
+		// Status filter: only fetch tasks in these ClickUp statuses. CSV in
+		// settings, default to the active workflow statuses (everything that
+		// represents a current or recent booking). When empty, no filter is
+		// applied — the API returns every status.
+		$sync_statuses = [];
+		$raw_statuses  = (string) ( $s['clickup_sync_statuses'] ?? 'upcoming, currently staying, checked out, cancelled' );
+		foreach ( explode( ',', $raw_statuses ) as $piece ) {
+			$piece = trim( $piece );
+			if ( $piece !== '' ) {
+				$sync_statuses[] = $piece;
+			}
+		}
+
 		// Not cached: settings may change between AS invocations.
 		// $api_token_override lets the cascading-dropdown AJAX endpoints look up the hierarchy
 		// using a token the user has typed in but not yet saved.
@@ -321,6 +334,7 @@ final class Plugin {
 			unit_property_map: $unit_map,
 			logger:            $this->logger(),
 			create_sources:    $create_sources,
+			sync_statuses:     $sync_statuses,
 		);
 	}
 

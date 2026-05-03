@@ -11,6 +11,13 @@
 
 ---
 
+## [0.11.2] — 2026-05-03
+
+### Added
+- **Settings → ClickUp → "Sync these statuses only" text input** (`clickup_sync_statuses` setting). Comma-separated whitelist of ClickUp status names; empty = no filter. Default `upcoming, currently staying, checked out, cancelled` matches the user's workflow and excludes housekeeping subtasks (`inquiries`) and the auto-archived `Closed` bucket — biggest source of sync bloat. Save handler stores via `sanitize_text_field`.
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Added

@@ -4,6 +4,13 @@
 
 ---
 
+## [0.11.2] — 2026-05-03
+
+### Added
+- **`ClickUpService::__construct()` accepts `array $sync_statuses = []`** — list of ClickUp status names to whitelist on fetch. Empty list = no filter. `fetch_all_tasks()` adds the values as `statuses[]` query params to `GET /list/<id>/task`, so non-matching tasks are skipped at the API level rather than paged and dropped client-side. Default values come from the `clickup_sync_statuses` setting and target the user's workflow (`upcoming, currently staying, checked out, cancelled`).
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Changed

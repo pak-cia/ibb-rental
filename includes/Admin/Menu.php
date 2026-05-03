@@ -477,6 +477,18 @@ final class Menu {
 		);
 		echo '<p class="description">' . esc_html__( 'JSON object mapping your ClickUp tag names to IBB sources. Keys are tag names (lowercase), values are source slugs.', 'ibb-rentals' ) . '</p></td></tr>';
 
+		// Server-side status filter — only fetch tasks in these statuses,
+		// so housekeeping subtasks (turnover / towel-change) parked in
+		// "inquiries" and old auto-archived "Closed" cards never enter
+		// the page-and-skip pipeline. Big perf win on busy lists.
+		$default_statuses = 'upcoming, currently staying, checked out, cancelled';
+		echo '<tr><th>' . esc_html__( 'Sync these statuses only', 'ibb-rentals' ) . '</th><td>';
+		printf(
+			'<input type="text" name="clickup_sync_statuses" value="%s" class="large-text code" />',
+			esc_attr( (string) ( $settings['clickup_sync_statuses'] ?? $default_statuses ) )
+		);
+		echo '<p class="description">' . esc_html__( 'Comma-separated ClickUp status names. The sync only fetches tasks in these statuses — housekeeping subtasks ("inquiries") and old archived bookings ("Closed") are skipped at the API level. Match your ClickUp workflow exactly (case-sensitive, including spaces and slashes). Leave blank to disable the filter and fetch every status.', 'ibb-rentals' ) . '</p></td></tr>';
+
 		// ── Auto-create blocks from ClickUp tasks ────────────────────────
 		// Sources that have an active iCal feed configured for ANY property
 		// are excluded from the allowlist UI — those OTAs are already the
@@ -858,6 +870,7 @@ final class Menu {
 			'clickup_tag_map'           => $clickup_map,
 			'clickup_unit_property_map' => $clickup_unit_property_map_json,
 			'clickup_create_sources'    => $clickup_create_sources_json,
+			'clickup_sync_statuses'     => sanitize_text_field( (string) wp_unslash( $_POST['clickup_sync_statuses'] ?? '' ) ),
 			'clickup_sync_interval'     => $clickup_interval,
 		] );
 

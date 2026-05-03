@@ -10,6 +10,17 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.2] — 2026-05-03
+
+### Added
+- **ClickUp status filter at the API.** New setting `clickup_sync_statuses` (comma-separated string, default `upcoming, currently staying, checked out, cancelled`). The sync passes these as `statuses[]` query params to ClickUp's `GET /list/<id>/task` endpoint, so non-matching tasks are never returned. Big perf win on busy lists where the bulk of tasks are housekeeping subtasks (towels / turnover / linen change) parked in `inquiries` status with no booking data, plus old auto-archived `Closed` stays. Empty setting = no filter (every status returned, v0.11.1 behaviour).
+- Settings UI gains a "Sync these statuses only" text input on the ClickUp panel; the description warns that the values are case-sensitive and must match the workflow exactly (spaces, slashes, etc.).
+
+### Changed
+- `Services/ClickUpService::__construct()` accepts a new `array $sync_statuses = []` arg. `fetch_all_tasks()` adds `statuses[]=` params to the request when non-empty (`http_build_query` encodes as `statuses%5B0%5D=…&statuses%5B1%5D=…`, which ClickUp accepts).
+
+---
+
 ## [0.11.1] — 2026-05-03
 
 ### Added
