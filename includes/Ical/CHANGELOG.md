@@ -16,6 +16,13 @@
 
 ---
 
+## [0.11.5] — 2026-05-14
+
+### Fixed
+- **`Importer::import()` skips events whose dates overlap an existing ClickUp-sourced block** on the same property (via `AvailabilityRepository::has_clickup_overlap()`). Stops the iCal importer from re-creating the host's pre-v0.11.0 manual-blackout-on-Airbnb mirror once ClickUp owns the truth for the booking. Skipped events are tallied and logged once per import.
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Changed

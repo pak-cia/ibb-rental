@@ -4,6 +4,13 @@
 
 ---
 
+## [0.11.5] — 2026-05-14
+
+### Added
+- **Migration v6** — one-off cleanup of duplicate blocks where a ClickUp-sourced row (`external_uid LIKE 'clickup:%'`) and an iCal-imported row coexist on the same property with overlapping dates. The iCal-side row is the deleted one (host's pre-v0.11.0 manual-blackout-on-Airbnb mirror); the ClickUp row carries the canonical metadata (booking ID, guest name, source override) and stays. Half-open overlap predicate (`a.start < b.end AND a.end > b.start`); same-property scope; `JOIN ... DELETE b` so the ClickUp row is never the victim. No schema change. `Migrations::LATEST_VERSION` bumped to 6.
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Added

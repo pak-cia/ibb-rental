@@ -10,6 +10,24 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.5] — 2026-05-14
+
+### Fixed
+- **Duplicate calendar bars when a ClickUp-sourced block and an iCal-imported manual-blackout coexisted.** Pre-v0.11.0, the host's workflow for a non-Airbnb booking (Agoda etc.) was to manually block the dates on Airbnb's extranet to prevent Airbnb overbooking the same nights. Our iCal importer mirrored that manual blackout as a `source='airbnb'` block. v0.11.0 added ClickUp auto-create which produced a parallel `source=<actual-OTA>` block for the same booking. Both blocks survived on the admin calendar as two stacked bars; once strategy 2's date-tuple match enriched the airbnb block with the same `guest_name` and `source_override`, the two became visually identical.
+
+### Added
+- **`AvailabilityRepository::has_clickup_overlap( $property_id, $range )`** — fast EXISTS-style check returning true when a confirmed block with `external_uid LIKE 'clickup:%'` overlaps the given range on this property.
+- **iCal importer skip**: `Ical/Importer::import()` now calls `has_clickup_overlap()` before each VEVENT upsert. If a ClickUp-sourced block already covers the dates, the import skips the event entirely (logged once per import). Stops fresh dupes being created on every iCal poll.
+- **Migration v6** — one-off cleanup of existing dupes. Deletes the iCal-imported mirror row when a ClickUp block covers the same property + overlapping dates. Half-open overlap predicate (`a.start < b.end AND a.end > b.start`); same-property scope; only deletes the iCal-side row, never the ClickUp row.
+
+### Notes on Airbnb-side cleanup
+- This fix is **plugin-side only**. Manual blackouts you put into Airbnb's extranet pre-v0.11.0 are native Airbnb events independent of our system — they don't get removed by this migration.
+- **For active bookings**: leave the native blackouts as-is. Our hub-and-spoke feed (v0.11.0) sends the canonical block to Airbnb, the native blackout is now redundant but harmless.
+- **For cancelled bookings**: dates won't reopen on Airbnb until you delete the matching native blackout in Airbnb's extranet. The ClickUp-side `cancelled` status flip already stops our feed from sending the block; Airbnb's own native blackout is the remaining hold.
+- **TZ-shifted blocks self-heal**: any plugin-created block with wrong dates (the Pom Pom's TZ-misconfiguration case) updates in place on the next ClickUp sync (strategy 3's UPDATE branch). Same `UID:ibb-<id>@<host>` exported with corrected dates — Airbnb treats it as an event UPDATE per RFC 5545 and shifts the block on next pull.
+
+---
+
 ## [0.11.4] — 2026-05-03
 
 ### Fixed

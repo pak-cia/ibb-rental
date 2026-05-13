@@ -55,6 +55,37 @@ final class AvailabilityRepository {
 		return $this->hydrate( $rows );
 	}
 
+	/**
+	 * True when a confirmed ClickUp-sourced block (external_uid LIKE 'clickup:%')
+	 * already covers any night in the given range on this property.
+	 *
+	 * Used by the iCal importer to skip re-creating a host's manual-blackout
+	 * block when ClickUp already owns the truth for that date range. The host's
+	 * pre-v0.11.0 workflow was: a non-Airbnb booking arrives (e.g. Agoda) → host
+	 * manually blocks the dates on Airbnb's extranet to prevent overbooking →
+	 * our iCal pull imports that manual blackout as a `source=airbnb` block.
+	 * After v0.11.0 the ClickUp auto-create already produces the agoda block
+	 * AND our hub-and-spoke export sends it to Airbnb — the manual blackout
+	 * and its iCal mirror became redundant. This guard stops the import side
+	 * from re-creating that mirror on every iCal poll.
+	 */
+	public function has_clickup_overlap( int $property_id, DateRange $range ): bool {
+		$sql = $this->db->prepare(
+			"SELECT 1 FROM {$this->table}
+			 WHERE property_id = %d
+			   AND status = 'confirmed'
+			   AND start_date < %s
+			   AND end_date   > %s
+			   AND external_uid LIKE %s
+			 LIMIT 1",
+			$property_id,
+			$range->checkout_string(),
+			$range->checkin_string(),
+			'clickup:%'
+		);
+		return (bool) $this->db->get_var( $sql );
+	}
+
 	public function any_overlap( int $property_id, DateRange $range ): bool {
 		$sql = $this->db->prepare(
 			"SELECT 1 FROM {$this->table}

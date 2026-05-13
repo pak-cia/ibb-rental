@@ -84,6 +84,7 @@ final class Importer {
 		$source      = (string) $feed['source'];
 		$kept        = [];
 		$processed   = 0;
+		$skipped_clickup = 0;
 
 		foreach ( $events as $event ) {
 			if ( $event['uid'] === '' || $event['start'] === '' || $event['end'] === '' ) {
@@ -92,6 +93,17 @@ final class Importer {
 			try {
 				$range = DateRange::from_strings( $event['start'], $event['end'] );
 			} catch ( \Throwable ) {
+				continue;
+			}
+
+			// Skip when a ClickUp-sourced block already covers these dates on
+			// this property — the ClickUp task is the source of truth for that
+			// booking; the OTA's iCal event is either (a) the host's redundant
+			// manual blackout to prevent overbooking pre-v0.11.0, or (b) the
+			// same booking echoed back via our own hub-and-spoke export. Either
+			// way, importing would create a duplicate row.
+			if ( $this->blocks->has_clickup_overlap( $property_id, $range ) ) {
+				$skipped_clickup++;
 				continue;
 			}
 
@@ -111,6 +123,13 @@ final class Importer {
 		}
 
 		$this->blocks->delete_stale_by_source( $property_id, $source, $kept );
+
+		if ( $skipped_clickup > 0 ) {
+			$this->logger->info(
+				"iCal import skipped {$skipped_clickup} event(s) that overlap an existing ClickUp-sourced block.",
+				[ 'feed' => $feed_id, 'property' => $property_id, 'source' => $source ]
+			);
+		}
 		$this->feeds->record_success( $feed_id, $etag, $lm );
 
 		do_action( Hooks::ICAL_AFTER_IMPORT, $feed_id, $processed );

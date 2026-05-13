@@ -1,5 +1,12 @@
 # Repositories — Changelog
 
+## [0.11.5] — 2026-05-14
+
+### Added
+- **`AvailabilityRepository::has_clickup_overlap( int $property_id, DateRange $range ): bool`** — fast EXISTS-style check returning true when a confirmed block whose `external_uid LIKE 'clickup:%'` overlaps the given range on the property. Used by `Ical/Importer` to skip re-creating a manual-blackout mirror when the ClickUp task already owns the dates. Half-open overlap predicate (same as `any_overlap`).
+
+---
+
 ## [0.11.0] — 2026-05-03
 
 ### Changed

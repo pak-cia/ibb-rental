@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
 final class Migrations {
 
 	public const OPTION_KEY     = 'ibb_rentals_db_version';
-	public const LATEST_VERSION = 5;
+	public const LATEST_VERSION = 6;
 
 	public static function run_to_latest(): void {
 		$current = (int) get_option( self::OPTION_KEY, 0 );
@@ -89,5 +89,41 @@ final class Migrations {
 			'web',
 			'direct'
 		) );
+	}
+
+	/**
+	 * v6 — one-off cleanup of duplicate blocks where a ClickUp-sourced
+	 * block (`external_uid LIKE 'clickup:%'`) and an iCal-imported block
+	 * coexist for the same property on the same date range. This was the
+	 * pre-v0.11.5 pattern when the host manually blocked Airbnb's calendar
+	 * to prevent overbooking a non-Airbnb booking: our iCal import created
+	 * a `source='airbnb'` mirror, and v0.11.0's ClickUp auto-create added
+	 * a separate `source=<actual-OTA>` block from the ClickUp task. Both
+	 * displayed as overlapping bars on the admin calendar.
+	 *
+	 * The ClickUp block is canonical (it carries the booking ID, guest
+	 * name, and the right source label). The iCal-imported block is the
+	 * redundant mirror — delete it. v0.11.5's Importer skip prevents
+	 * fresh ones being created on the next poll.
+	 *
+	 * Half-open overlap predicate: a.end > b.start AND b.end > a.start.
+	 * Same-property scope. We only delete the iCal-side row (b), never
+	 * the ClickUp row (a).
+	 */
+	private static function migrate_to_6(): void {
+		global $wpdb;
+		$blocks = $wpdb->prefix . 'ibb_blocks';
+		$wpdb->query(
+			"DELETE b FROM `$blocks` AS b
+			 INNER JOIN `$blocks` AS a
+			    ON a.property_id = b.property_id
+			   AND a.start_date < b.end_date
+			   AND a.end_date   > b.start_date
+			   AND a.id <> b.id
+			 WHERE a.external_uid LIKE 'clickup:%'
+			   AND a.status = 'confirmed'
+			   AND b.external_uid NOT LIKE 'clickup:%'
+			   AND b.status = 'confirmed'"
+		);
 	}
 }

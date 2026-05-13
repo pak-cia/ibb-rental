@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.11.4
+Stable tag: 0.11.5
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,11 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.5 =
+* Fix: duplicate calendar bars when a ClickUp-sourced block (Agoda etc.) coexisted with an iCal-imported manual-blackout block on Airbnb (or another OTA). The host's pre-hub-and-spoke workflow was to manually block Airbnb's calendar to prevent overbooking a non-Airbnb booking; our iCal importer mirrored that as a separate block, producing two visible bars for the same booking. The iCal importer now skips events whose dates are already covered by a ClickUp-sourced block on the same property.
+* Migration v6: one-off cleanup of existing duplicates — deletes the iCal-imported mirror row when a ClickUp block covers the same property + date range. Runs automatically on plugin update.
+* Note: this fixes the duplicates **on the WordPress admin calendar and in our DB**. Manual blackouts you previously created in Airbnb's extranet (Airbnb-native events, independent of our system) still exist on Airbnb's side. For cancelled bookings whose dates should reopen, remove the matching native blackout in Airbnb's extranet — for active bookings, leave it as-is (the hub-and-spoke feed handles cross-OTA blocking automatically).
 
 = 0.11.4 =
 * Fix: blackout-range and seasonal-rate datepickers are now inclusive on both ends. Entering "May 1 → May 7" blocks (or rates) every night from May 1 through May 7. Previously the blackout end was exclusive — entering May 8 was needed to block through May 7 — which surprised most admins. Single-day blackouts and single-day seasonal rates (start == end) are now valid. UI labels updated to "From (inclusive) / To (inclusive)" and the description text spells out the convention. Booking ranges (cart, iCal, `wp_ibb_blocks`) keep their half-open `[checkin, checkout)` semantics so turnover days continue to work — the inclusive convention only applies to admin-entered date ranges. No data migration was needed because existing blackout values were entered by the admin to compensate for the prior off-by-one.
