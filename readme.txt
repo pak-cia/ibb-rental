@@ -4,7 +4,7 @@ Tags: woocommerce, vacation rental, booking, ical, airbnb, booking.com
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.11.5
+Stable tag: 0.11.6
 WC requires at least: 9.0
 WC tested up to: 10.7
 License: GPLv2 or later
@@ -31,6 +31,12 @@ IBB Rentals turns any WooCommerce store into a vacation-rental booking engine.
 4. Add your first property under Rentals → Properties.
 
 == Changelog ==
+
+= 0.11.6 =
+* Fix: residual duplicate calendar bars that v0.11.5's cleanup missed. Pattern: a ClickUp-auto-created block stored with stale dates (e.g. one day earlier than reality, from a sync run when the WP timezone was wrong) coexisting with an iCal-imported block at the correct dates. v0.11.5's overlap-based cleanup couldn't catch them because the date ranges were adjacent but not overlapping.
+* ClickUpService now self-heals the canonical `clickup:<task_id>` row's dates at the top of each task's sync iteration (phase 0), before strategies 1–3 can short-circuit and lock-out the existing update branch. Stale dates corrected automatically on the next sync.
+* ClickUpService runs a `clickup_task_id`-based dedupe sweep at the end of every sync. Catches future drift cases where dates fall out of sync between an iCal block and the ClickUp row even after they shared a task ID via earlier strategy-2 enrichment.
+* Migration v7 runs the same task-id-based cleanup once at upgrade time so residual dupes clear immediately without waiting for the next scheduled sync.
 
 = 0.11.5 =
 * Fix: duplicate calendar bars when a ClickUp-sourced block (Agoda etc.) coexisted with an iCal-imported manual-blackout block on Airbnb (or another OTA). The host's pre-hub-and-spoke workflow was to manually block Airbnb's calendar to prevent overbooking a non-Airbnb booking; our iCal importer mirrored that as a separate block, producing two visible bars for the same booking. The iCal importer now skips events whose dates are already covered by a ClickUp-sourced block on the same property.

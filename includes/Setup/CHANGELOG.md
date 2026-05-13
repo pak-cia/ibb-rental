@@ -4,6 +4,13 @@
 
 ---
 
+## [0.11.6] — 2026-05-14
+
+### Added
+- **Migration v7** — second-pass dedupe joining on `clickup_task_id` instead of date overlap. Catches the cases v6 missed: stale-dated clickup-source rows whose date ranges were adjacent to (but not overlapping) their iCal-side mirrors. Same delete rule as v6 (keep the `clickup:%` row, drop the iCal mirror); only date predicate is removed. `Migrations::LATEST_VERSION` bumped to 7.
+
+---
+
 ## [0.11.5] — 2026-05-14
 
 ### Added

@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
 final class Migrations {
 
 	public const OPTION_KEY     = 'ibb_rentals_db_version';
-	public const LATEST_VERSION = 6;
+	public const LATEST_VERSION = 7;
 
 	public static function run_to_latest(): void {
 		$current = (int) get_option( self::OPTION_KEY, 0 );
@@ -123,6 +123,41 @@ final class Migrations {
 			 WHERE a.external_uid LIKE 'clickup:%'
 			   AND a.status = 'confirmed'
 			   AND b.external_uid NOT LIKE 'clickup:%'
+			   AND b.status = 'confirmed'"
+		);
+	}
+
+	/**
+	 * v7 — second-pass dedupe joining on `clickup_task_id` instead of
+	 * date overlap. Catches the cases v6 missed: an iCal-imported block
+	 * was enriched by strategy 2 with a `clickup_task_id` during an
+	 * earlier sync run (so it carries the same task ID as the canonical
+	 * ClickUp row), but its dates have since drifted — e.g. the WP
+	 * timezone was wrong when the ClickUp row was auto-created so it
+	 * stored dates one day earlier than reality, and the iCal block
+	 * still holds the correct dates from the host's Airbnb extranet
+	 * manual blackout. v6's overlap predicate fails because the date
+	 * ranges are adjacent (touching at one boundary) but not strictly
+	 * overlapping. Joining on `clickup_task_id` doesn't care about the
+	 * date drift — same task id = same booking.
+	 *
+	 * Same delete rule as v6: keep the `clickup:%` external_uid row,
+	 * drop the iCal-side mirror. Per-sync ClickUpService::sync() also
+	 * runs this query going forward, so any future drift converges
+	 * within one sync cycle.
+	 */
+	private static function migrate_to_7(): void {
+		global $wpdb;
+		$blocks = $wpdb->prefix . 'ibb_blocks';
+		$wpdb->query(
+			"DELETE b FROM `$blocks` AS b
+			 INNER JOIN `$blocks` AS a
+			    ON a.clickup_task_id = b.clickup_task_id
+			   AND a.id <> b.id
+			 WHERE a.clickup_task_id <> ''
+			   AND a.external_uid LIKE 'clickup:%'
+			   AND b.external_uid NOT LIKE 'clickup:%'
+			   AND a.status = 'confirmed'
 			   AND b.status = 'confirmed'"
 		);
 	}

@@ -10,6 +10,19 @@ For component-level change history, see each component's `CHANGELOG.md` (linked 
 
 ---
 
+## [0.11.6] — 2026-05-14
+
+### Fixed
+- **Residual dupes v0.11.5 couldn't catch.** When the canonical `clickup:<task_id>` row carried *stale dates* (typically one day earlier than reality — a leftover from a sync run when WP's site timezone was misconfigured) and the iCal-imported manual blackout sat at the *correct* dates, the two date ranges were adjacent but not strictly overlapping. v0.11.5's `a.start < b.end AND a.end > b.start` predicate misses adjacent ranges, so those dupes survived the migration.
+- **Root cause of the staleness**: strategies 1, 2, and 3 in `Services/ClickUpService::sync()` each `continue` on a successful match. When strategy 2's date-tuple match hits an iCal-imported block (now at the correct dates after the TZ fix), the loop skips strategy 3's UPDATE branch entirely — and that's the only branch that would have rewritten the stale `clickup:<task_id>` row's dates from current ClickUp values. The stale row never self-heals.
+
+### Added
+- **Phase 0 self-heal in `ClickUpService::sync()`**, runs at the top of each task iteration before strategies 1–3. Unconditionally `UPDATE`s any existing `clickup:<task_id>` row with current ClickUp values for `start_date`, `end_date`, `guest_name`, `updated_at`. No-op when the row doesn't exist; idempotent across sync runs. Decouples the canonical row's freshness from which downstream enrichment strategy happens to match.
+- **Post-sync cleanup pass in `ClickUpService::sync()`** — `DELETE` joining on `clickup_task_id` rather than overlap. Drops the iCal-side row when it shares a non-empty `clickup_task_id` with the canonical `clickup:%` row. Counter exposed via the existing sync-status pill (now includes "X dupes removed").
+- **Migration v7** — same `clickup_task_id`-based cleanup, runs once on plugin upgrade so existing residual dupes clear immediately. `Migrations::LATEST_VERSION` bumped to 7.
+
+---
+
 ## [0.11.5] — 2026-05-14
 
 ### Fixed

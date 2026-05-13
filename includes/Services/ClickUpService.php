@@ -113,6 +113,33 @@ final class ClickUpService {
 				continue;
 			}
 
+			// ── Phase 0: self-heal the canonical ClickUp-sourced row ──────
+			// Strategies 1–3 below all `continue` on a successful match,
+			// which means strategy 3's UPDATE branch never runs when
+			// strategy 1 or 2 already matched a *different* block (typically
+			// the OTA's iCal-imported manual-blackout mirror). Without
+			// phase 0, any pre-existing `clickup:<task_id>` row whose dates
+			// became stale (e.g. created when the WP timezone was wrong and
+			// dates were extracted one day earlier than reality) never gets
+			// its dates corrected. Phase 0 is a no-op when no such row
+			// exists yet; otherwise it forces the row's dates / guest_name
+			// to current ClickUp values regardless of which downstream
+			// strategy runs.
+			if ( $task_id !== '' && $checkin !== '' && $checkout !== '' ) {
+				$wpdb->update(
+					$table,
+					[
+						'start_date' => $checkin,
+						'end_date'   => $checkout,
+						'guest_name' => $guest_name,
+						'updated_at' => $now,
+					],
+					[ 'external_uid' => 'clickup:' . $task_id ],
+					[ '%s', '%s', '%s', '%s' ],
+					[ '%s' ]
+				);
+			}
+
 			$set_values = [ $guest_name, $task_id, $now ];
 
 			// ── Strategy 1: match by Booking ID against external_uid ────────
@@ -257,8 +284,29 @@ final class ClickUpService {
 			}
 		}
 
+		// ── Post-sync cleanup pass ────────────────────────────────────
+		// Once strategy 2 enriches an iCal-imported manual-blackout block
+		// with the same clickup_task_id as a clickup-sourced row, the two
+		// represent the same booking from two angles (one from the OTA
+		// feed, one from the ClickUp task). The clickup-sourced row is
+		// canonical — delete the iCal mirror. Joined on clickup_task_id
+		// (not dates) so drift cases where dates fell out of sync — e.g.
+		// host edited the manual blackout on Airbnb to a different date
+		// after the initial enrichment — also dedupe.
+		$dropped = (int) $wpdb->query(
+			"DELETE b FROM `{$table}` AS b
+			 INNER JOIN `{$table}` AS a
+			    ON a.clickup_task_id = b.clickup_task_id
+			   AND a.id <> b.id
+			 WHERE a.clickup_task_id <> ''
+			   AND a.external_uid LIKE 'clickup:%'
+			   AND b.external_uid NOT LIKE 'clickup:%'
+			   AND a.status = 'confirmed'
+			   AND b.status = 'confirmed'"
+		);
+
 		$this->logger->info(
-			"ClickUp sync: {$created} created, {$updated} updated, {$cancelled} cancelled from " . count( $tasks )
+			"ClickUp sync: {$created} created, {$updated} updated, {$cancelled} cancelled, {$dropped} dupes removed from " . count( $tasks )
 			. " task(s) (uid match: {$matched_uid}, date-tuple fallback: {$matched_dt})."
 		);
 		$this->record_status( $updated, count( $tasks ), $this->last_error, $created, $cancelled );

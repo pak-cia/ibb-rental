@@ -15,6 +15,14 @@
 
 ---
 
+## [0.11.6] — 2026-05-14
+
+### Fixed
+- **`ClickUpService::sync()` gained a phase 0 self-heal** at the top of each task iteration. Unconditionally `UPDATE`s any existing `clickup:<task_id>` row with current ClickUp `start_date` / `end_date` / `guest_name`. Decouples the canonical row's freshness from whether strategies 1/2/3 happen to match an enrichment target — strategy 2's `continue` no longer locks out the only path that previously kept these dates current.
+- **Post-sync cleanup pass**: `DELETE` joined on `clickup_task_id` runs once after the main loop. Drops iCal-side rows that share a non-empty `clickup_task_id` with the canonical `clickup:%` row, regardless of date drift. Counter is added to the log line and exposed via the sync-status pill.
+
+---
+
 ## [0.11.2] — 2026-05-03
 
 ### Added
